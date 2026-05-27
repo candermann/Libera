@@ -13,6 +13,7 @@ backend/schulbuch.db
 backend/schulbuch.db-shm
 backend/schulbuch.db-wal
 data/
+backups/
 
 # Node
 node_modules/
@@ -20,3 +21,8 @@ node_modules/
 # IDE
 .vscode/
 .idea/
+
+# Laufzeit-Artefakte
+Sonstiges/logs/
+Sonstiges/backend-temp/
+Sonstiges/frontend-temp/

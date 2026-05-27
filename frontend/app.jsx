@@ -17,7 +17,12 @@ function App() {
   const [t, setTweak] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
 
   React.useEffect(() => {
-    const handleUnauthorized = () => setIsAuthenticated(false);
+    const handleUnauthorized = () => {
+      localStorage.removeItem('token');
+      setSelectedStudent(null);
+      setNavContext(null);
+      setIsAuthenticated(false);
+    };
     window.addEventListener('unauthorized', handleUnauthorized);
     return () => window.removeEventListener('unauthorized', handleUnauthorized);
   }, []);

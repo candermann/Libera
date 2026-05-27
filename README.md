@@ -440,8 +440,6 @@ Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gült
 
 Vollständige Request-/Response-Schemata stehen im laufenden Server unter `/docs`.
 
-Hinweis: Im Code existiert zusätzlich ein Router für Mahnungen. Er ist in der aktuellen App-Initialisierung nicht eingebunden und deshalb nicht als aktiver API-Bereich dokumentiert.
-
 ---
 
 ## Authentifizierung
@@ -475,9 +473,31 @@ uv run pytest
 
 Die Tests liegen in `backend/tests/` und decken unter anderem Verkauf, Gutschrift, Saldo, Regeln und Rechnungs-E-Mail ab.
 
+Vor einem Release kann alles gebündelt geprüft werden:
+
+```bash
+cd "Gymnasium Panketal/Bibliomat"
+sh scripts/check.sh
+```
+
 ---
 
 ## Deployment
+
+### Update-Checkliste
+
+Für Intranet-Betrieb reicht ein kurzer, reproduzierbarer Ablauf:
+
+```bash
+cd "Gymnasium Panketal/Bibliomat"
+
+python3 scripts/backup_db.py --database data/schulbuch.db
+docker compose pull
+docker compose up -d --build
+curl -f http://127.0.0.1:8000/api/health
+```
+
+Wenn sich beim Start das Datenbankschema ändert, liegt vor dem Update bereits ein wiederherstellbares Backup in `backups/`.
 
 ### Docker Compose
 
@@ -623,21 +643,34 @@ Wichtige Konfiguration:
 
 ### Backup erstellen
 
-Am zuverlässigsten ist ein Backup bei gestopptem Container:
+Standardweg im Docker-Setup:
+
+```bash
+cd "Gymnasium Panketal/Bibliomat"
+
+python3 scripts/backup_db.py --database data/schulbuch.db
+```
+
+Das Skript nutzt die SQLite-Backup-API und prüft das Backup danach mit `PRAGMA integrity_check`.
+
+Für lokale Entwicklung erkennt das Skript übliche Pfade automatisch:
+
+```bash
+cd "Gymnasium Panketal/Bibliomat"
+python3 scripts/backup_db.py
+```
+
+### Restore testen oder ausführen
+
+Vor einem Restore die App stoppen:
 
 ```bash
 cd "Gymnasium Panketal/Bibliomat"
 
 docker compose stop bibliomat
-tar -czf "backup-bibliomat-$(date +%Y%m%d-%H%M).tar.gz" data/
+python3 scripts/restore_db.py backups/schulbuch-YYYYMMDD-HHMMSS.db --database data/schulbuch.db --yes
 docker compose start bibliomat
-```
-
-Für lokale Entwicklung:
-
-```bash
-cd "Gymnasium Panketal/Bibliomat/backend"
-cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
+curl -f http://127.0.0.1:8000/api/health
 ```
 
 ### Betriebsempfehlungen
@@ -658,6 +691,9 @@ cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
 | `backend/reset_bestand.py` | Bestand neu aufbauen |
 | `backend/reset_schueler.py` | Schülerdaten für Test-/Entwicklungszwecke zurücksetzen |
 | `backend/app/seed.py` | Start-/Beispieldaten erzeugen |
+| `scripts/backup_db.py` | SQLite-Datenbank konsistent sichern |
+| `scripts/restore_db.py` | SQLite-Backup mit Sicherheitskopie wiederherstellen |
+| `scripts/check.sh` | Release-Checks für Backend, Frontend und lokale Vendor-Dateien |
 | `Sonstiges/migrations/*.py` | historische Migrations- und Reparaturskripte |
 | `Sonstiges/debug-scripts/*.py` | Debug-Helfer für lokale Analyse |
 
@@ -669,7 +705,7 @@ cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
 |---|---|
 | Benutzerkonzept | Es gibt vier feste Accounts (`admin`, `lehrer`, `schulleiter`, `sekretariat`). Keine Rollen, keine dynamische Benutzerverwaltung. |
 | SQLite | Gut für den internen Betrieb mit wenigen gleichzeitigen Nutzern. Nicht für hohe Schreiblast gedacht. |
-| Frontend ohne Build | Babel Standalone kompiliert JSX im Browser. Das vereinfacht Deployment, verursacht aber kurze Ladezeit. |
+| Frontend ohne Build | Babel Standalone kompiliert JSX im Browser. React, ReactDOM und Babel werden lokal aus `frontend/vendor/` ausgeliefert. |
 | Migrationen | Kein Alembic. Schema-Anpassungen laufen idempotent beim Start über `init_db()`/`prepare_schema()`. |
 | Downgrades | Rückwärtsmigrationen sind nicht vorgesehen. |
 | PDF | WeasyPrint benötigt Systembibliotheken. Im Dockerfile sind sie enthalten. |

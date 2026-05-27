@@ -1,0 +1,12 @@
+.env
+.env.*
+data/
+backups/
+node_modules/
+.git/
+.venv/
+__pycache__/
+*.pyc
+Sonstiges/logs/
+Sonstiges/backend-temp/
+Sonstiges/frontend-temp/

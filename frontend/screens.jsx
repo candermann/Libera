@@ -1,4 +1,4 @@
-// Rückgabe-Flow + Listen-Screens (Schüler, Bücher, Mahnungen)
+// Rückgabe-Flow + Listen-Screens (Schüler, Bücher)
 
 function Rueckgabe({ accent, onDone, preselectedStudent }) {
   const [step, setStep] = React.useState(1);
