@@ -1,0 +1,297 @@
+INFO:     Will watch for changes in these directories: ['c:\\Users\\gedeo\\Documents\\Schulbuch_Verwaltung_Panketal_Mac\\backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [2500] using WatchFiles
+INFO:     Started server process [24284]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     127.0.0.1:51186 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "GET /api.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /ui.jsx?v=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55265 - "GET /layout.jsx?v=11 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "GET /tweaks-panel.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /home.jsx?v=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55265 - "GET /print.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /verkauf.jsx?v=26 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "GET /schueler-detail.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55265 - "GET /screens.jsx?v=21 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "GET /lernmaterial.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /profil.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55265 - "GET /inventory-overrides.jsx?v=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "GET /login.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /app.jsx?v=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /logo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58394 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55265 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51186 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51186 - "POST /api/auth/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:61886 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51300 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61886 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56603 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56603 - "GET /api/einstellungen HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'check_db_state.py'. Reloading...
+ INFO:     127.0.0.1:51093 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /api.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56960 - "GET /layout.jsx?v=11 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /ui.jsx?v=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /tweaks-panel.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56960 - "GET /home.jsx?v=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /print.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /verkauf.jsx?v=26 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /schueler-detail.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56960 - "GET /screens.jsx?v=21 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /lernmaterial.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /profil.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56960 - "GET /inventory-overrides.jsx?v=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /app.jsx?v=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /login.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52137 - "GET /logo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56960 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /api/klassenversetzung/vorschau HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /api/buchhaltung/unversandt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "GET /api/buchhaltung/schuljahre HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "GET /api/lernmaterial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51093 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58913 - "PATCH /api/buecher/B-0020 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54437 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58913 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53762 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54358 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53762 - "GET /api/schueler/S-0078/aktive-buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "POST /api/gutschrift HTTP/1.1" 201 Created
+INFO:     127.0.0.1:60441 - "GET /api/gutschriften/G-2025-0004/html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/schueler/archiv HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/klassenversetzung/vorschau HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/schueler/archiv HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/buchhaltung/schuljahre HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50842 - "GET /api/buchhaltung/unversandt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60441 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50842 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/lernmaterial?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/freiposten/vorlagen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler/S-0078 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61773 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57365 - "GET /api/schueler/S-0078/aktive-buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63453 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59460 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/schueler/S-0078/aktive-buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "POST /api/gutschrift HTTP/1.1" 201 Created
+INFO:     127.0.0.1:59191 - "GET /api/gutschriften/G-2025-0005/html HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64820 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64820 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59191 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65278 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57301 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57301 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65278 - "GET /api/schueler/S-0060 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65278 - "GET /api/lernmaterial?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57301 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65278 - "GET /api/freiposten/vorlagen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59992 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51994 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/klassenversetzung/vorschau HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/schueler/archiv HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/klassenversetzung/vorschau HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/buchhaltung/schuljahre HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51994 - "GET /api/buchhaltung/unversandt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51994 - "GET /api/lernmaterial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50060 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51994 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54827 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54827 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54827 - "GET /api/lernmaterial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54827 - "GET /api/buchhaltung/schuljahre HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /api/buchhaltung/unversandt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /api/buchhaltung/rechnungen?schuljahr=2025%2F2026 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54827 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56772 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58207 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58207 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59825 - "GET /api/schueler/S-0051 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59825 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59825 - "GET /api/lernmaterial?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/freiposten/vorlagen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?q=9&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?q=9&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?q=9&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60018 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65302 - "GET /api/buecher?q=9&limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=p HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=ph HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=phy HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=phys HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=physi HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53501 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59492 - "GET /api/buecher?q=physik HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /api.jsx?v=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /ui.jsx?v=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /layout.jsx?v=11 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /tweaks-panel.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /print.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /home.jsx?v=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /verkauf.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /schueler-detail.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /screens.jsx?v=21 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /lernmaterial.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /profil.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /login.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /app.jsx?v=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53206 - "GET /logo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57620 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:57620 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57728 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56936 - "GET /api/buecher HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:56938 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /api.jsx?v=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /ui.jsx?v=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /layout.jsx?v=11 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /tweaks-panel.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /home.jsx?v=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /print.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /screens.jsx?v=21 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /schueler-detail.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /verkauf.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /lernmaterial.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /profil.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /login.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /app.jsx?v=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /logo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50596 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:61393 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:61393 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61393 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55696 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56703 - "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51971 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51971 - "GET /.well-known/appspecific/com.chrome.devtools.json HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:51971 - "GET /api.jsx?v=9 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:60805 - "GET /verkauf.jsx?v=27 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:51971 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:60805 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51971 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62636 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62636 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63463 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49776 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63463 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "OPTIONS /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "OPTIONS /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "OPTIONS /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56956 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64793 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56873 - "POST /api/auth/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:54973 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50191 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:50191 - "GET /api.jsx?v=9 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56644 - "GET /verkauf.jsx?v=27 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:49667 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:56644 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49667 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50191 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:49667 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50191 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60170 - "GET /api/health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET / HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54308 - "GET /api.jsx?v=9 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54308 - "GET /verkauf.jsx?v=27 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:62588 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 304 Not Modified
+INFO:     127.0.0.1:54308 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/lernmaterial HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler/S-0078/aktive-buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55362 - "GET /api/lernmaterial?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54308 - "GET /api/freiposten/vorlagen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55362 - "GET /api/schueler/S-0060 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62588 - "GET /api/buecher?limit=20 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50151 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54853 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50151 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53218 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53218 - "GET /api/schueler?limit=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57694 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53218 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:57694 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53218 - "GET /api/buecher HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62915 - "GET /api/buecher?limit=1 HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:64190 - "POST /api/auth/login HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:54536 - "GET / HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /api.jsx?v=9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /ui.jsx?v=6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49666 - "GET /layout.jsx?v=11 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /tweaks-panel.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /print.jsx?v=8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /verkauf.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49666 - "GET /home.jsx?v=12 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /schueler-detail.jsx?v=27 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49666 - "GET /screens.jsx?v=21 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /profil.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /lernmaterial.jsx?v=2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /login.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49666 - "GET /inventory-overrides.jsx?v=10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /app.jsx?v=14 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /logo.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54536 - "GET /api/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:54536 - "GET /api/einstellungen HTTP/1.1" 200 OK
+INFO:     127.0.0.1:51244 - "GET /api/buecher HTTP/1.1" 200 OK

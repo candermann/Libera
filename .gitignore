@@ -1,0 +1,22 @@
+# Environment
+.env
+.env.*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Datenbank
+backend/schulbuch.db
+backend/schulbuch.db-shm
+backend/schulbuch.db-wal
+data/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
