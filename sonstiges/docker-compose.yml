@@ -1,0 +1,38 @@
+services:
+  bibliomat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: bibliomat:latest
+    container_name: bibliomat
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - ${BIBLIOMAT_DATA_DIR:-./data}:/app/data
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: bibliomat-caddy
+    restart: unless-stopped
+    depends_on:
+      - bibliomat
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

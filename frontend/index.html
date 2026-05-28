@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Bibliomat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: -apple-system, system-ui, 'Segoe UI', Inter, sans-serif;
+      background: #f8fafc;
+    }
+    input::placeholder, textarea::placeholder { color: #94a3b8; opacity: 1; }
+    input:focus, textarea:focus, select:focus {
+      outline: none !important;
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12) !important;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input:-webkit-autofill,
+    input:-webkit-autofill:hover,
+    input:-webkit-autofill:focus {
+      -webkit-text-fill-color: #0f172a;
+      -webkit-box-shadow: 0 0 0px 1000px #ffffff inset;
+      transition: background-color 5000s ease-in-out 0s;
+    }
+  </style>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- API -->
+  <script src="/api.js?v=17"></script>
+
+  <!-- UI Primitives -->
+  <script type="text/babel" src="/ui.jsx?v=8"></script>
+  <script type="text/babel" src="/layout.jsx?v=15"></script>
+  <script type="text/babel" src="/tweaks-panel.jsx?v=2"></script>
+
+  <!-- Helpers -->
+  <script src="/print.js?v=9"></script>
+
+  <!-- Screens -->
+  <script type="text/babel" src="/home.jsx?v=18"></script>
+  <script type="text/babel" src="/verkauf.jsx?v=33"></script>
+  <script type="text/babel" src="/schueler-detail.jsx?v=28"></script>
+  <script type="text/babel" src="/screens.jsx?v=26"></script>
+  <script type="text/babel" src="/lernmaterial.jsx?v=5"></script>
+  <script type="text/babel" src="/profil.jsx?v=2"></script>
+  <script type="text/babel" src="/inventory-overrides.jsx?v=16"></script>
+
+  <script type="text/babel" src="/login.jsx?v=11"></script>
+  <script type="text/babel" src="/app.jsx?v=15"></script>
+</body>
+</html>

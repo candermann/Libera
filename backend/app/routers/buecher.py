@@ -1,0 +1,418 @@
+"""
+Buecher CRUD endpoints.
+"""
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.models import BuchZustandBestand, Buecher
+from app.schemas import (
+    BuchCreate,
+    BuchListResponse,
+    BuchResponse,
+    BuchUpdate,
+    BuchZustandResponse,
+)
+
+from app.services.ids import generate_buch_id
+from app.services.zustand import (
+    berechne_bucket_preis,
+    berechne_wiederverkaufspreis,
+    current_schuljahr_start,
+    effective_nutzungsjahr,
+    get_nutzungsjahr_abschlaege,
+)
+
+router = APIRouter(prefix="/api/buecher", tags=["Buecher"])
+
+
+def _load_zustaende(db: Session, buch_id: str) -> list:
+    rows = db.execute(
+        text(
+            """
+            SELECT id, buch_id, nutzungsjahr, verkaufspreis_cents,
+                   bestand_verfuegbar, schuljahr_eingestellt
+            FROM buch_zustand_bestand
+            WHERE buch_id = :buch_id
+            """
+        ),
+        {"buch_id": buch_id},
+    ).fetchall()
+    return rows
+
+
+def _buch_to_response(
+    b: Buecher, zustaende_rows: list, abschlaege: dict[int, int]
+) -> BuchResponse:
+    """Builds BuchResponse, merging buckets by effective Nutzungsjahr and recomputing prices."""
+    merged: dict[int, dict] = {}
+    for row in zustaende_rows:
+        stored_nj = row.nutzungsjahr if row.nutzungsjahr is not None else 0
+        eff_nj = effective_nutzungsjahr(stored_nj, row.schuljahr_eingestellt)
+        eff_preis = berechne_bucket_preis(b.preis_cents, eff_nj, abschlaege, b.schutzgebuehr_cents)
+        avail = max(0, row.bestand_verfuegbar)
+        if eff_nj in merged:
+            merged[eff_nj]["bestand_verfuegbar"] += avail
+        else:
+            merged[eff_nj] = {
+                "bestand_id": row.id,
+                "preis_cents": eff_preis,
+                "bestand_verfuegbar": avail,
+            }
+
+    zustaende = sorted(
+        [
+            BuchZustandResponse(
+                bestand_id=v["bestand_id"],
+                nutzungsjahr=nj,
+                preis_cents=v["preis_cents"],
+                bestand_verfuegbar=v["bestand_verfuegbar"],
+            )
+            for nj, v in merged.items()
+        ],
+        key=lambda r: (r.nutzungsjahr, r.preis_cents),
+    )
+
+    return BuchResponse(
+        id=b.id,
+        titel=b.titel,
+        untertitel=b.untertitel,
+        isbn=b.isbn,
+        fach=b.fach,
+        stufe=b.stufe,
+        verlag=b.verlag,
+        preis_cents=b.preis_cents,
+        gutschrift_cents=b.gutschrift_cents,
+        bestand_gesamt=b.bestand_gesamt,
+        bestand_ausgegeben=b.bestand_ausgegeben,
+        bestand_frei=b.bestand_gesamt - b.bestand_ausgegeben,
+        schutzgebuehr_cents=b.schutzgebuehr_cents or 0,
+        zustaende=zustaende,
+    )
+
+
+def _get_or_create_bestand(
+    db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int = 0
+) -> BuchZustandBestand:
+    bestand = (
+        db.query(BuchZustandBestand)
+        .filter(
+            BuchZustandBestand.buch_id == buch_id,
+            BuchZustandBestand.nutzungsjahr == nutzungsjahr,
+        )
+        .first()
+    )
+    if bestand:
+        return bestand
+
+    bestand = BuchZustandBestand(
+        buch_id=buch_id,
+        zustand="sehr_gut",
+        verkaufspreis_cents=preis_cents,
+        bestand_verfuegbar=0,
+        nutzungsjahr=nutzungsjahr,
+        schuljahr_eingestellt=current_schuljahr_start() if nutzungsjahr > 0 else None,
+    )
+    db.add(bestand)
+    db.flush()
+    return bestand
+
+
+def _infer_nutzungsjahr_from_preis(
+    preis_cents: int,
+    basispreis_cents: int,
+    abschlaege: dict[int, int],
+    schutzgebuehr_cents: int,
+) -> int | None:
+    """Ermittelt das Nutzungsjahr aus dem gespeicherten Rückgabebetrag (ohne Aufschlag).
+
+    Rückgabe: 0 = Neu, 1–5 = Jahr, 6 = Schutzgebühr, None = nicht zuzuordnen
+    """
+    fee = max(0, int(schutzgebuehr_cents or 0))
+
+    if fee > 0 and preis_cents == fee:
+        return 6
+
+    for jahr in range(1, 6):
+        expected = berechne_wiederverkaufspreis(basispreis_cents, abschlaege.get(jahr, 0))
+        if preis_cents == expected:
+            return jahr
+
+    if preis_cents == basispreis_cents:
+        return 0  # "Neu"
+
+    # Kein exakter Treffer — nächstgelegenes Nutzungsjahr (±1 Cent Toleranz für Rundung).
+    expected_prices = [
+        (j, berechne_wiederverkaufspreis(basispreis_cents, abschlaege.get(j, 0)))
+        for j in range(1, 6)
+    ]
+    nearest_jahr, nearest_preis = min(expected_prices, key=lambda item: abs(preis_cents - item[1]))
+    if abs(preis_cents - nearest_preis) <= 1:
+        return nearest_jahr
+    return None
+
+
+def _reprice_bestand_buckets(
+    db: Session,
+    buch_id: str,
+    old_basispreis_cents: int,
+    new_basispreis_cents: int,
+    old_schutzgebuehr_cents: int,
+    new_schutzgebuehr_cents: int,
+    abschlaege: dict[int, int],
+):
+    """Passt alle Bucket-Preise an, wenn sich der Basispreis oder die Schutzgebühr ändert.
+
+    Bucket-Preise enthalten keinen Aufschlag — der wird erst beim Verkauf addiert.
+    """
+    rows = (
+        db.query(BuchZustandBestand)
+        .filter(BuchZustandBestand.buch_id == buch_id)
+        .all()
+    )
+
+    cur_sj = current_schuljahr_start()
+    # effective_nj → (bestand_verfuegbar, target_price)
+    aggregated: dict[int, tuple[int, int]] = {}
+    for row in rows:
+        stored_nj = row.nutzungsjahr
+        if stored_nj is None:
+            stored_nj = _infer_nutzungsjahr_from_preis(
+                preis_cents=row.verkaufspreis_cents,
+                basispreis_cents=old_basispreis_cents,
+                abschlaege=abschlaege,
+                schutzgebuehr_cents=old_schutzgebuehr_cents,
+            )
+
+        eff_nj = effective_nutzungsjahr(
+            stored_nj if stored_nj is not None else 0,
+            row.schuljahr_eingestellt,
+        )
+
+        if stored_nj is None:
+            target_price = row.verkaufspreis_cents
+        elif eff_nj == 0:
+            target_price = new_basispreis_cents
+        elif eff_nj >= 6:
+            target_price = max(0, int(new_schutzgebuehr_cents or 0))
+        else:
+            target_price = berechne_wiederverkaufspreis(
+                new_basispreis_cents,
+                abschlaege.get(eff_nj, 0),
+            )
+
+        nj_key = eff_nj if stored_nj is not None else -1
+        prev_bestand, _ = aggregated.get(nj_key, (0, int(target_price)))
+        aggregated[nj_key] = (prev_bestand + max(0, row.bestand_verfuegbar), int(target_price))
+
+    for row in rows:
+        db.delete(row)
+    db.flush()
+
+    for nj_key, (bestand_verfuegbar, target_price) in aggregated.items():
+        if bestand_verfuegbar <= 0:
+            continue
+        db.add(
+            BuchZustandBestand(
+                buch_id=buch_id,
+                zustand="sehr_gut",
+                verkaufspreis_cents=target_price,
+                bestand_verfuegbar=bestand_verfuegbar,
+                nutzungsjahr=nj_key if nj_key >= 0 else None,
+                schuljahr_eingestellt=cur_sj if nj_key > 0 else None,
+            )
+        )
+    db.flush()
+
+
+@router.get("", response_model=BuchListResponse)
+def list_buecher(
+    q: str | None = None,
+    fach: str | None = None,
+    stufe: int | None = None,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    query = db.query(Buecher).filter(Buecher.geloescht_am.is_(None))
+
+    if q:
+        query = query.filter(
+            Buecher.titel.ilike(f"%{q}%")
+            | Buecher.isbn.ilike(f"%{q}%")
+            | Buecher.id.ilike(f"%{q}%")
+        )
+
+    if fach:
+        query = query.filter(Buecher.fach == fach)
+
+    if stufe is not None:
+        query = query.filter(Buecher.stufe == stufe)
+
+    total = query.count()
+    books = query.order_by(Buecher.titel).offset(offset).limit(limit).all()
+    abschlaege = get_nutzungsjahr_abschlaege(db)
+
+    return BuchListResponse(
+        items=[_buch_to_response(book, _load_zustaende(db, book.id), abschlaege) for book in books],
+        total=total,
+    )
+
+
+@router.get("/{buch_id}", response_model=BuchResponse)
+def get_buch(buch_id: str, db: Session = Depends(get_db)):
+    b = db.query(Buecher).filter(
+        Buecher.id == buch_id, Buecher.geloescht_am.is_(None)
+    ).first()
+
+    if not b:
+        raise HTTPException(status_code=404, detail="Buch nicht gefunden")
+
+    return _buch_to_response(b, _load_zustaende(db, b.id), get_nutzungsjahr_abschlaege(db))
+
+
+@router.post("", response_model=BuchResponse, status_code=201)
+def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
+    new_id = generate_buch_id(db)
+
+    buch = Buecher(
+        id=new_id,
+        titel=data.titel,
+        untertitel=data.untertitel,
+        isbn=data.isbn,
+        fach=data.fach,
+        stufe=data.stufe,
+        verlag=data.verlag,
+        preis_cents=data.preis_cents,
+        gutschrift_cents=data.preis_cents,
+        bestand_gesamt=data.bestand_gesamt,
+        bestand_ausgegeben=0,
+        schutzgebuehr_cents=data.schutzgebuehr_cents,
+    )
+    db.add(buch)
+    db.flush()
+
+    db.add(
+        BuchZustandBestand(
+            buch_id=new_id,
+            zustand="sehr_gut",
+            verkaufspreis_cents=data.preis_cents,
+            bestand_verfuegbar=data.bestand_gesamt,
+            nutzungsjahr=0,
+            schuljahr_eingestellt=None,
+        )
+    )
+    db.commit()
+    db.refresh(buch)
+
+    return _buch_to_response(buch, _load_zustaende(db, buch.id), get_nutzungsjahr_abschlaege(db))
+
+
+@router.patch("/{buch_id}", response_model=BuchResponse)
+def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
+    b = db.query(Buecher).filter(
+        Buecher.id == buch_id, Buecher.geloescht_am.is_(None)
+    ).first()
+
+    if not b:
+        raise HTTPException(status_code=404, detail="Buch nicht gefunden")
+
+    update_data = data.model_dump(exclude_unset=True)
+    old_preis = b.preis_cents
+    old_bestand = b.bestand_gesamt
+    old_schutzgebuehr = max(0, int(b.schutzgebuehr_cents or 0))
+    new_preis = update_data.get("preis_cents", old_preis)
+    new_bestand = update_data.get("bestand_gesamt", old_bestand)
+    new_schutzgebuehr = max(
+        0,
+        int(update_data.get("schutzgebuehr_cents", old_schutzgebuehr) or 0),
+    )
+
+    if new_bestand < b.bestand_ausgegeben:
+        raise HTTPException(
+            status_code=422,
+            detail="Bestand gesamt darf nicht kleiner als Bestand ausgegeben sein",
+        )
+
+    base_bucket = (
+        db.query(BuchZustandBestand)
+        .filter(
+            BuchZustandBestand.buch_id == buch_id,
+            BuchZustandBestand.nutzungsjahr == 0,
+        )
+        .first()
+    )
+    if not base_bucket:
+        base_bucket = (
+            db.query(BuchZustandBestand)
+            .filter(BuchZustandBestand.buch_id == buch_id)
+            .order_by(BuchZustandBestand.nutzungsjahr.asc().nulls_last(), BuchZustandBestand.id)
+            .first()
+        )
+    if not base_bucket:
+        base_bucket = _get_or_create_bestand(db, buch_id, old_preis, nutzungsjahr=0)
+
+    delta_bestand = new_bestand - old_bestand
+
+    neuer_freier_bestand = base_bucket.bestand_verfuegbar + delta_bestand
+    if neuer_freier_bestand < 0:
+        raise HTTPException(
+            status_code=422,
+            detail="Bestandsaenderung wuerde den freien Sehr-Gut-Bestand negativ machen",
+        )
+    base_bucket.bestand_verfuegbar = neuer_freier_bestand
+
+    if new_preis != old_preis or new_schutzgebuehr != old_schutzgebuehr:
+        _reprice_bestand_buckets(
+            db=db,
+            buch_id=buch_id,
+            old_basispreis_cents=old_preis,
+            new_basispreis_cents=new_preis,
+            old_schutzgebuehr_cents=old_schutzgebuehr,
+            new_schutzgebuehr_cents=new_schutzgebuehr,
+            abschlaege=get_nutzungsjahr_abschlaege(db),
+        )
+
+    if "preis_cents" in update_data and "gutschrift_cents" not in update_data:
+        update_data["gutschrift_cents"] = update_data["preis_cents"]
+
+    for field, value in update_data.items():
+        setattr(b, field, value)
+
+    db.commit()
+    db.refresh(b)
+
+    return _buch_to_response(b, _load_zustaende(db, b.id), get_nutzungsjahr_abschlaege(db))
+
+
+@router.post("/fach/umbenennen", status_code=200)
+def fach_umbenennen(data: dict, db: Session = Depends(get_db)):
+    alt = (data.get("alt") or "").strip()
+    neu = (data.get("neu") or "").strip()
+    if not alt or not neu:
+        raise HTTPException(status_code=422, detail="'alt' und 'neu' erforderlich.")
+    if alt == neu:
+        return {"aktualisiert": 0}
+    result = db.execute(
+        text("UPDATE buecher SET fach = :neu WHERE fach = :alt AND geloescht_am IS NULL"),
+        {"neu": neu, "alt": alt},
+    )
+    db.commit()
+    return {"aktualisiert": result.rowcount}
+
+
+@router.delete("/{buch_id}", status_code=204)
+def delete_buch(buch_id: str, db: Session = Depends(get_db)):
+    b = db.query(Buecher).filter(
+        Buecher.id == buch_id, Buecher.geloescht_am.is_(None)
+    ).first()
+
+    if not b:
+        raise HTTPException(status_code=404, detail="Buch nicht gefunden")
+
+    from datetime import datetime
+
+    b.geloescht_am = datetime.now().isoformat()
+    db.commit()

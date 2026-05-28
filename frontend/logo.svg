@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <!-- Book spine: x=16..28, y=10..80 (centered: total 68w × 80h → left=16, top=10) -->
+  <rect x="16" y="10" width="12" height="70" rx="4" fill="#2563eb"/>
+
+  <!-- Book cover: x=28..84, y=10..80 -->
+  <rect x="28" y="10" width="56" height="70" rx="4" fill="#eff6ff"/>
+  <rect x="28" y="10" width="56" height="70" rx="4" stroke="#bfdbfe" stroke-width="1.5"/>
+
+  <!-- Content lines -->
+  <rect x="38" y="24" width="34" height="4.5" rx="2.25" fill="#93c5fd"/>
+  <rect x="38" y="34" width="24" height="4.5" rx="2.25" fill="#93c5fd"/>
+  <rect x="38" y="44" width="15" height="4.5" rx="2.25" fill="#bfdbfe"/>
+
+  <!-- Cursor: tip at (59,57), body stretching to y=90 (10px below book) -->
+  <path d="M 59,57 L 59,83 L 67,76 L 72,89 L 79,86 L 74,76 L 84,76 Z"
+        fill="#1e40af" stroke="white" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>
