@@ -14,6 +14,7 @@ function App() {
   const [current, setCurrent] = useState(initialRoute);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [navContext, setNavContext] = useState(null);
+  const [navKey, setNavKey] = useState(0);
   const [t, setTweak] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
 
   React.useEffect(() => {
@@ -66,6 +67,7 @@ function App() {
   };
 
   const handleNav = (id, context = null) => {
+    setNavKey(k => k + 1);
     commitRoute(id, null, context);
   };
 
@@ -97,7 +99,7 @@ function App() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <window.Sidebar current={selectedStudent ? null : current} onNav={handleNav} accent={t.accent} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div key={navKey} style={{ flex: 1, overflowY: 'auto' }}>
           {content}
         </div>
       </div>
