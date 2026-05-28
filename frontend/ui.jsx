@@ -64,7 +64,7 @@ const Avatar = ({ name, size = 32 }) => {
   );
 };
 
-const Badge = ({ tone = 'slate', children, dot = false }) => {
+const Badge = ({ tone = 'slate', children, dot = false, style = {} }) => {
   const tones = {
     slate:  { bg: '#f1f5f9', fg: '#475569', dot: '#94a3b8' },
     blue:   { bg: '#eff6ff', fg: '#1d4ed8', dot: '#3b82f6' },
@@ -79,6 +79,8 @@ const Badge = ({ tone = 'slate', children, dot = false }) => {
       display: 'inline-flex', alignItems: 'center', gap: 6,
       padding: '2px 8px', borderRadius: 999, background: t.bg, color: t.fg,
       fontSize: 11.5, fontWeight: 500, whiteSpace: 'nowrap',
+      width: 'fit-content', maxWidth: '100%', justifySelf: 'start',
+      ...style,
     }}>
       {dot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: t.dot }}/>}
       {children}

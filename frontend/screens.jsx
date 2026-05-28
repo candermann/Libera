@@ -315,7 +315,7 @@ function SchuelerListe({ accent, onOpenStudent }) {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{s.nachname}, {s.vorname}</div>
               </div>
-              <Badge tone="slate">{s.klasse}</Badge>
+              <Badge tone="slate" style={{ minWidth: 'calc(2ch + 16px)', justifyContent: 'center' }}>{s.klasse}</Badge>
               <div style={{ fontSize: 12, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {s.strasse || ''} {s.plz ? `, ${s.plz}` : ''} {s.ort || ''}
               </div>
