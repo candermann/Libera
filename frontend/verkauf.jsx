@@ -325,7 +325,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
               >
                 <Avatar name={student.vorname + ' ' + student.nachname} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{student.vorname} {student.nachname}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{student.nachname}, {student.vorname}</div>
                   <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 1, fontFamily: 'JetBrains Mono, monospace' }}>{student.id} · Klasse {student.klasse}</div>
                 </div>
                 <Badge tone="slate">Klasse {student.klasse}</Badge>
@@ -350,7 +350,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
               <Avatar name={selectedStudent.vorname + ' ' + selectedStudent.nachname} size={34} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.vorname} {selectedStudent.nachname}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.nachname}, {selectedStudent.vorname}</div>
                 <div style={{ fontSize: 11.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{selectedStudent.id} · Klasse {selectedStudent.klasse}</div>
               </div>
               <button onClick={() => { setStep(1); setErrorMsg(null); }} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ändern</button>
@@ -783,7 +783,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
               }}>Als PDF speichern</Btn>
               <Btn kind="secondary" full icon="mail" onClick={() => setMailRechnung({
                 id: saleResult.id,
-                schueler_name: `${selectedStudent.vorname} ${selectedStudent.nachname}`,
+                schueler_name: `${selectedStudent.nachname}, ${selectedStudent.vorname}`,
                 status: 'offen',
               })}>Per E-Mail senden</Btn>
             </div>
@@ -826,7 +826,7 @@ function InvoicePreview({ student, books, rechnungsNr, total, accent }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 18 }}>
         <div>
           <div style={{ fontSize: 8.5, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>Empfänger</div>
-          <div style={{ fontSize: 10.5, fontWeight: 600 }}>{student.vorname} {student.nachname}</div>
+          <div style={{ fontSize: 10.5, fontWeight: 600 }}>{student.nachname}, {student.vorname}</div>
           <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>Klasse {student.klasse}</div>
           <div style={{ fontSize: 10, color: '#475569', marginTop: 1 }}>{student.strasse || ''}</div>
           <div style={{ fontSize: 10, color: '#475569' }}>{student.plz || ''} {student.ort || ''}</div>
@@ -1080,7 +1080,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
               >
                 <Avatar name={student.vorname + ' ' + student.nachname} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{student.vorname} {student.nachname}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{student.nachname}, {student.vorname}</div>
                   <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 1, fontFamily: 'JetBrains Mono, monospace' }}>{student.id} · Klasse {student.klasse}</div>
                 </div>
                 <Badge tone="slate">Klasse {student.klasse}</Badge>
@@ -1106,7 +1106,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
               <Avatar name={selectedStudent.vorname + ' ' + selectedStudent.nachname} size={34} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{selectedStudent.vorname} {selectedStudent.nachname}</div>
+                <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{selectedStudent.nachname}, {selectedStudent.vorname}</div>
                 <div style={{ fontSize: 11.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{selectedStudent.id} · Klasse {selectedStudent.klasse}</div>
               </div>
               <button onClick={() => { setStep(1); setErrorMsg(null); }} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ändern</button>
@@ -1500,7 +1500,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
               }}>Als PDF speichern</Btn>
               <Btn kind="secondary" full icon="mail" onClick={() => setMailRechnung({
                 id: saleResult.id,
-                schueler_name: `${selectedStudent.vorname} ${selectedStudent.nachname}`,
+                schueler_name: `${selectedStudent.nachname}, ${selectedStudent.vorname}`,
                 status: 'offen',
               })}>Per E-Mail senden</Btn>
             </div>

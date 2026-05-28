@@ -242,7 +242,7 @@
   <div class="recipient">
     <div class="label">Empfänger</div>
     <div class="family">Familie {{ schueler.nachname }}</div>
-    <div class="name"><span style="font-size:8pt;color:#888;font-weight:400;">Schüler: </span>{{ schueler.vorname }} {{ schueler.nachname }}</div>
+    <div class="name"><span style="font-size:8pt;color:#888;font-weight:400;">Schüler: </span>{{ schueler.nachname }}, {{ schueler.vorname }}</div>
     {% if schueler.strasse %}
     <div style="margin-top:3px;">{{ schueler.strasse }}</div>
     <div>{{ schueler.plz }} {{ schueler.ort }}</div>

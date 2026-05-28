@@ -689,7 +689,7 @@ def list_rechnungen(limit: int = 5, db: Session = Depends(get_db)):
         items.append({
             "id": r.id,
             "schueler_id": r.schueler_id,
-            "schueler_name": f"{schueler.vorname} {schueler.nachname}" if schueler else "Unbekannt",
+            "schueler_name": f"{schueler.nachname}, {schueler.vorname}" if schueler else "Unbekannt",
             "datum": r.datum,
             "summe_cents": r.summe_cents,
             "status": r.status,

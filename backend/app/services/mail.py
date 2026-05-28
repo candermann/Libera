@@ -121,7 +121,7 @@ def _build_context(db: Session, rechnung_id: str, settings: dict[str, str]) -> t
             "id": row.schueler_id,
             "vorname": row.vorname,
             "nachname": row.nachname,
-            "name": f"{row.vorname} {row.nachname}",
+            "name": f"{row.nachname}, {row.vorname}",
             "klasse": row.klasse,
             "email": row.email_eltern or "",
         },

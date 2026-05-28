@@ -85,7 +85,7 @@ def get_dashboard(db: Session = Depends(get_db)):
                    'Schulbücher ' || r.schuljahr AS bezeichnung,
                    -(r.summe_cents) AS betrag_cents,
                    r.datum, r.erstellt_am, r.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name
+                   s.nachname || ', ' || s.vorname AS schueler_name
             FROM rechnungen r JOIN schueler s ON s.id = r.schueler_id
             WHERE r.status != 'storniert'
             UNION ALL
@@ -93,21 +93,21 @@ def get_dashboard(db: Session = Depends(get_db)):
                    'Buchrückgabe' AS bezeichnung,
                    g.summe_cents AS betrag_cents,
                    g.datum, g.erstellt_am, g.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name
+                   s.nachname || ', ' || s.vorname AS schueler_name
             FROM gutschriften g JOIN schueler s ON s.id = g.schueler_id
             UNION ALL
             SELECT CAST(z.id AS TEXT), 'zahlung' AS typ,
                    'Zahlungseingang' || CASE WHEN z.notizen IS NOT NULL AND z.notizen != '' THEN ' · ' || z.notizen ELSE '' END AS bezeichnung,
                    z.betrag_cents,
                    z.datum, z.erstellt_am, z.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name
+                   s.nachname || ', ' || s.vorname AS schueler_name
             FROM zahlungen z JOIN schueler s ON s.id = z.schueler_id
             UNION ALL
             SELECT CAST(a.id AS TEXT), 'auszahlung' AS typ,
                    'Auszahlung Schulguthaben' || CASE WHEN a.notizen IS NOT NULL AND a.notizen != '' THEN ' · ' || a.notizen ELSE '' END AS bezeichnung,
                    -(a.betrag_cents) AS betrag_cents,
                    a.datum, a.erstellt_am, a.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name
+                   s.nachname || ', ' || s.vorname AS schueler_name
             FROM auszahlungen a JOIN schueler s ON s.id = a.schueler_id
         )
         ORDER BY erstellt_am DESC LIMIT 6

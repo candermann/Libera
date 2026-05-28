@@ -67,7 +67,7 @@ function ZahlungDialog({ schueler, accent, onClose, onSaved, initialData }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>{isEdit ? 'Zahlung bearbeiten' : 'Zahlung verbuchen'}</div>
-            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>{schueler.vorname} {schueler.nachname}</div>
+            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>{schueler.nachname}, {schueler.vorname}</div>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
             <Icon name="x" size={16} />
@@ -177,7 +177,7 @@ function AuszahlungDialog({ schueler, saldoCents, accent, onClose, onSaved }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>Schulguthaben auszahlen</div>
-            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>{schueler.vorname} {schueler.nachname} · Verfügbar: <span style={{ color: '#047857', fontFamily: 'JetBrains Mono, monospace' }}>{(saldoCents / 100).toFixed(2).replace('.', ',')} €</span></div>
+            <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>{schueler.nachname}, {schueler.vorname} · Verfügbar: <span style={{ color: '#047857', fontFamily: 'JetBrains Mono, monospace' }}>{(saldoCents / 100).toFixed(2).replace('.', ',')} €</span></div>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
             <Icon name="x" size={16} />
@@ -239,11 +239,11 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
 
   const handleArchivieren = async () => {
     if (aktiveBuecher.length > 0) {
-      window.showToast('error', `${detail.vorname} ${detail.nachname} hat noch ${aktiveBuecher.length} nicht zurückgegebene Bücher.`);
+      window.showToast('error', `${detail.nachname}, ${detail.vorname} hat noch ${aktiveBuecher.length} nicht zurückgegebene Bücher.`);
       return;
     }
     window.showConfirm({
-      message: `${detail.vorname} ${detail.nachname} archivieren?`,
+      message: `${detail.nachname}, ${detail.vorname} archivieren?`,
       detail: 'Der Schüler wird aus der aktiven Liste entfernt und kann jederzeit reaktiviert werden.',
       confirmLabel: 'Archivieren',
       danger: true,
@@ -251,7 +251,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
         setArchivWorking(true);
         try {
           await window.api.schueler.archivieren([detail.id]);
-          window.showToast('success', `${detail.vorname} ${detail.nachname} wurde archiviert.`);
+          window.showToast('success', `${detail.nachname}, ${detail.vorname} wurde archiviert.`);
           onBack();
         } catch (err) {
           window.showToast('error', err.message || 'Fehler beim Archivieren.');
@@ -300,7 +300,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 22 }}>
         <Avatar name={detail.vorname + " " + detail.nachname} size={56}/>
         <div style={{ flex: 1, paddingTop: 4, minWidth: 0 }}>
-          <h1 style={{ fontSize: 24, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>{detail.vorname} {detail.nachname}</h1>
+          <h1 style={{ fontSize: 24, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>{detail.nachname}, {detail.vorname}</h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6, fontSize: 12.5, color: '#64748b', flexWrap: 'nowrap', overflow: 'hidden' }}>
             <span style={{ fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>{detail.id}</span>
             <span style={{ color: '#cbd5e1', flexShrink: 0 }}>·</span>
@@ -435,7 +435,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
                 accent={accent}
                 onSendRechnungMail={(v) => setMailRechnung({
                   id: v.id,
-                  schueler_name: `${detail.vorname} ${detail.nachname}`,
+                  schueler_name: `${detail.nachname}, ${detail.vorname}`,
                   status: 'offen',
                 })}
                 onEditZahlung={isArchived ? null : (v) => {

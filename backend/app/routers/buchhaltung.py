@@ -54,7 +54,7 @@ def list_rechnungen_buchhaltung(
     if schuljahr:
         rows = db.execute(text("""
             SELECT r.id, r.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name,
+                   s.nachname || ', ' || s.vorname AS schueler_name,
                    s.nachname, s.vorname,
                    s.klasse, s.email_eltern,
                    r.datum, r.summe_cents, r.verrechnet_cents,
@@ -68,7 +68,7 @@ def list_rechnungen_buchhaltung(
     else:
         rows = db.execute(text("""
             SELECT r.id, r.schueler_id,
-                   s.vorname || ' ' || s.nachname AS schueler_name,
+                   s.nachname || ', ' || s.vorname AS schueler_name,
                    s.nachname, s.vorname,
                    s.klasse, s.email_eltern,
                    r.datum, r.summe_cents, r.verrechnet_cents,
@@ -102,7 +102,7 @@ def list_rechnungen_buchhaltung(
 def list_unversandt(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT r.id, r.schueler_id,
-               s.vorname || ' ' || s.nachname AS schueler_name,
+               s.nachname || ', ' || s.vorname AS schueler_name,
                s.klasse, s.email_eltern,
                r.datum, r.summe_cents, r.verrechnet_cents,
                (r.summe_cents - r.verrechnet_cents) AS zu_zahlen_cents,
@@ -137,7 +137,7 @@ def list_unversandt(db: Session = Depends(get_db)):
 def list_versandt(db: Session = Depends(get_db)):
     rows = db.execute(text("""
         SELECT r.id, r.schueler_id,
-               s.vorname || ' ' || s.nachname AS schueler_name,
+               s.nachname || ', ' || s.vorname AS schueler_name,
                s.klasse, s.email_eltern,
                r.datum, r.summe_cents, r.verrechnet_cents,
                (r.summe_cents - r.verrechnet_cents) AS zu_zahlen_cents,

@@ -396,7 +396,7 @@ window.Rueckgabe = function Rueckgabe(props) {
                 }}>
                   <Avatar name={student.vorname + ' ' + student.nachname} size={32} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{student.vorname} {student.nachname}</div>
+                    <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{student.nachname}, {student.vorname}</div>
                     <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 1, fontFamily: 'JetBrains Mono, monospace' }}>{student.id} · Klasse {student.klasse}</div>
                   </div>
                   <span style={{ color: '#cbd5e1' }}><Icon name="chevron-right" size={15} /></span>
@@ -416,7 +416,7 @@ window.Rueckgabe = function Rueckgabe(props) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
             <Avatar name={selectedStudent.vorname + ' ' + selectedStudent.nachname} size={34} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.vorname} {selectedStudent.nachname}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.nachname}, {selectedStudent.vorname}</div>
               <div style={{ fontSize: 11.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{selectedStudent.id} · Klasse {selectedStudent.klasse}</div>
             </div>
             <button onClick={function () { setStep(1); }} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ändern</button>

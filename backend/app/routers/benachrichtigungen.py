@@ -48,7 +48,7 @@ def get_benachrichtigungen(db: Session = Depends(get_db)):
         if archiv_start > 0 and (aktuell_start - archiv_start) >= ARCHIV_AUFBEWAHRUNG_JAHRE:
             abgelaufen.append({
                 "id": r.id,
-                "name": f"{r.vorname} {r.nachname}",
+                "name": f"{r.nachname}, {r.vorname}",
                 "klasse": r.klasse,
                 "archiviert_schuljahr": r.archiviert_schuljahr,
             })

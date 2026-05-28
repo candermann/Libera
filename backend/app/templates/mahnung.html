@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <title>Mahnung — {{ schueler.vorname }} {{ schueler.nachname }}</title>
+  <title>Mahnung — {{ schueler.nachname }}, {{ schueler.vorname }}</title>
   <style>
     @page {
       size: A4;
@@ -137,7 +137,7 @@
 
   <div class="recipient">
     <div class="label">An die Eltern / Erziehungsberechtigten von</div>
-    <div class="name">{{ schueler.vorname }} {{ schueler.nachname }}</div>
+    <div class="name">{{ schueler.nachname }}, {{ schueler.vorname }}</div>
     <div>Klasse {{ schueler.klasse }}</div>
     {% if schueler.strasse %}
     <div>{{ schueler.strasse }}</div>

@@ -35,7 +35,7 @@ def list_mahnungen(db: Session = Depends(get_db)):
             """
             SELECT
                 s.id AS schueler_id,
-                s.vorname || ' ' || s.nachname AS name,
+                s.nachname || ', ' || s.vorname AS name,
                 s.klasse,
                 v.saldo_cents,
                 MIN(r.datum) AS aelteste_rechnung

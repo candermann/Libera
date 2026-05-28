@@ -69,7 +69,7 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
               >
                 <Avatar name={s.vorname + " " + s.nachname} size={32}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{s.vorname} {s.nachname}</div>
+                  <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{s.nachname}, {s.vorname}</div>
                   <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 1, fontFamily: 'JetBrains Mono, monospace' }}>{s.id} · Klasse {s.klasse}</div>
                 </div>
                 <span style={{ color: '#cbd5e1' }}><Icon name="chevron-right" size={15}/></span>
@@ -88,7 +88,7 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
             <Avatar name={selectedStudent.vorname + " " + selectedStudent.nachname} size={34}/>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.vorname} {selectedStudent.nachname}</div>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{selectedStudent.nachname}, {selectedStudent.vorname}</div>
               <div style={{ fontSize: 11.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{selectedStudent.id} · Klasse {selectedStudent.klasse}</div>
             </div>
             <button onClick={() => setStep(1)} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>Ändern</button>
@@ -199,7 +199,7 @@ function SchuelerListe({ accent, onOpenStudent }) {
     window.api.schueler.create(s).then(() => {
       setShowCreate(false);
       fetchStudents();
-      window.showToast('success', `Schüler ${s.vorname} ${s.nachname} wurde erfolgreich angelegt.`);
+      window.showToast('success', `Schüler ${s.nachname}, ${s.vorname} wurde erfolgreich angelegt.`);
     }).catch(console.error);
   };
 
@@ -207,12 +207,12 @@ function SchuelerListe({ accent, onOpenStudent }) {
     window.api.schueler.update(id, s).then(() => {
       setEditingStudent(null);
       fetchStudents();
-      window.showToast('success', `Daten von ${s.vorname} ${s.nachname} wurden aktualisiert.`);
+      window.showToast('success', `Daten von ${s.nachname}, ${s.vorname} wurden aktualisiert.`);
     }).catch(console.error);
   };
 
   const removeStudent = (id) => {
-    const name = `${confirmDelete.vorname} ${confirmDelete.nachname}`;
+    const name = `${confirmDelete.nachname}, ${confirmDelete.vorname}`;
     window.api.schueler.remove(id).then(() => {
       setConfirmDelete(null);
       fetchStudents();
@@ -313,7 +313,7 @@ function SchuelerListe({ accent, onOpenStudent }) {
               <Avatar name={s.vorname + " " + s.nachname} size={28}/>
               <Badge tone="slate">{s.id}</Badge>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{s.vorname} {s.nachname}</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{s.nachname}, {s.vorname}</div>
               </div>
               <Badge tone="slate">{s.klasse}</Badge>
               <div style={{ fontSize: 12, color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -358,7 +358,7 @@ function SchuelerListe({ accent, onOpenStudent }) {
       {editingStudent && <EditStudentDialog accent={accent} klassen={KLASSEN} student={editingStudent} onClose={() => setEditingStudent(null)} onSave={(s) => editStudent(editingStudent.id, s)}/>}
       {confirmDelete && <ConfirmDialog
         title="Schüler entfernen?"
-        body={<>Möchten Sie <strong>{confirmDelete.vorname} {confirmDelete.nachname}</strong> ({confirmDelete.id}, Klasse {confirmDelete.klasse}) wirklich entfernen? Zugeordnete Vorgänge bleiben in der Historie erhalten.</>}
+        body={<>Möchten Sie <strong>{confirmDelete.nachname}, {confirmDelete.vorname}</strong> ({confirmDelete.id}, Klasse {confirmDelete.klasse}) wirklich entfernen? Zugeordnete Vorgänge bleiben in der Historie erhalten.</>}
         confirmLabel="Endgültig entfernen"
         accent={accent}
         onCancel={() => setConfirmDelete(null)}
@@ -1988,7 +1988,7 @@ function Archiv({ accent, onOpenStudent }) {
                 <div style={{ padding: '40px 0', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Keine Schüler in dieser Klasse.</div>
               ) : liste.map((s, i) => {
                 const saldo = s.saldo_cents / 100;
-                const name = s.vorname + ' ' + s.nachname;
+                const name = s.nachname + ', ' + s.vorname;
                 return (
                   <div key={s.id} style={{
                     display: 'grid', gridTemplateColumns: filterSchuljahr ? '36px 1fr 80px 110px 160px auto' : '36px 1fr 120px 80px 110px 160px auto', gap: 12,
@@ -2177,7 +2177,7 @@ function Klassenversetzung({ accent }) {
         <Avatar name={s.vorname + ' ' + s.nachname} size={26} />
         <div>
           <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>
-            {s.vorname} {s.nachname}
+            {s.nachname}, {s.vorname}
           </div>
           <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{s.id}</div>
         </div>
