@@ -22,6 +22,7 @@ function Profil({ accent }) {
     mail_smtp_port: '587',
     mail_smtp_username: '',
     mail_smtp_password: '',
+    mail_smtp_password_set: 'false',
     mail_smtp_use_starttls: 'true',
     mail_smtp_use_ssl: 'false',
     mail_from_email: '',
@@ -389,7 +390,7 @@ function Profil({ accent }) {
               </div>
               <div>
                 <label style={labelStyle}>Passwort</label>
-                <input type="password" value={form.mail_smtp_password} onChange={(e) => setField('mail_smtp_password', e.target.value)} style={fieldStyle} />
+                <input type="password" value={form.mail_smtp_password} onChange={(e) => setField('mail_smtp_password', e.target.value)} placeholder={form.mail_smtp_password_set === 'true' ? 'Gespeichert - leer lassen, um beizubehalten' : ''} style={fieldStyle} />
               </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
@@ -477,6 +478,7 @@ function pickProfileFields(data) {
     mail_smtp_port: data.mail_smtp_port || '587',
     mail_smtp_username: data.mail_smtp_username || '',
     mail_smtp_password: data.mail_smtp_password || '',
+    mail_smtp_password_set: data.mail_smtp_password_set ? 'true' : 'false',
     mail_smtp_use_starttls: data.mail_smtp_use_starttls ?? 'true',
     mail_smtp_use_ssl: data.mail_smtp_use_ssl ?? 'false',
     mail_from_email: data.mail_from_email || '',
@@ -490,6 +492,8 @@ function pickProfileFields(data) {
 function sanitizeForm(form) {
   const out = {};
   Object.entries(form).forEach(([key, value]) => {
+    if (key === 'mail_smtp_password_set') return;
+    if (key === 'mail_smtp_password' && !(value ?? '').toString().trim()) return;
     out[key] = (value ?? '').toString().trim();
   });
   return out;

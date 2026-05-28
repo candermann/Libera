@@ -14,13 +14,40 @@ from app.models import Einstellungen
 
 router = APIRouter(prefix="/api/einstellungen", tags=["Einstellungen"])
 _template_env = Environment(loader=BaseLoader(), autoescape=False)
+_SENSITIVE_KEY_PARTS = (
+    "password",
+    "passwort",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "private_key",
+    "credential",
+    "hash",
+)
+
+
+def _is_sensitive_key(key: str) -> bool:
+    lowered = key.lower()
+    return any(part in lowered for part in _SENSITIVE_KEY_PARTS)
+
+
+def _public_settings(rows):
+    data = {}
+    for row in rows:
+        if _is_sensitive_key(row.schluessel):
+            if row.schluessel == "mail_smtp_password":
+                data["mail_smtp_password_set"] = bool((row.wert or "").strip())
+            continue
+        data[row.schluessel] = row.wert
+    return data
 
 
 @router.get("")
 def get_einstellungen(db: Session = Depends(get_db)):
     """Get all settings as a flat key-value object."""
     rows = db.query(Einstellungen).all()
-    return {r.schluessel: r.wert for r in rows}
+    return _public_settings(rows)
 
 
 @router.patch("")
@@ -43,6 +70,14 @@ def update_einstellungen(data: dict = Body(...), db: Session = Depends(get_db)):
             ) from exc
 
     for key, value in data.items():
+        if _is_sensitive_key(key):
+            if key != "mail_smtp_password":
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"'{key}' darf nicht ueber Einstellungen geaendert werden.",
+                )
+            if not str(value or "").strip():
+                continue
         existing = db.query(Einstellungen).filter(
             Einstellungen.schluessel == key
         ).first()
@@ -55,4 +90,4 @@ def update_einstellungen(data: dict = Body(...), db: Session = Depends(get_db)):
 
     # Return updated settings
     rows = db.query(Einstellungen).all()
-    return {r.schluessel: r.wert for r in rows}
+    return _public_settings(rows)
