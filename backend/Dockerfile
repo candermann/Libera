@@ -9,7 +9,7 @@ COPY backend/pyproject.toml ./
 
 # Install dependencies into a virtual environment
 RUN uv venv /app/.venv && \
-    uv pip install --python /app/.venv/bin/python -r pyproject.toml
+    uv pip install --python /app/.venv/bin/python -e .
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────
 FROM python:3.12-slim
