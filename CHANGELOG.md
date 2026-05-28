@@ -10,3 +10,7 @@
 - **Oberstufe**: Klassen 11+12 in `api.js` ergänzt; Abgangsstufe auf 12; Buchauswahl im Verkauf für 11/12 ausgeblendet
 - **Glocke**: Leuchtet gelb + pulsiert bei Benachrichtigungen; Schuljahres-Erinnerung wenn eingestelltes Schuljahr älter als erwartet; Link navigiert zu `profil`
 - **Config**: `.env` angelegt; `ADMIN_INITIAL_PASSWORD` überschreibt Hash bei jedem Start
+- **Namen**: Überall auf „Nachname, Vorname" umgestellt — Listen, PDFs, CSVs, Toasts, alle Screens
+- **Navigation**: Klick auf aktiven Reiter springt immer zurück auf die Hauptansicht
+- **Security**: Passwörter/Secrets werden nicht mehr über die Einstellungs-API zurückgegeben; SMTP-Passwort-Feld zeigt ob bereits eines gesetzt ist
+- **Repo**: `.gitignore` hinzugefügt; `__pycache__`, `.env` und DB-Dateien aus Git-Tracking entfernt; `docker-compose.yml` + `Caddyfile` ins Root verschoben
