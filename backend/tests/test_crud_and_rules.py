@@ -4,6 +4,7 @@ Tests for CRUD endpoints (Schüler, Bücher) and additional business rules.
 
 from tests.conftest import create_test_schueler, create_test_buch
 from app.models import BuchZustandBestand
+from sqlalchemy import text
 
 
 class TestSchuelerCrud:
@@ -481,11 +482,13 @@ class TestEinstellungen:
     """Einstellungen endpoint tests."""
 
     def test_get_einstellungen(self, client):
-        """GET /api/einstellungen should return all settings."""
+        """GET /api/einstellungen should return public settings."""
         resp = client.get("/api/einstellungen")
         assert resp.status_code == 200
         data = resp.json()
         assert "schuljahr_aktuell" in data
+        assert "mail_smtp_password" not in data
+        assert "admin_password_hash" not in data
 
     def test_patch_einstellungen(self, client):
         """PATCH /api/einstellungen should update settings."""
@@ -497,3 +500,43 @@ class TestEinstellungen:
         # Verify update
         get_resp = client.get("/api/einstellungen")
         assert get_resp.json()["schule_name"] == "Test-Gymnasium"
+
+    def test_sensitive_einstellungen_are_not_returned(self, client, db_session):
+        db_session.execute(
+            text(
+                "INSERT OR REPLACE INTO einstellungen (schluessel, wert) "
+                "VALUES ('admin_password_hash', 'hash-value')"
+            )
+        )
+        db_session.commit()
+
+        resp = client.patch("/api/einstellungen", json={
+            "mail_smtp_password": "top-secret",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "mail_smtp_password" not in data
+        assert "admin_password_hash" not in data
+        assert data["mail_smtp_password_set"] is True
+
+        get_resp = client.get("/api/einstellungen")
+        data = get_resp.json()
+        assert "mail_smtp_password" not in data
+        assert "admin_password_hash" not in data
+        assert data["mail_smtp_password_set"] is True
+
+    def test_sensitive_einstellung_updates_are_rejected_except_smtp_password(self, client):
+        resp = client.patch("/api/einstellungen", json={
+            "admin_password_hash": "hash-value",
+        })
+        assert resp.status_code == 400
+
+    def test_empty_sensitive_einstellung_does_not_overwrite_existing_value(self, client, db_session):
+        client.patch("/api/einstellungen", json={"mail_smtp_password": "top-secret"})
+        resp = client.patch("/api/einstellungen", json={"mail_smtp_password": ""})
+        assert resp.status_code == 200
+
+        row = db_session.execute(
+            text("SELECT wert FROM einstellungen WHERE schluessel = 'mail_smtp_password'")
+        ).fetchone()
+        assert row[0] == "top-secret"
