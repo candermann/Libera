@@ -16,6 +16,7 @@ Bibliomat/
 │   │   ├── schemas.py            — Pydantic-Schemas
 │   │   ├── security.py           — JWT, Passwort-Hashing (bcrypt), SECRET_KEY
 │   │   ├── routers/
+│   │   │   ├── admin.py          — Benutzerverwaltung (anlegen/löschen/Passwort), Backup/Restore
 │   │   │   ├── schueler.py       — Schüler CRUD, CSV-Import, Archiv
 │   │   │   ├── verkauf.py        — Rechnungserstellung, Preisberechnung
 │   │   │   ├── gutschrift.py     — Bücherrückgabe, Gutschriften
@@ -28,12 +29,15 @@ Bibliomat/
 │   │   │   ├── lernmaterial.py   — Lernmaterial-Bestand
 │   │   │   └── freiposten.py     — Manuelle Posten, Vorlagen
 │   │   ├── services/
-│   │   │   ├── pdf.py            — WeasyPrint: Rechnung→PDF/HTML
+│   │   │   ├── pdf.py            — WeasyPrint: Rechnung/Gutschrift/Auszahlung→PDF/HTML
 │   │   │   ├── zustand.py        — Preisberechnung, NJ-Abschläge, Schuljahr-Helfer
 │   │   │   ├── ids.py            — ID-Generierung (S-0001, R-2025-0001, G-2025-0001)
 │   │   │   └── mail.py           — SMTP-Versand
 │   │   └── templates/
-│   │       └── rechnung.html     — Jinja2-Template für Rechnungs-PDF
+│   │       ├── rechnung.html     — Jinja2-Template für Rechnungs-PDF
+│   │       ├── gutschrift.html   — Jinja2-Template für Gutschrift-PDF
+│   │       ├── auszahlung.html   — Jinja2-Template für Auszahlungs-PDF
+│   │       └── mahnung.html      — Jinja2-Template für Mahnungs-PDF
 │   ├── data/
 │   │   └── schulbuch.db          — SQLite-Datenbank (nicht im Repo)
 │   ├── tests/
@@ -47,8 +51,10 @@ Bibliomat/
     ├── screens.jsx               — Haupt-Screens: SchuelerListe, Buchhaltung, KlassenlisteTab, Archiv, Klassenversetzung …
     ├── home.jsx                  — Dashboard, GlockePanel, Benachrichtigungen
     ├── verkauf.jsx               — 3-Schritte-Verkaufsflow (Schüler → Bücher → Rechnung)
-    ├── profil.jsx                — Einstellungen: Schuldaten, Schuljahr, SMTP, Passwörter
-    └── schueler-detail.jsx       — Schüler-Detailansicht, Vorgänge, Kontosaldo
+    ├── profil.jsx                — Einstellungen: Schuldaten, Schuljahr, SMTP; Tabs Konten (Admin) + System (Backup/Restore)
+    ├── schueler-detail.jsx       — Schüler-Detailansicht, Vorgänge, Kontosaldo
+    ├── inventory-overrides.jsx   — Rückgabe-Flow, Inventar-Abschlags-Einstellungen
+    └── lernmaterial.jsx          — Lernmaterial-Verwaltung
 ```
 
 ---
@@ -61,14 +67,14 @@ Bibliomat/
 | `buecher` | Buchkatalog (preis_cents, schutzgebuehr_cents) |
 | `buch_zustand_bestand` | Inventar-Buckets pro Buch × Nutzungsjahr |
 | `rechnungen` | Rechnungen (id: R-YYYY-NNNN, status: offen/storniert) |
-| `rechnungs_posten` | Positionen einer Rechnung, zurueckgegeben-Flag |
+| `rechnungs_posten` | Positionen einer Rechnung; Flags: zurueckgegeben, behalten |
 | `rechnung_freiposten` | Manuelle Posten auf Rechnungen |
 | `rechnung_verrechnung` | Gutschrift-Verrechnung gegen Rechnungen |
 | `gutschriften` | Gutschriftdokumente (id: G-YYYY-NNNN) |
 | `gutschrift_posten` | Positionen einer Gutschrift mit Abschreibung |
 | `lernmaterial` | Lernmaterial-Bestand |
 | `freiposten_vorlagen` | Gespeicherte Freiposten-Vorlagen |
-| `benutzer` | Nutzer: lehrer, schulleiter, sekretariat |
+| `benutzer` | Nutzer: passwort_hash (lehrer, schulleiter, sekretariat + selbst angelegte) |
 | `einstellungen` | Key-Value-Store: Schuljahr, Schuldaten, SMTP, admin_password_hash |
 
 Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
@@ -79,8 +85,19 @@ Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
 
 - JWT-Token (HS256), `SECRET_KEY` aus Env (mind. 32 Zeichen)
 - Nutzer `admin`: Passwort-Hash in `einstellungen.admin_password_hash`
-- Nutzer `lehrer`, `schulleiter`, `sekretariat`: Passwort-Hash in `benutzer`-Tabelle
+- Nutzer `lehrer`, `schulleiter`, selbst angelegte: Passwort-Hash in `benutzer`-Tabelle
 - Token-Lebensdauer: 8 Stunden
+- `ADMIN_INITIAL_PASSWORD` aus `.env` wird nur beim **ersten Start** (INSERT OR IGNORE) in die DB geschrieben — danach kann das Passwort im Admin-Panel geändert werden ohne dass es beim Neustart überschrieben wird
+- Passwort zurücksetzen: Eintrag `admin_password_hash` aus `einstellungen` löschen + Server neu starten
+
+---
+
+## Bestandsverwaltung (`routers/buecher.py`)
+
+- `bestand_frei` wird immer aus der Summe aller Bucket-`bestand_verfuegbar` berechnet (nicht `bestand_gesamt - bestand_ausgegeben`)
+- `bestand_gesamt` = `bestand_ausgegeben` + Summe aller Bucket-Bestände
+- Buckets altern pro Schuljahr: `effective_nutzungsjahr(stored_nj, schuljahr_eingestellt)` in `services/zustand.py`
+- NJ=0 (Neu) altert nie; NJ≥6 → nur Schutzgebühr
 
 ---
 
@@ -90,7 +107,6 @@ Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
 - **NJ=1–5**: `basispreis * (100 - abschlag) / 100`, Abschläge konfigurierbar in Einstellungen
 - **NJ≥6**: nur `schutzgebuehr_cents`
 - **Rückgabe-Aufschlag** (`rueckgabe_aufschlag_prozent`): wird nur bei NJ>0 UND wenn Preis < Basispreis aufgeschlagen (in `routers/verkauf.py`)
-- **Effektives NJ** (`effective_nutzungsjahr`): NJ altert automatisch um 1 pro Schuljahr; NJ=0 altert nie
 
 ---
 
@@ -98,17 +114,28 @@ Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
 
 - Standard-Klassen: `5, 6, 7, 8, 9, 10, 11, 12` — definiert in `frontend/api.js: CONSTANTS.KLASSEN`
 - Abgangsstufe: Klasse 12 — nach Klassenversetzung aus 12 werden Schüler archiviert (`routers/klassenversetzung.py: abgangs_stufe = 12`)
-- Oberstufe (11, 12): im Verkauf-Flow keine Buchauswahl — nur Lernmaterial und Freiposten (`verkauf.jsx`)
+- Oberstufe (11, 12): im Verkauf-Flow standardmäßig keine Buchauswahl — optional per Checkbox aktivierbar (`verkauf.jsx`)
 - Unbekannte Klassenformate (EF, Q1, Q2): werden unverändert durchgereicht
+
+---
+
+## Archivierung mit Büchern (`behalten`-Flag)
+
+- Schüler aus Klasse 12 (oder manuell archivierte) können Bücher behalten
+- Bücher werden als `behalten=1` in `rechnungs_posten` markiert
+- `bestand_gesamt` und `bestand_ausgegeben` werden beim Behalten dekrementiert
+- `count_aktive_buecher` und `get_aktive_buecher` in `saldo.py` schließen behalten-Bücher aus
+- `count_behalten_buecher` gibt die Anzahl behaltener Bücher zurück
 
 ---
 
 ## PDF-Generierung
 
-- Template: `backend/app/templates/rechnung.html` (Jinja2)
+- Templates: `backend/app/templates/` (Jinja2)
 - Renderer: WeasyPrint (`services/pdf.py`)
-- Seitenaufbau: Seite 1 = Ausgabe + Summen + Unterschrift; Seite 2 (falls Rückgaben) = Zurückgegebene Bücher
-- Rechnungsnummer erscheint **nicht** im PDF
+- Rechnung: Seite 1 = Ausgabe + Summen + Unterschrift; Seite 2 (falls Rückgaben) = Zurückgegebene Bücher; keine Rechnungsnummer im PDF
+- Gutschrift: keine Gutschrift-ID im PDF
+- 0-EUR-Rückgabeposten (beschädigte Bücher) erscheinen nicht auf Seite 2 der Rechnung
 
 ---
 
@@ -138,4 +165,4 @@ uv sync
 uv run --env-file .env uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Env-Variablen: `SECRET_KEY` (Pflicht, ≥32 Zeichen), `CORS_ORIGINS` (Pflicht), `DATABASE_URL`, `ADMIN_INITIAL_PASSWORD` (≥10 Zeichen, wird bei jedem Start gesetzt), `EXTRA_USERS_PASSWORD`.
+Env-Variablen: `SECRET_KEY` (Pflicht, ≥32 Zeichen), `CORS_ORIGINS` (Pflicht), `DATABASE_URL`, `ADMIN_INITIAL_PASSWORD` (≥10 Zeichen, nur beim ersten Start gesetzt), `EXTRA_USERS_PASSWORD`.

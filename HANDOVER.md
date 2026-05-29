@@ -36,7 +36,18 @@ docker compose down
 docker compose up -d --build
 ```
 
-`.env` liegt auf dem Server unter `/opt/libera/.env` — wird nicht per rsync überschrieben (kein `backend/data` im rsync).
+## DB auf Server übertragen (lokal → Server, überschreibt Server-DB!)
+```bash
+# Server zuerst stoppen
+ssh root@46.225.119.204 "cd /opt/libera && docker compose down"
+# Alle drei DB-Dateien übertragen (WAL-Modus: immer alle drei zusammen!)
+rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@46.225.119.204:/opt/libera/data/
+# Code deployen + neu starten
+rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='sonstiges/logs' --exclude='backend/data' /mnt/c/Users/keanu/dev/Bibliomat/ root@46.225.119.204:/opt/libera/
+ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
+```
+
+`.env` liegt auf dem Server unter `/opt/libera/.env` — wird nicht per rsync überschrieben.
 
 ---
 
@@ -58,6 +69,7 @@ docker compose up -d --build
 - **SQLite WAL-Modus**: Beim Kopieren der DB immer alle drei Dateien (`schulbuch.db`, `schulbuch.db-wal`, `schulbuch.db-shm`) zusammen übertragen, sonst fehlen neuere Einträge.
 - **Namen**: Überall „Nachname, Vorname" — Avatar-Komponenten sind bewusst Ausnahme (brauchen „Vorname Nachname" für Initialen).
 - **Sensitive Settings**: `mail_smtp_password`, `admin_password_hash` etc. werden von der Einstellungs-API nicht zurückgegeben — nur `mail_smtp_password_set: true/false`.
+- **Admin-Passwort**: `ADMIN_INITIAL_PASSWORD` aus `.env` wird nur beim ersten Start gesetzt (INSERT OR IGNORE). Im Admin-Panel geänderte Passwörter bleiben nach Neustart erhalten. Zurücksetzen: Eintrag `admin_password_hash` aus `einstellungen`-Tabelle löschen + neu starten.
 
 ---
 
@@ -66,15 +78,15 @@ docker compose up -d --build
 SECRET_KEY=...                    # mind. 32 Zeichen, nicht ändern nach erstem Start
 CORS_ORIGINS=...                  # kommagetrennte Origins
 DATABASE_URL=sqlite:///data/schulbuch.db
-ADMIN_INITIAL_PASSWORD=...        # mind. 10 Zeichen, wird bei jedem Start gesetzt
+ADMIN_INITIAL_PASSWORD=...        # mind. 10 Zeichen, nur beim ersten Start gesetzt
 EXTRA_USERS_PASSWORD=...          # für lehrer, schulleiter, sekretariat
 ```
 
 ---
 
-## Nutzer
-- `admin` — Passwort aus `ADMIN_INITIAL_PASSWORD`
-- `lehrer`, `schulleiter`, `sekretariat` — Passwort aus `EXTRA_USERS_PASSWORD`
+## Nutzer & Passwörter
+- `admin` — Passwort-Hash in `einstellungen.admin_password_hash`; initialer Wert aus `ADMIN_INITIAL_PASSWORD`
+- Alle anderen Nutzer — Passwort-Hash in `benutzer`-Tabelle; verwaltbar im Admin-Panel (Profil → Konten)
 
 ---
 
@@ -95,50 +107,47 @@ Navigation: Klick auf Nav-Reiter mountet Komponente immer neu (Reset auf Hauptan
 ## Aktuelle Versionsnummern (`frontend/index.html`)
 | Datei | Version |
 |---|---|
-| `api.js` | v17 |
+| `api.js` | v18 |
 | `ui.jsx` | v9 |
 | `layout.jsx` | v15 |
 | `home.jsx` | v18 |
-| `verkauf.jsx` | v34 |
-| `schueler-detail.jsx` | v29 |
-| `screens.jsx` | v28 |
+| `verkauf.jsx` | v35 |
+| `schueler-detail.jsx` | v33 |
+| `screens.jsx` | v29 |
+| `profil.jsx` | v5 |
+| `lernmaterial.jsx` | v5 |
 | `inventory-overrides.jsx` | v17 |
-| `app.jsx` | v16 |
+| `login.jsx` | v11 |
+| `app.jsx` | v17 |
+| `tweaks-panel.jsx` | v2 |
+| `print.js` | v9 |
 
 ---
 
 ## Offene Punkte
+- **Gutschrift-Auszahlung semantischer Bug**: `POST /api/gutschriften/{id}/auszahlen` setzt nur `ausgezahlt=True`, legt aber keinen `auszahlungen`-Datensatz an → Saldo wird nicht reduziert. Prüfen ob aktiv genutzt.
 - **Durchlaufender Posten** — Bedeutung noch unklar (technisch als `RechnungVerrechnung` vorhanden)
 - **Signatur erstellen** — unklar ob Bild-Upload oder Textblock gemeint
 - **Windows Server Kunden** — Bibliomat läuft in Linux-Docker-Container, funktioniert auf Windows Server mit Docker + Hyper-V/WSL2
 
 ---
 
-## Zuletzt geänderte Dateien (Stand 28.05.2026)
+## Zuletzt geänderte Dateien (Stand 29.05.2026)
 | Datei | Was |
 |---|---|
-| `frontend/app.jsx` | `navKey` — Nav-Reiter resettet auf Hauptansicht |
-| `frontend/screens.jsx` | KlassenlisteTab, Archiv-Suche, Sortierung, Namen, Badge-Fix |
-| `frontend/verkauf.jsx` | Oberstufe-Banner, Namen |
-| `frontend/schueler-detail.jsx` | Namen |
-| `frontend/inventory-overrides.jsx` | Namen |
-| `frontend/ui.jsx` | Badge: style-Prop, fit-content |
-| `frontend/profil.jsx` | SMTP-Passwort: Placeholder wenn gesetzt |
-| `frontend/home.jsx` | Glocke gelb+pulsierend, Schuljahres-Erinnerung |
-| `frontend/api.js` | `alleRechnungen`, Klassen 11+12 |
+| `backend/app/routers/admin.py` | NEU: Benutzerverwaltung (anlegen/löschen/Passwort), Backup-Download, Restore-Upload |
+| `backend/app/db.py` | Migration behalten-Spalte; Admin-Passwort nur beim ersten Start (INSERT OR IGNORE) |
+| `backend/app/models.py` | behalten-Feld in RechnungsPosten |
+| `backend/app/schemas.py` | ArchivierungRequest.buecher_behalten, KontoSummary.anzahl_behalten_buecher |
+| `backend/app/routers/schueler.py` | Archivierung mit Büchern: behalten=1 + bestand dekrementieren |
+| `backend/app/routers/klassenversetzung.py` | behalten-Logik für Kl.-12-Abgänger; abgangs_stufe=12 Kommentar bereinigt |
+| `backend/app/routers/buecher.py` | bestand_frei aus Bucket-Summe statt gesamt-ausgegeben |
+| `backend/app/services/saldo.py` | count_aktive_buecher/get_aktive_buecher schließen behalten aus; count_behalten_buecher neu |
+| `backend/app/services/pdf.py` | 0-EUR-Rückgabeposten nicht auf Seite 2; Gutschrift-Template ohne ID |
+| `backend/app/templates/gutschrift.html` | Gutschrift-ID aus Header entfernt |
+| `frontend/app.jsx` | document.title je Route |
+| `frontend/verkauf.jsx` | Oberstufe: optionale Buchausgabe per Checkbox |
+| `frontend/profil.jsx` | Tabs Konten (Admin: Benutzerverwaltung) + System (Backup/Restore) |
+| `frontend/schueler-detail.jsx` | Archivierungs-Dialog: behalten-Hinweis; „X behalten" in Kontostand-Karte |
+| `frontend/api.js` | admin.*-Methoden; archivieren mit buecherBehalten-Parameter |
 | `frontend/index.html` | Versionsnummern aktuell (s.o.) |
-| `backend/app/routers/buchhaltung.py` | Namen, schuljahr optional |
-| `backend/app/routers/dashboard.py` | Namen |
-| `backend/app/routers/mahnungen.py` | Namen |
-| `backend/app/routers/benachrichtigungen.py` | Namen, Schuljahres-Erinnerung |
-| `backend/app/routers/verkauf.py` | Namen, NJ=0 Fix |
-| `backend/app/routers/einstellungen.py` | Sensitive Keys werden nicht zurückgegeben |
-| `backend/app/routers/klassenversetzung.py` | abgangs_stufe=12 |
-| `backend/app/services/mail.py` | Namen |
-| `backend/app/templates/rechnung.html` | Namen, Rückgaben Seite 2, keine Rechnungsnummer |
-| `backend/app/templates/mahnung.html` | Namen |
-| `backend/app/templates/auszahlung.html` | Namen |
-| `backend/app/templates/gutschrift.html` | Namen |
-| `docker-compose.yml` | im Root, `BIBLIOMAT_DATA_DIR` Variable |
-| `Caddyfile` | im Root, bibliomat statt libera |
-| `.gitignore` | neu — schließt `__pycache__`, `.venv`, `*.db`, `.env` aus |
