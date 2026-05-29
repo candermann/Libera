@@ -424,7 +424,7 @@ function Profil({ accent }) {
                         <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '10px 0', color: '#0f172a' }}>{b.benutzername}</td>
                           <td style={{ padding: '10px 0', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-                            <button
+<button
                               onClick={() => {
                                 setPasswordChanging(prev => ({ ...prev, [b.benutzername]: !prev[b.benutzername] }));
                                 setPwInputs(prev => ({ ...prev, [b.benutzername]: '' }));
