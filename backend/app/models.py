@@ -159,6 +159,7 @@ class RechnungsPosten(Base):
     nutzungsjahr_beim_kauf = Column(Integer, nullable=False, server_default=sa_text("1"))
     zurueckgegeben = Column(Integer, nullable=False, server_default=sa_text("0"))
     zurueckgegeben_am = Column(Text, nullable=True)
+    behalten = Column(Integer, nullable=False, server_default=sa_text("0"))
 
     rechnung = relationship("Rechnungen", back_populates="posten")
     buch = relationship("Buecher")

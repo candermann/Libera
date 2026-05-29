@@ -309,7 +309,7 @@ def _load_rechnung_data(db: Session, rechnung_id: str) -> dict:
             "quelle_label": "Rückgabe" if p.quelle_typ == "rueckgabe" else "Guthaben",
             "betrag_cents": p.betrag_cents,
         })
-        if p.quelle_typ == "rueckgabe" and p.titel:
+        if p.quelle_typ == "rueckgabe" and p.titel and p.betrag_cents > 0:
             rueckgaben_posten.append({
                 "nr": rueck_nr,
                 "menge": 1,

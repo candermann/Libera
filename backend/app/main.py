@@ -29,6 +29,7 @@ from app.routers import (
     auth,
     klassenversetzung,
     benachrichtigungen,
+    admin,
 )
 from app.security import ensure_security_config, get_current_user
 
@@ -87,6 +88,7 @@ app.include_router(einstellungen.router, dependencies=protected)
 app.include_router(buchhaltung.router, dependencies=protected)
 app.include_router(klassenversetzung.router, dependencies=protected)
 app.include_router(benachrichtigungen.router, dependencies=protected)
+app.include_router(admin.router, dependencies=protected)
 
 
 # ── Health ───────────────────────────────────────────────────────────────

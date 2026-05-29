@@ -29,7 +29,7 @@ def _naechste_klasse(klasse: str) -> tuple[str, bool]:
     """
     Berechnet die Folge-Klasse und ob es sich um eine Abgangsklasse handelt.
 
-    Beispiele: "6" → ("7", False), "6a" → ("7a", False), "10b" → ("11b", True)
+    Beispiele: "6" → ("7", False), "6a" → ("7a", False), "12b" → ("13b", True)
 
     Gibt (neue_klasse, ist_abgang) zurück. ist_abgang=True bedeutet, die Schüler
     verlassen die Schule (höchste Klasse überschritten).
@@ -43,8 +43,6 @@ def _naechste_klasse(klasse: str) -> tuple[str, bool]:
     suffix = match.group(2)
     naechste = nummer + 1
 
-    # Klassen, nach denen Schüler die Schule verlassen (konfigurierbar über Einstellungen,
-    # Fallback: 10)
     abgangs_stufe = 12
 
     if nummer >= abgangs_stufe:
@@ -72,6 +70,7 @@ def _aktive_buecher_count(db: Session, schueler_id: str) -> int:
         WHERE re.schueler_id = :sid
           AND re.status != 'storniert'
           AND rp.zurueckgegeben = 0
+          AND rp.behalten = 0
     """), {"sid": schueler_id}).scalar() or 0
 
 
@@ -136,8 +135,8 @@ def ausfuehren(data: VersetzungRequest, db: Session = Depends(get_db)):
     """
     Führt die Klassenversetzung für die übermittelten Schüler durch.
 
-    - Schüler mit einer Abgangsklasse (Zielklasse höher als Abgangsstufe) werden archiviert,
-      sofern sie keine offenen Bücher mehr haben.
+    - Schüler mit einer Abgangsklasse (Zielklasse höher als Abgangsstufe) werden archiviert.
+      Haben sie noch aktive Bücher, werden diese als "behalten" markiert.
     - Alle anderen bekommen die neue Klasse ins klasse-Feld geschrieben.
     """
     from datetime import datetime
@@ -154,7 +153,6 @@ def ausfuehren(data: VersetzungRequest, db: Session = Depends(get_db)):
 
     versetzt = 0
     archiviert = 0
-    blockiert = []
 
     for item in data.versetzungen:
         s = db.query(Schueler).filter(
@@ -170,8 +168,28 @@ def ausfuehren(data: VersetzungRequest, db: Session = Depends(get_db)):
         if item.klasse_nach == "__archiv__" or (wird_abgaenger and item.klasse_nach == _naechste_klasse(s.klasse)[0]):
             aktive = _aktive_buecher_count(db, s.id)
             if aktive > 0:
-                blockiert.append(s.id)
-                continue
+                buch_ids = db.execute(text("""
+                    SELECT rp.buch_id FROM rechnungs_posten rp
+                    JOIN rechnungen re ON re.id = rp.rechnung_id
+                    WHERE re.schueler_id = :sid AND re.status != 'storniert'
+                      AND rp.zurueckgegeben = 0 AND rp.behalten = 0
+                """), {"sid": s.id}).fetchall()
+                for row in buch_ids:
+                    db.execute(text("""
+                        UPDATE buecher
+                        SET bestand_gesamt = MAX(0, bestand_gesamt - 1),
+                            bestand_ausgegeben = MAX(0, bestand_ausgegeben - 1)
+                        WHERE id = :bid
+                    """), {"bid": row.buch_id})
+                db.execute(text("""
+                    UPDATE rechnungs_posten SET behalten = 1
+                    WHERE id IN (
+                        SELECT rp.id FROM rechnungs_posten rp
+                        JOIN rechnungen re ON re.id = rp.rechnung_id
+                        WHERE re.schueler_id = :sid AND re.status != 'storniert'
+                          AND rp.zurueckgegeben = 0 AND rp.behalten = 0
+                    )
+                """), {"sid": s.id})
             s.archiviert_am = now
             s.archiviert_schuljahr = _get_setting(db, "schuljahr_aktuell")
             archiviert += 1
@@ -179,13 +197,6 @@ def ausfuehren(data: VersetzungRequest, db: Session = Depends(get_db)):
             s.klasse = item.klasse_nach
             s.klasse_seit = today
             versetzt += 1
-
-    if blockiert:
-        db.rollback()
-        raise HTTPException(
-            status_code=422,
-            detail=f"Schüler {', '.join(blockiert)} haben noch nicht zurückgegebene Bücher und können nicht versetzt/archiviert werden.",
-        )
 
     _set_setting(db, "letzte_klassenversetzung_am", today)
     db.commit()

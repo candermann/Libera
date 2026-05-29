@@ -120,6 +120,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const [freiTyp, setFreiTyp] = React.useState('Pauschal');
   const [freiAlsVorlage, setFreiAlsVorlage] = React.useState(false);
   const [vorlagen, setVorlagen] = React.useState([]);
+  const [oberstufeShowBooks, setOberstufeShowBooks] = React.useState(false);
 
   React.useEffect(() => {
     if (step === 1) {
@@ -357,9 +358,94 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
             </div>
 
             {['11', '12'].includes(String(selectedStudent?.klasse || '').replace(/[a-zA-Z]/g, '')) ? (
-              <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 9, fontSize: 12.5, color: '#92400e' }}>
-                Oberstufe (Klasse {selectedStudent.klasse}) — keine Bücher. Bitte Pauschalen und Material über die Sektionen unten erfassen.
-              </div>
+              <>
+                <div style={{ marginBottom: 12, padding: '10px 14px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 9, fontSize: 12.5, color: '#92400e' }}>
+                  <div>Oberstufe (Klasse {selectedStudent.klasse}) — normalerweise werden nur Materialien und Pauschalen ausgegeben.</div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 8, cursor: 'pointer', userSelect: 'none', fontWeight: 500 }}>
+                    <input type="checkbox" checked={oberstufeShowBooks} onChange={e => setOberstufeShowBooks(e.target.checked)} style={{ accentColor: '#92400e', cursor: 'pointer' }} />
+                    Bücher optional ausgeben
+                  </label>
+                </div>
+                {oberstufeShowBooks && (
+                  <>
+                    <SearchInput value={bookQuery} onChange={(value) => { setBookQuery(value); setErrorMsg(null); }} placeholder="Buch suchen - Titel, Fach oder ISBN..." autoFocus />
+
+                    {errorMsg && (
+                      <div style={{ marginTop: 12, padding: '10px 12px', background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca', borderRadius: 8, fontSize: 12.5 }}>
+                        {errorMsg}
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: 12, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
+                      {books.length === 0 ? (
+                        <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                          {bookQuery ? 'Keine passenden Bücher gefunden.' : 'Alle Bücher ausgegeben oder kein Bestand vorhanden.'}
+                        </div>
+                      ) : books.map((book, index) => {
+                        const inCart = !!cart.find(item => item.buch_id === book.id);
+                        const isExpanded = expandedBookId === book.id;
+                        const hue = (book.fach.charCodeAt(0) * 7) % 360;
+                        const availableBuckets = (book.zustaende || []).filter(b => b.bestand_verfuegbar > 0);
+                        const totalAvailable = availableBuckets.reduce((s, b) => s + b.bestand_verfuegbar, 0);
+                        return (
+                          <React.Fragment key={book.id}>
+                            <div
+                              style={{
+                                display: 'flex', alignItems: 'center', gap: 12,
+                                padding: '11px 14px',
+                                borderTop: index === 0 ? 'none' : '1px solid #f8fafc',
+                                cursor: 'pointer',
+                                background: isExpanded ? '#f8faff' : inCart ? '#f0fdf4' : 'transparent',
+                              }}
+                              onClick={() => setExpandedBookId(isExpanded ? null : book.id)}
+                            >
+                              <div style={{ width: 36, height: 44, borderRadius: 4, background: `oklch(0.94 0.04 ${hue})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `oklch(0.40 0.10 ${hue})`, fontSize: 9, fontWeight: 600, flexShrink: 0, border: '1px solid rgba(0,0,0,.06)' }}>{book.fach.slice(0, 3).toUpperCase()}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{book.titel}</div>
+                                <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  {inCart ? <span style={{ color: '#16a34a', fontWeight: 500 }}>Im Warenkorb</span> : <span>{totalAvailable} verfügbar</span>}
+                                  <span>·</span>
+                                  <span>{book.verlag || '—'}</span>
+                                </div>
+                              </div>
+                              <span style={{ color: '#94a3b8', display: 'flex', transition: 'transform 0.15s', transform: isExpanded ? 'rotate(90deg)' : 'none', flexShrink: 0 }}>
+                                <Icon name="chevron-right" size={16} />
+                              </span>
+                            </div>
+                            {isExpanded && (
+                              <div style={{ borderTop: '1px solid #e8ecef', background: '#f8fafc', padding: '10px 14px 10px 62px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                                  {availableBuckets.map(bucket => {
+                                    const aufschlagProzent = Number(settings.rueckgabe_aufschlag_prozent || 0);
+                                    const nj = bucket.nutzungsjahr != null ? bucket.nutzungsjahr : 0;
+                                    const jahrLabel = njLabel(nj);
+                                    const jahrC = njColor(nj);
+                                    const displayPreisCents = nj > 0 ? Math.round(bucket.preis_cents * (1 + aufschlagProzent / 100)) : bucket.preis_cents;
+                                    const option = { id: `${book.id}-${bucket.bestand_id}`, buch_id: book.id, bestand_id: bucket.bestand_id, titel: book.titel, fach: book.fach, verlag: book.verlag, isbn: book.isbn, nutzungsjahr: nj, preis_cents: displayPreisCents, bestand_frei: bucket.bestand_verfuegbar, jahrLabel };
+                                    const bucketInCart = !!cart.find(item => item.id === option.id);
+                                    return (
+                                      <div key={bucket.bestand_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                          <span style={{ fontSize: 12, fontWeight: 600, color: jahrC.color, background: jahrC.bg, padding: '2px 8px', borderRadius: 999, minWidth: 0 }}>{jahrLabel}</span>
+                                          <span style={{ fontSize: 12.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{(displayPreisCents / 100).toFixed(2).replace('.', ',')} €</span>
+                                          <span style={{ fontSize: 11.5, color: '#94a3b8' }}>{bucket.bestand_verfuegbar} verfügbar</span>
+                                        </div>
+                                        <Btn kind={bucketInCart || inCart ? 'ghost' : 'secondary'} icon={bucketInCart ? 'check' : 'plus'} onClick={e => { e.stopPropagation(); addBook(option); }} accent={accent} disabled={bucketInCart || inCart}>
+                                          {bucketInCart ? 'Im Warenkorb' : (inCart ? 'Belegt' : 'Hinzufügen')}
+                                        </Btn>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </>
             ) : (
               <>
             <SearchInput value={bookQuery} onChange={(value) => { setBookQuery(value); setErrorMsg(null); }} placeholder="Buch suchen - Titel, Fach oder ISBN..." autoFocus />

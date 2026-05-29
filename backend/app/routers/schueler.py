@@ -48,6 +48,7 @@ from app.services.saldo import (
     get_vorgaenge,
     get_aktive_buecher,
     count_aktive_buecher,
+    count_behalten_buecher,
     count_vorgaenge,
     get_letzter_vorgang_datum,
 )
@@ -304,7 +305,7 @@ def get_archiv_kandidaten(monate: int = Query(default=12, ge=1, le=120), db: Ses
         aktive = db.execute(text("""
             SELECT COUNT(*) FROM rechnungs_posten rp
             JOIN rechnungen re ON re.id = rp.rechnung_id
-            WHERE re.schueler_id = :sid AND re.status != 'storniert' AND rp.zurueckgegeben = 0
+            WHERE re.schueler_id = :sid AND re.status != 'storniert' AND rp.zurueckgegeben = 0 AND rp.behalten = 0
         """), {"sid": r.id}).scalar() or 0
         items.append(ArchivKandidatItem(
             id=r.id, vorname=r.vorname, nachname=r.nachname, klasse=r.klasse,
@@ -324,10 +325,34 @@ def archivieren(data: ArchivierungRequest, db: Session = Depends(get_db)):
         aktive = db.execute(text("""
             SELECT COUNT(*) FROM rechnungs_posten rp
             JOIN rechnungen re ON re.id = rp.rechnung_id
-            WHERE re.schueler_id = :sid AND re.status != 'storniert' AND rp.zurueckgegeben = 0
+            WHERE re.schueler_id = :sid AND re.status != 'storniert' AND rp.zurueckgegeben = 0 AND rp.behalten = 0
         """), {"sid": sid}).scalar() or 0
         if aktive > 0:
-            blocked.append(sid)
+            if data.buecher_behalten:
+                buch_ids = db.execute(text("""
+                    SELECT rp.buch_id FROM rechnungs_posten rp
+                    JOIN rechnungen re ON re.id = rp.rechnung_id
+                    WHERE re.schueler_id = :sid AND re.status != 'storniert'
+                      AND rp.zurueckgegeben = 0 AND rp.behalten = 0
+                """), {"sid": sid}).fetchall()
+                for row in buch_ids:
+                    db.execute(text("""
+                        UPDATE buecher
+                        SET bestand_gesamt = MAX(0, bestand_gesamt - 1),
+                            bestand_ausgegeben = MAX(0, bestand_ausgegeben - 1)
+                        WHERE id = :bid
+                    """), {"bid": row.buch_id})
+                db.execute(text("""
+                    UPDATE rechnungs_posten SET behalten = 1
+                    WHERE id IN (
+                        SELECT rp.id FROM rechnungs_posten rp
+                        JOIN rechnungen re ON re.id = rp.rechnung_id
+                        WHERE re.schueler_id = :sid AND re.status != 'storniert'
+                          AND rp.zurueckgegeben = 0 AND rp.behalten = 0
+                    )
+                """), {"sid": sid})
+            else:
+                blocked.append(sid)
     if blocked:
         raise HTTPException(status_code=422, detail=f"Schüler {', '.join(blocked)} haben noch nicht zurückgegebene Bücher.")
 
@@ -566,6 +591,7 @@ def get_schueler(schueler_id: str, db: Session = Depends(get_db)):
 
     saldo = get_saldo(db, schueler_id)
     aktive = count_aktive_buecher(db, schueler_id)
+    behalten = count_behalten_buecher(db, schueler_id)
     anz_vorgaenge = count_vorgaenge(db, schueler_id)
 
     return SchuelerDetailResponse(
@@ -581,6 +607,7 @@ def get_schueler(schueler_id: str, db: Session = Depends(get_db)):
         konto=KontoSummary(
             saldo_cents=saldo,
             anzahl_aktive_buecher=aktive,
+            anzahl_behalten_buecher=behalten,
             anzahl_vorgaenge=anz_vorgaenge,
         ),
     )
@@ -646,7 +673,7 @@ def create_schueler(data: SchuelerCreate, db: Session = Depends(get_db)):
         email_eltern=schueler.email_eltern,
         erstes_schuljahr=schueler.erstes_schuljahr,
         konto=KontoSummary(
-            saldo_cents=0, anzahl_aktive_buecher=0, anzahl_vorgaenge=0
+            saldo_cents=0, anzahl_aktive_buecher=0, anzahl_behalten_buecher=0, anzahl_vorgaenge=0
         ),
     )
 
@@ -672,6 +699,7 @@ def update_schueler(
 
     saldo = get_saldo(db, schueler_id)
     aktive = count_aktive_buecher(db, schueler_id)
+    behalten = count_behalten_buecher(db, schueler_id)
     anz_vorgaenge = count_vorgaenge(db, schueler_id)
 
     return SchuelerDetailResponse(
@@ -687,6 +715,7 @@ def update_schueler(
         konto=KontoSummary(
             saldo_cents=saldo,
             anzahl_aktive_buecher=aktive,
+            anzahl_behalten_buecher=behalten,
             anzahl_vorgaenge=anz_vorgaenge,
         ),
     )

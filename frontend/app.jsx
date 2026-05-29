@@ -48,6 +48,23 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  React.useEffect(() => {
+    const labels = {
+      home: 'Übersicht',
+      verkauf: 'Ausgabe',
+      rueckgabe: 'Rückgabe',
+      kombiniert: 'Kombiniert',
+      schueler: 'Schüler',
+      buecher: 'Bücher',
+      lernmaterial: 'Lernmaterial',
+      buchhaltung: 'Buchhaltung',
+      klassenversetzung: 'Klassenversetzung',
+      archiv: 'Archiv',
+      profil: 'Einstellungen',
+    };
+    document.title = `Bibliomat – ${labels[current] || current}`;
+  }, [current]);
+
   if (!isAuthenticated) {
     return <window.Login onLogin={() => setIsAuthenticated(true)} accent={t.accent} />;
   }

@@ -75,6 +75,7 @@ def get_aktive_buecher(db: Session, schueler_id: str) -> list[dict]:
             WHERE r.schueler_id = :sid
               AND r.status != 'storniert'
               AND rp.zurueckgegeben = 0
+              AND COALESCE(rp.behalten, 0) = 0
             ORDER BY r.datum DESC, b.titel
             """
         ),
@@ -122,6 +123,24 @@ def count_aktive_buecher(db: Session, schueler_id: str) -> int:
             WHERE r.schueler_id = :sid
               AND r.status != 'storniert'
               AND rp.zurueckgegeben = 0
+              AND COALESCE(rp.behalten, 0) = 0
+            """
+        ),
+        {"sid": schueler_id},
+    ).first()
+    return row.cnt if row else 0
+
+
+def count_behalten_buecher(db: Session, schueler_id: str) -> int:
+    row = db.execute(
+        text(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM rechnungs_posten rp
+            JOIN rechnungen r ON r.id = rp.rechnung_id
+            WHERE r.schueler_id = :sid
+              AND r.status != 'storniert'
+              AND COALESCE(rp.behalten, 0) = 1
             """
         ),
         {"sid": schueler_id},

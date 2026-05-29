@@ -109,7 +109,7 @@ const api = {
         update: (id, data) => req(`/schueler/${id}`, { method: 'PATCH', body: data }),
         remove: (id) => req(`/schueler/${id}`, { method: 'DELETE' }),
         archivKandidaten: (monate) => req(`/schueler/archiv-kandidaten${qs({ monate })}`),
-        archivieren: (ids) => req('/schueler/archivieren', { method: 'POST', body: { schueler_ids: ids } }),
+        archivieren: (ids, buecherBehalten = false) => req('/schueler/archivieren', { method: 'POST', body: { schueler_ids: ids, buecher_behalten: buecherBehalten } }),
         archiv: () => req('/schueler/archiv'),
         reaktivieren: (id) => req(`/schueler/${id}/reaktivieren`, { method: 'POST' }),
         importCsvPreview: (file) => {
@@ -191,6 +191,23 @@ const api = {
         update: (data) => req('/einstellungen', { method: 'PATCH', body: data }),
     },
     health: () => req('/health'),
+    admin: {
+        benutzer: {
+            list: () => req('/admin/benutzer'),
+            create: (data) => req('/admin/benutzer', { method: 'POST', body: data }),
+            remove: (name) => req(`/admin/benutzer/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+            changePasswort: (name, passwort) => req(`/admin/benutzer/${encodeURIComponent(name)}/passwort`, { method: 'PATCH', body: { passwort } }),
+        },
+        changeAdminPasswort: (passwort) => req('/admin/passwort', { method: 'PATCH', body: { passwort } }),
+        backup: {
+            url: () => `${API_BASE}/admin/backup`,
+            restore: (file) => {
+                const fd = new FormData();
+                fd.append('file', file);
+                return req('/admin/restore', { method: 'POST', body: fd });
+            },
+        },
+    },
 };
 window.api = api;
 window.CONSTANTS = {

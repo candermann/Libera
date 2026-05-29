@@ -1,9 +1,27 @@
 function Profil({ accent }) {
+  const currentUser = React.useMemo(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    try {
+      return JSON.parse(atob(token.split('.')[1])).sub;
+    } catch { return null; }
+  }, []);
+  const isAdmin = currentUser === 'admin';
+
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [savedAt, setSavedAt] = React.useState(null);
   const [error, setError] = React.useState(null);
   const [activeTab, setActiveTab] = React.useState('schule');
+
+  const [benutzerList, setBenutzerList] = React.useState([]);
+  const [benutzerLoading, setBenutzerLoading] = React.useState(false);
+  const [neuerBenutzername, setNeuerBenutzername] = React.useState('');
+  const [neuesPasswort, setNeuesPasswort] = React.useState('');
+  const [benutzerError, setBenutzerError] = React.useState(null);
+  const [passwordChanging, setPasswordChanging] = React.useState({});
+  const [pwInputs, setPwInputs] = React.useState({});
+  const [adminPasswort, setAdminPasswort] = React.useState('');
   const [form, setForm] = React.useState({
     schule_name: '',
     schule_strasse: '',
@@ -55,6 +73,15 @@ function Profil({ accent }) {
 
     return () => { alive = false; };
   }, []);
+
+  React.useEffect(() => {
+    if (activeTab !== 'konten' || !isAdmin) return;
+    setBenutzerLoading(true);
+    window.api.admin.benutzer.list()
+      .then(setBenutzerList)
+      .catch(e => setBenutzerError(e.message))
+      .finally(() => setBenutzerLoading(false));
+  }, [activeTab, isAdmin]);
 
   const setField = (key, value) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -113,6 +140,7 @@ function Profil({ accent }) {
     { id: 'schule', label: 'Schule' },
     { id: 'bank',   label: 'Bankdaten' },
     { id: 'email',  label: 'E-Mail-Konfiguration' },
+    ...(isAdmin ? [{ id: 'konten', label: 'Konten' }, { id: 'system', label: 'System' }] : []),
     { id: 'info',   label: 'Info' },
   ];
 
@@ -361,6 +389,271 @@ function Profil({ accent }) {
               <span style={{ fontSize: 12, color: '#475569', fontWeight: 500, minWidth: 140 }}>Support E-Mail</span>
               <a href="mailto:kiscouts@bpmediawork.de" style={{ fontSize: 13.5, color: '#2563eb', textDecoration: 'none' }}>kiscouts@bpmediawork.de</a>
             </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab: Konten */}
+      {activeTab === 'konten' && isAdmin && (
+        <div style={{ display: 'grid', gap: 14 }}>
+          {benutzerError && (
+            <div style={{
+              padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca',
+              color: '#b91c1c', borderRadius: 8, fontSize: 12.5,
+            }}>
+              {benutzerError}
+            </div>
+          )}
+
+          {/* Benutzer verwalten */}
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 14 }}>Benutzer verwalten</div>
+            {benutzerLoading ? (
+              <div style={{ color: '#64748b', fontSize: 13 }}>Lade Benutzer...</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ textAlign: 'left', padding: '6px 0', color: '#475569', fontWeight: 500, fontSize: 12 }}>Benutzername</th>
+                    <th style={{ textAlign: 'right', padding: '6px 0', color: '#475569', fontWeight: 500, fontSize: 12 }}>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {benutzerList.map((b) => (
+                      <React.Fragment key={b.benutzername}>
+                        <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px 0', color: '#0f172a' }}>{b.benutzername}</td>
+                          <td style={{ padding: '10px 0', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button
+                              onClick={() => {
+                                setPasswordChanging(prev => ({ ...prev, [b.benutzername]: !prev[b.benutzername] }));
+                                setPwInputs(prev => ({ ...prev, [b.benutzername]: '' }));
+                              }}
+                              style={{
+                                padding: '5px 10px', fontSize: 12, border: '1px solid #e2e8f0',
+                                borderRadius: 6, background: '#f8fafc', cursor: 'pointer', color: '#475569',
+                              }}
+                            >
+                              Passwort ändern
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (!window.confirm(`Benutzer "${b.benutzername}" wirklich löschen?`)) return;
+                                window.api.admin.benutzer.remove(b.benutzername)
+                                  .then(() => setBenutzerList(prev => prev.filter(x => x.benutzername !== b.benutzername)))
+                                  .catch(e => setBenutzerError(e.message));
+                              }}
+                              style={{
+                                padding: '5px 10px', fontSize: 12, border: '1px solid #fecaca',
+                                borderRadius: 6, background: '#fef2f2', cursor: 'pointer', color: '#b91c1c',
+                              }}
+                            >
+                              Löschen
+                            </button>
+                          </td>
+                        </tr>
+                        {passwordChanging[b.benutzername] && (
+                          <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td colSpan={2} style={{ padding: '8px 0 12px 0' }}>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <input
+                                  type="password"
+                                  placeholder="Neues Passwort"
+                                  value={pwInputs[b.benutzername] || ''}
+                                  onChange={e => setPwInputs(prev => ({ ...prev, [b.benutzername]: e.target.value }))}
+                                  style={{ ...fieldStyle, maxWidth: 260 }}
+                                />
+                                <button
+                                  onClick={() => {
+                                    const pw = pwInputs[b.benutzername] || '';
+                                    if (!pw) return;
+                                    window.api.admin.benutzer.changePasswort(b.benutzername, pw)
+                                      .then(() => {
+                                        setPasswordChanging(prev => ({ ...prev, [b.benutzername]: false }));
+                                        setPwInputs(prev => ({ ...prev, [b.benutzername]: '' }));
+                                      })
+                                      .catch(e => setBenutzerError(e.message));
+                                  }}
+                                  style={{
+                                    padding: '5px 12px', fontSize: 12, border: '1px solid #a7f3d0',
+                                    borderRadius: 6, background: '#ecfdf5', cursor: 'pointer', color: '#047857',
+                                  }}
+                                >
+                                  Speichern
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                  ))}
+                  {benutzerList.length === 0 && (
+                    <tr>
+                      <td colSpan={2} style={{ padding: '10px 0', color: '#94a3b8', fontSize: 13 }}>Keine Benutzer vorhanden.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </Card>
+
+          {/* Neuen Benutzer anlegen */}
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 14 }}>Neuen Benutzer anlegen</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, alignItems: 'flex-end' }}>
+              <div>
+                <label style={labelStyle}>Benutzername</label>
+                <input
+                  value={neuerBenutzername}
+                  onChange={e => setNeuerBenutzername(e.target.value)}
+                  placeholder="z.B. lehrer"
+                  style={fieldStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Passwort</label>
+                <input
+                  type="password"
+                  value={neuesPasswort}
+                  onChange={e => setNeuesPasswort(e.target.value)}
+                  placeholder="Passwort"
+                  style={fieldStyle}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (!neuerBenutzername || !neuesPasswort) return;
+                  setBenutzerError(null);
+                  window.api.admin.benutzer.create({ benutzername: neuerBenutzername, passwort: neuesPasswort })
+                    .then(neu => {
+                      setBenutzerList(prev => [...prev, { benutzername: neu.benutzername }]);
+                      setNeuerBenutzername('');
+                      setNeuesPasswort('');
+                    })
+                    .catch(e => setBenutzerError(e.message));
+                }}
+                style={{
+                  padding: '9px 16px', fontSize: 13, fontWeight: 500,
+                  border: '1px solid #bfdbfe', borderRadius: 8,
+                  background: '#eff6ff', cursor: 'pointer', color: '#1d4ed8',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Anlegen
+              </button>
+            </div>
+          </Card>
+
+          {/* Admin-Passwort ändern */}
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 14 }}>Admin-Passwort ändern</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'flex-end' }}>
+              <div>
+                <label style={labelStyle}>Neues Admin-Passwort</label>
+                <input
+                  type="password"
+                  value={adminPasswort}
+                  onChange={e => setAdminPasswort(e.target.value)}
+                  placeholder="Neues Passwort"
+                  style={fieldStyle}
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (!adminPasswort) return;
+                  setBenutzerError(null);
+                  window.api.admin.changeAdminPasswort(adminPasswort)
+                    .then(() => setAdminPasswort(''))
+                    .catch(e => setBenutzerError(e.message));
+                }}
+                style={{
+                  padding: '9px 16px', fontSize: 13, fontWeight: 500,
+                  border: '1px solid #a7f3d0', borderRadius: 8,
+                  background: '#ecfdf5', cursor: 'pointer', color: '#047857',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Speichern
+              </button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab: System */}
+      {activeTab === 'system' && isAdmin && (
+        <div style={{ display: 'grid', gap: 14 }}>
+          {/* Backup */}
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>Datenbank-Backup</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+              Lädt die aktuelle SQLite-Datenbank als Backup-Datei herunter.
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  const token = localStorage.getItem('token');
+                  const res = await fetch(window.api.admin.backup.url(), {
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                  });
+                  if (!res.ok) throw new Error('HTTP ' + res.status);
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `bibliomat-backup-${new Date().toISOString().slice(0, 10)}.db`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch (e) {
+                  alert('Backup fehlgeschlagen: ' + e.message);
+                }
+              }}
+              style={{
+                padding: '9px 16px', fontSize: 13, fontWeight: 500,
+                border: '1px solid #bfdbfe', borderRadius: 8,
+                background: '#eff6ff', cursor: 'pointer', color: '#1d4ed8',
+                fontFamily: 'inherit',
+              }}
+            >
+              Datenbank sichern
+            </button>
+          </Card>
+
+          {/* Restore */}
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>Datenbank wiederherstellen</div>
+            <div style={{
+              marginBottom: 14, padding: '10px 12px',
+              background: '#fffbeb', border: '1px solid #fde68a',
+              color: '#92400e', borderRadius: 8, fontSize: 12.5,
+            }}>
+              Achtung: Die bestehende Datenbank wird unwiderruflich überschrieben. Nur eine gültige SQLite-Datei wird akzeptiert.
+            </div>
+            <label style={{
+              display: 'inline-block',
+              padding: '9px 16px', fontSize: 13, fontWeight: 500,
+              border: '1px solid #fecaca', borderRadius: 8,
+              background: '#fef2f2', cursor: 'pointer', color: '#b91c1c',
+            }}>
+              Datenbank wiederherstellen
+              <input
+                type="file"
+                accept=".db,application/octet-stream"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const file = e.target.files && e.target.files[0];
+                  if (!file) return;
+                  if (!window.confirm('Achtung: Die bestehende Datenbank wird überschrieben. Fortfahren?')) {
+                    e.target.value = '';
+                    return;
+                  }
+                  window.api.admin.backup.restore(file)
+                    .then(() => alert('Datenbank erfolgreich wiederhergestellt. Bitte Seite neu laden.'))
+                    .catch(err => alert('Fehler beim Wiederherstellen: ' + err.message))
+                    .finally(() => { e.target.value = ''; });
+                }}
+              />
+            </label>
           </Card>
         </div>
       )}

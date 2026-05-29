@@ -44,6 +44,7 @@ class SchuelerUpdate(BaseModel):
 class KontoSummary(BaseModel):
     saldo_cents: int
     anzahl_aktive_buecher: int
+    anzahl_behalten_buecher: int = 0
     anzahl_vorgaenge: int
 
 
@@ -82,6 +83,7 @@ class ArchivKandidatenResponse(BaseModel):
 
 class ArchivierungRequest(BaseModel):
     schueler_ids: list[str]
+    buecher_behalten: bool = False
 
 
 class ArchiviertItem(BaseModel):

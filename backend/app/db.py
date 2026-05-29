@@ -495,7 +495,7 @@ def _seed_initial_admin_password(conn: Connection):
     conn.execute(
         text(
             """
-            INSERT OR REPLACE INTO einstellungen (schluessel, wert)
+            INSERT OR IGNORE INTO einstellungen (schluessel, wert)
             VALUES ('admin_password_hash', :password_hash)
             """
         ),
@@ -621,6 +621,12 @@ def _ensure_archiviert_schuljahr_column(conn: Connection):
         conn.execute(text("ALTER TABLE schueler ADD COLUMN archiviert_schuljahr TEXT"))
 
 
+def _ensure_rechnungs_posten_behalten_column(conn: Connection):
+    cols = _table_columns(conn, "rechnungs_posten")
+    if "behalten" not in cols:
+        conn.execute(text("ALTER TABLE rechnungs_posten ADD COLUMN behalten INTEGER NOT NULL DEFAULT 0"))
+
+
 def prepare_schema(conn: Connection):
     """Create additive schema objects needed by the current app version."""
     _ensure_benutzer_table(conn)
@@ -644,6 +650,7 @@ def prepare_schema(conn: Connection):
     _ensure_gutschrift_beschaedigt_column(conn)
     _ensure_bestand_schuljahr_eingestellt(conn)
     _ensure_archiviert_schuljahr_column(conn)
+    _ensure_rechnungs_posten_behalten_column(conn)
 
 
 def init_db():

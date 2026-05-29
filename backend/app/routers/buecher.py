@@ -75,6 +75,8 @@ def _buch_to_response(
         key=lambda r: (r.nutzungsjahr, r.preis_cents),
     )
 
+    bestand_frei = sum(v["bestand_verfuegbar"] for v in merged.values())
+
     return BuchResponse(
         id=b.id,
         titel=b.titel,
@@ -87,7 +89,7 @@ def _buch_to_response(
         gutschrift_cents=b.gutschrift_cents,
         bestand_gesamt=b.bestand_gesamt,
         bestand_ausgegeben=b.bestand_ausgegeben,
-        bestand_frei=b.bestand_gesamt - b.bestand_ausgegeben,
+        bestand_frei=bestand_frei,
         schutzgebuehr_cents=b.schutzgebuehr_cents or 0,
         zustaende=zustaende,
     )

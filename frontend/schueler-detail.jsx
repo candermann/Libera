@@ -238,19 +238,18 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
   const [archivWorking, setArchivWorking] = React.useState(false);
 
   const handleArchivieren = async () => {
-    if (aktiveBuecher.length > 0) {
-      window.showToast('error', `${detail.nachname}, ${detail.vorname} hat noch ${aktiveBuecher.length} nicht zurückgegebene Bücher.`);
-      return;
-    }
+    const hatAktiveBuecher = aktiveBuecher.length > 0;
     window.showConfirm({
       message: `${detail.nachname}, ${detail.vorname} archivieren?`,
-      detail: 'Der Schüler wird aus der aktiven Liste entfernt und kann jederzeit reaktiviert werden.',
+      detail: hatAktiveBuecher
+        ? `Schüler hat ${aktiveBuecher.length} nicht zurückgegebene${aktiveBuecher.length === 1 ? 's Buch' : ' Bücher'} — ${aktiveBuecher.length === 1 ? 'dieses wird' : 'diese werden'} als „behalten" markiert und aus dem aktiven Bestand entfernt.`
+        : 'Der Schüler wird aus der aktiven Liste entfernt und kann jederzeit reaktiviert werden.',
       confirmLabel: 'Archivieren',
       danger: true,
       onConfirm: async () => {
         setArchivWorking(true);
         try {
-          await window.api.schueler.archivieren([detail.id]);
+          await window.api.schueler.archivieren([detail.id], hatAktiveBuecher);
           window.showToast('success', `${detail.nachname}, ${detail.vorname} wurde archiviert.`);
           onBack();
         } catch (err) {
@@ -375,7 +374,13 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
           <div style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
             {aktiveBuecher.length}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>im Schuljahr 2025/26</div>
+          {detail.konto.anzahl_behalten_buecher > 0 ? (
+            <div style={{ fontSize: 11, color: '#b45309', marginTop: 1, fontWeight: 500 }}>
+              {detail.konto.anzahl_behalten_buecher} behalten
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>im Schuljahr 2025/26</div>
+          )}
         </div>
         <div style={{ borderLeft: '1px solid rgba(15,23,42,0.08)', paddingLeft: 24 }}>
           <div style={{ fontSize: 10.5, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
