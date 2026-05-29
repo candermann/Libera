@@ -146,6 +146,11 @@ const api: BibliomatApi = {
     create: (data) => req('/buecher', { method: 'POST', body: data }),
     update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),
     remove: (id) => req(`/buecher/${id}`, { method: 'DELETE' }),
+    importCsv: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return req('/buecher/import/csv', { method: 'POST', body: fd });
+    },
   },
 
   lernmaterial: {
@@ -154,6 +159,11 @@ const api: BibliomatApi = {
     create: (data) => req('/lernmaterial', { method: 'POST', body: data }),
     update: (id, data) => req(`/lernmaterial/${id}`, { method: 'PATCH', body: data }),
     remove: (id) => req(`/lernmaterial/${id}`, { method: 'DELETE' }),
+    importCsv: (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      return req('/lernmaterial/import/csv', { method: 'POST', body: fd });
+    },
   },
 
   freiposten: {

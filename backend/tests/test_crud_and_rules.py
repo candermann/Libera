@@ -198,6 +198,31 @@ class TestBuecherCrud:
         assert data["total"] == 1
         assert data["items"][0]["fach"] == "Mathematik"
 
+    def test_import_buecher_csv_creates_new_fach(self, client):
+        """POST /api/buecher/import/csv imports books and reports new subjects."""
+        csv_text = (
+            "titel;fach;stufe;verlag;isbn;preis;bestand;schutzgebuehr\n"
+            "Physik Heute;Physik;8;Testverlag;9781234567890;19,95;12;5,00\n"
+            "Latein Kompakt;Latein;7;Alt Verlag;9781234567891;1200;4;\n"
+        )
+
+        resp = client.post(
+            "/api/buecher/import/csv",
+            files={"file": ("buecher.csv", csv_text.encode("utf-8"), "text/csv")},
+        )
+        assert resp.status_code == 201, resp.text
+        data = resp.json()
+        assert data["imported"] == 2
+        assert set(data["created_faecher"]) == {"Latein", "Physik"}
+
+        books = client.get("/api/buecher?fach=Physik").json()
+        assert books["total"] == 1
+        book = books["items"][0]
+        assert book["titel"] == "Physik Heute"
+        assert book["preis_cents"] == 1995
+        assert book["bestand_gesamt"] == 12
+        assert book["schutzgebuehr_cents"] == 500
+
     def test_update_buch(self, client):
         """PATCH /api/buecher/:id should update fields."""
         b = create_test_buch(client, preis_cents=2400)

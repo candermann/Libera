@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-29
+
+- **Lernmaterial**: CSV-Import — Massenimport von Lernmaterial per CSV-Datei (`POST /api/lernmaterial/import/csv`); Pflichtfelder: `name`, `kategorie`, `preis`; optional: `bestand`; Button „CSV importieren" in der Lernmaterial-Übersicht
+
 ## 2026-05-28
 
 - **Schüler**: Sortierung nach Nachname (Liste + CSV-Preview)

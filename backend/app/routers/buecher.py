@@ -2,7 +2,10 @@
 Buecher CRUD endpoints.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import csv
+import io
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -26,6 +29,93 @@ from app.services.zustand import (
 )
 
 router = APIRouter(prefix="/api/buecher", tags=["Buecher"])
+
+
+_CSV_REQUIRED_FIELDS = ("titel", "fach", "stufe", "preis_cents")
+_CSV_HEADER_ALIASES = {
+    "titel": {"titel", "title", "buch", "buchtitle", "buchtitel"},
+    "untertitel": {"untertitel", "subtitle", "subtitel"},
+    "isbn": {"isbn", "isbn13", "isbn10"},
+    "fach": {"fach", "subject", "kategorie"},
+    "stufe": {"stufe", "klasse", "jahrgang", "class"},
+    "verlag": {"verlag", "publisher"},
+    "preis_cents": {"preis", "preiscent", "preiscents", "preis_cents", "betrag", "basispreis"},
+    "bestand_gesamt": {"bestand", "bestandgesamt", "bestand_gesamt", "anzahl", "menge"},
+    "schutzgebuehr_cents": {
+        "schutzgebuehr",
+        "schutzgebuhr",
+        "schutzgebuehrcents",
+        "schutzgebuehr_cents",
+        "gebuehr",
+        "gebuhr",
+    },
+}
+
+
+def _normalize_header_key(value: str) -> str:
+    normalized = (value or "").strip().lower()
+    replacements = {
+        "\u00e4": "ae",
+        "\u00f6": "oe",
+        "\u00fc": "ue",
+        "\u00df": "ss",
+        " ": "",
+        "-": "",
+        "_": "",
+        ".": "",
+    }
+    for src, dest in replacements.items():
+        normalized = normalized.replace(src, dest)
+    return normalized
+
+
+def _map_csv_header(header: str | None) -> str | None:
+    normalized = _normalize_header_key(header or "")
+    for canonical, aliases in _CSV_HEADER_ALIASES.items():
+        if normalized in aliases:
+            return canonical
+    return None
+
+
+def _clean_text(value: str | None) -> str | None:
+    text_value = (value or "").strip()
+    return text_value or None
+
+
+def _parse_int(value: str | None, default: int | None = None) -> int | None:
+    text_value = (value or "").strip()
+    if not text_value:
+        return default
+    try:
+        return int(float(text_value.replace(",", ".")))
+    except ValueError:
+        return None
+
+
+def _parse_money_cents(value: str | None) -> int | None:
+    text_value = (value or "").strip()
+    if not text_value:
+        return None
+
+    cleaned = (
+        text_value.replace("\u20ac", "")
+        .replace("EUR", "")
+        .replace("eur", "")
+        .replace(" ", "")
+        .strip()
+    )
+
+    if "," in cleaned:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+
+    try:
+        amount = float(cleaned)
+    except ValueError:
+        return None
+
+    if "." not in cleaned and "," not in text_value and amount >= 1000:
+        return int(amount)
+    return int(round(amount * 100))
 
 
 def _load_zustaende(db: Session, buch_id: str) -> list:
@@ -310,6 +400,139 @@ def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
     db.refresh(buch)
 
     return _buch_to_response(buch, _load_zustaende(db, buch.id), get_nutzungsjahr_abschlaege(db))
+
+
+@router.post("/import/csv", status_code=201)
+async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    filename = file.filename or "import.csv"
+    if not filename.lower().endswith(".csv"):
+        raise HTTPException(status_code=422, detail="Bitte eine CSV-Datei hochladen.")
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=422, detail="Die CSV-Datei ist leer.")
+
+    for encoding in ("utf-8-sig", "cp1252", "latin-1"):
+        try:
+            content = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            content = ""
+    if not content:
+        raise HTTPException(status_code=422, detail="CSV konnte nicht gelesen werden.")
+
+    sample = content[:4096]
+    try:
+        dialect = csv.Sniffer().sniff(sample, delimiters=",;")
+    except csv.Error:
+        dialect = None
+
+    stream = io.StringIO(content)
+    reader = csv.DictReader(stream, dialect=dialect) if dialect else csv.DictReader(stream, delimiter=";")
+    if not reader.fieldnames:
+        raise HTTPException(status_code=422, detail="CSV-Header fehlt oder ist ungueltig.")
+
+    header_map: dict[str, str] = {}
+    for header in reader.fieldnames:
+        mapped = _map_csv_header(header)
+        if mapped and mapped not in header_map:
+            header_map[mapped] = header
+
+    missing_headers = [field for field in _CSV_REQUIRED_FIELDS if field not in header_map]
+    if missing_headers:
+        raise HTTPException(
+            status_code=422,
+            detail="Pflichtspalten fehlen: " + ", ".join(missing_headers),
+        )
+
+    imported = 0
+    skipped = 0
+    created_faecher: set[str] = set()
+    existing_faecher = {
+        row[0]
+        for row in db.query(Buecher.fach)
+        .filter(Buecher.geloescht_am.is_(None))
+        .distinct()
+        .all()
+        if row[0]
+    }
+    errors: list[dict] = []
+
+    for row_number, source in enumerate(reader, start=2):
+        row = {field: _clean_text(source.get(original)) for field, original in header_map.items()}
+        if not any(row.values()):
+            continue
+
+        titel = row.get("titel")
+        fach = row.get("fach")
+        stufe = _parse_int(row.get("stufe"))
+        preis_cents = _parse_money_cents(row.get("preis_cents"))
+        bestand_gesamt = _parse_int(row.get("bestand_gesamt"), 0)
+        schutzgebuehr_cents = _parse_money_cents(row.get("schutzgebuehr_cents")) if row.get("schutzgebuehr_cents") else 0
+
+        row_errors = []
+        if not titel:
+            row_errors.append("Titel fehlt")
+        if not fach:
+            row_errors.append("Fach fehlt")
+        if stufe is None:
+            row_errors.append("Stufe ungueltig")
+        if preis_cents is None:
+            row_errors.append("Preis ungueltig")
+        if bestand_gesamt is None or bestand_gesamt < 0:
+            row_errors.append("Bestand ungueltig")
+        if schutzgebuehr_cents is None or schutzgebuehr_cents < 0:
+            row_errors.append("Schutzgebuehr ungueltig")
+
+        if row_errors:
+            skipped += 1
+            errors.append({"row": row_number, "errors": row_errors})
+            continue
+
+        new_id = generate_buch_id(db)
+        buch = Buecher(
+            id=new_id,
+            titel=titel,
+            untertitel=row.get("untertitel"),
+            isbn=row.get("isbn"),
+            fach=fach,
+            stufe=stufe,
+            verlag=row.get("verlag"),
+            preis_cents=preis_cents,
+            gutschrift_cents=preis_cents,
+            bestand_gesamt=bestand_gesamt,
+            bestand_ausgegeben=0,
+            schutzgebuehr_cents=schutzgebuehr_cents,
+        )
+        db.add(buch)
+        db.flush()
+        db.add(
+            BuchZustandBestand(
+                buch_id=new_id,
+                zustand="sehr_gut",
+                verkaufspreis_cents=preis_cents,
+                bestand_verfuegbar=bestand_gesamt,
+                nutzungsjahr=0,
+                schuljahr_eingestellt=None,
+            )
+        )
+
+        if fach not in existing_faecher:
+            created_faecher.add(fach)
+            existing_faecher.add(fach)
+        imported += 1
+
+    if imported == 0 and errors:
+        db.rollback()
+        raise HTTPException(status_code=422, detail="Keine gueltigen Buecher gefunden.")
+
+    db.commit()
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "created_faecher": sorted(created_faecher),
+        "errors": errors[:50],
+    }
 
 
 @router.patch("/{buch_id}", response_model=BuchResponse)

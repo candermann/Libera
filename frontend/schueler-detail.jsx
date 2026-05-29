@@ -369,7 +369,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
         </div>
         <div style={{ borderLeft: '1px solid rgba(15,23,42,0.08)', paddingLeft: 24, paddingRight: 8 }}>
           <div style={{ fontSize: 10.5, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-            Aktive Bücher
+            Gekaufte Bücher
           </div>
           <div style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
             {aktiveBuecher.length}
@@ -420,7 +420,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
         />
       )}
 
-      {/* Zwei-Spalten: Vorgangs-Historie + aktive Bücher */}
+      {/* Zwei-Spalten: Vorgangs-Historie + gekaufte Bücher */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
 
         {/* Vorgangs-Historie */}
@@ -470,10 +470,10 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
           </div>
         </div>
 
-        {/* Aktive Bücher Sidebar */}
+        {/* Gekaufte Bücher Sidebar */}
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.005em' }}>Aktive Bücher</h2>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.005em' }}>Gekaufte Bücher</h2>
             <span style={{ fontSize: 11.5, color: '#94a3b8' }}>{aktiveBuecher.length} offen</span>
           </div>
           <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>

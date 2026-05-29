@@ -115,7 +115,7 @@ Navigation: Klick auf Nav-Reiter mountet Komponente immer neu (Reset auf Hauptan
 | `schueler-detail.jsx` | v33 |
 | `screens.jsx` | v29 |
 | `profil.jsx` | v5 |
-| `lernmaterial.jsx` | v5 |
+| `lernmaterial.jsx` | v6 |
 | `inventory-overrides.jsx` | v17 |
 | `login.jsx` | v11 |
 | `app.jsx` | v17 |
@@ -135,6 +135,11 @@ Navigation: Klick auf Nav-Reiter mountet Komponente immer neu (Reset auf Hauptan
 ## Zuletzt geänderte Dateien (Stand 29.05.2026)
 | Datei | Was |
 |---|---|
+| `backend/app/routers/lernmaterial.py` | CSV-Import: `POST /api/lernmaterial/import/csv`; Pflicht: name, kategorie, preis; optional: bestand |
+| `frontend/lernmaterial.jsx` | `LernmaterialCsvImportDialog` + Button „CSV importieren" in der Übersicht |
+| `frontend/api.js` | `lernmaterial.importCsv(file)` hinzugefügt |
+| `frontend/api.ts` | `lernmaterial.importCsv(file)` hinzugefügt |
+| `frontend/types/api.d.ts` | `importCsv` in `lernmaterial`-Typ ergänzt |
 | `backend/app/routers/admin.py` | NEU: Benutzerverwaltung (anlegen/löschen/Passwort), Backup-Download, Restore-Upload |
 | `backend/app/db.py` | Migration behalten-Spalte; Admin-Passwort nur beim ersten Start (INSERT OR IGNORE) |
 | `backend/app/models.py` | behalten-Feld in RechnungsPosten |

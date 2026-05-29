@@ -151,6 +151,7 @@ declare global {
       create(data: Partial<Buch>): Promise<Buch>;
       update(id: ApiId, data: Partial<Buch>): Promise<Buch>;
       remove(id: ApiId): Promise<null>;
+      importCsv(file: File): Promise<unknown>;
     };
     lernmaterial: {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Lernmaterial>>;
@@ -158,6 +159,7 @@ declare global {
       create(data: Partial<Lernmaterial>): Promise<Lernmaterial>;
       update(id: ApiId, data: Partial<Lernmaterial>): Promise<Lernmaterial>;
       remove(id: ApiId): Promise<null>;
+      importCsv(file: File): Promise<unknown>;
     };
     freiposten: {
       vorlagen(): Promise<unknown[]>;

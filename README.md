@@ -101,6 +101,7 @@ Die App ist bewusst einfach gehalten:
 ### Lernmaterial und Freiposten
 
 - Lernmaterial mit Kategorie, Preis und Bestand
+- CSV-Import für Lernmaterial (Pflicht: name, kategorie, preis)
 - Lernmaterial-Positionen auf Rechnungen
 - Freie Rechnungspositionen
 - Wiederverwendbare Freiposten-Vorlagen
@@ -388,6 +389,7 @@ Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gült
 | `GET`/`PATCH`/`DELETE` | `/api/buecher/{id}` | Buch lesen / bearbeiten / löschen |
 | `GET`/`POST` | `/api/lernmaterial` | Lernmaterial auflisten / anlegen |
 | `GET`/`PATCH`/`DELETE` | `/api/lernmaterial/{id}` | Lernmaterial lesen / bearbeiten / löschen |
+| `POST` | `/api/lernmaterial/import/csv` | Lernmaterial per CSV importieren |
 | `GET`/`POST` | `/api/freiposten/vorlagen` | Freiposten-Vorlagen verwalten |
 | `POST` | `/api/verkauf` | Rechnung erstellen |
 | `GET` | `/api/rechnungen` | Rechnungen auflisten |
@@ -506,6 +508,7 @@ Backup über Admin-Panel: Profil → System → Backup herunterladen.
 
 ### Mai 2026 (29.05.2026)
 
+- **Lernmaterial**: CSV-Import für Massenimport (Pflicht: name, kategorie, preis; optional: bestand)
 - **Admin-Panel**: Benutzerverwaltung (anlegen, löschen, Passwort ändern) im Profil-Tab „Konten"
 - **Backup/Restore**: DB-Download und -Upload direkt im Profil-Tab „System"
 - **behalten-Flag**: Schüler aus Kl. 12 können Bücher beim Archivieren behalten; Bestand wird korrekt aktualisiert

@@ -126,6 +126,11 @@ const api = {
         update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),
         remove: (id) => req(`/buecher/${id}`, { method: 'DELETE' }),
         renameFach: (alt, neu) => req('/buecher/fach/umbenennen', { method: 'POST', body: { alt, neu } }),
+        importCsv: (file) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            return req('/buecher/import/csv', { method: 'POST', body: fd });
+        },
     },
     lernmaterial: {
         list: (params) => req(`/lernmaterial${qs(params)}`),
@@ -134,6 +139,11 @@ const api = {
         update: (id, data) => req(`/lernmaterial/${id}`, { method: 'PATCH', body: data }),
         remove: (id) => req(`/lernmaterial/${id}`, { method: 'DELETE' }),
         renameKategorie: (alt, neu) => req('/lernmaterial/kategorie/umbenennen', { method: 'POST', body: { alt, neu } }),
+        importCsv: (file) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            return req('/lernmaterial/import/csv', { method: 'POST', body: fd });
+        },
     },
     freiposten: {
         vorlagen: () => req('/freiposten/vorlagen'),

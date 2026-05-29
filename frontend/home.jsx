@@ -139,7 +139,7 @@ function GlockePanel({ benachrichtigungen, onClose, onRefresh, onNav }) {
               )}
               {b.typ === 'schuljahr_wechsel' && (
                 <button
-                  onClick={() => { onClose(); onNav && onNav('profil'); }}
+                  onClick={() => { onClose(); onNav && onNav('einstellungen'); }}
                   style={{
                     marginTop: 10, padding: '5px 12px', borderRadius: 6,
                     background: '#eff6ff', border: '1px solid #bfdbfe',

@@ -11,7 +11,7 @@ const NAV_ITEMS = [
   { id: 'buchhaltung', label: 'Buchhaltung', icon: 'euro' },
   { id: 'klassenversetzung', label: 'Klassenversetzung', icon: 'arrow-right' },
   { id: 'schuelerarchiv', label: 'Schülerarchiv', icon: 'archive' },
-  { id: 'profil', label: 'Einstellungen', icon: 'settings' },
+  { id: 'einstellungen', label: 'Einstellungen', icon: 'settings' },
 ];
 
 function useSchuljahr() {

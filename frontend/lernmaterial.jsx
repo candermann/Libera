@@ -56,6 +56,79 @@ function KategorieEditDialog({ accent, kategorie, kategorien, onClose, onSave })
   );
 }
 
+function LernmaterialCsvImportDialog({ accent, onClose, onImported }) {
+  const [importing, setImporting] = React.useState(false);
+  const [error, setError] = React.useState('');
+  const [fileName, setFileName] = React.useState('');
+  const fileInputRef = React.useRef(null);
+
+  async function importFile(file) {
+    if (!file) return;
+    setImporting(true);
+    setError('');
+    setFileName(file.name || '');
+    try {
+      const res = await window.api.lernmaterial.importCsv(file);
+      window.showToast('success', res.imported + ' Artikel importiert.');
+      if (res.skipped > 0) window.showToast('info', res.skipped + ' Zeilen wurden übersprungen.');
+      onImported(res);
+    } catch (err) {
+      setError(err.message || 'Import fehlgeschlagen.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} width={620}>
+      <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>Lernmaterial per CSV importieren</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Neue Kategorien werden automatisch übernommen.</div>
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}>
+          <Icon name="x" size={18} />
+        </button>
+      </div>
+
+      <div style={{ padding: '16px 22px', display: 'grid', gap: 14 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={e => { const file = e.target.files && e.target.files[0]; if (file) importFile(file); }}
+          style={{ display: 'none' }}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Btn kind="secondary" icon="download" onClick={() => fileInputRef.current && fileInputRef.current.click()} disabled={importing}>
+            {importing ? 'Import läuft...' : 'CSV auswählen'}
+          </Btn>
+          <span style={{ fontSize: 12, color: '#64748b' }}>{fileName || 'Noch keine Datei ausgewählt'}</span>
+        </div>
+
+        {error ? (
+          <div style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #fecaca', background: '#fef2f2', color: '#b91c1c', fontSize: 12.5 }}>
+            {error}
+          </div>
+        ) : null}
+
+        <div style={{ border: '1px solid #e8ecef', borderRadius: 10, background: '#fbfcfd', padding: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>Erwartete Spalten</div>
+          <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7 }}>
+            Pflicht: <strong>name</strong>, <strong>kategorie</strong>, <strong>preis</strong><br />
+            Optional: bestand
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
+        <Btn kind="ghost" onClick={onClose}>Schließen</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 function LernmaterialCreateDialog({ accent, kategorien, onClose, onSave }) {
   const [name, setName] = React.useState('');
   const [kategorie, setKategorie] = React.useState(kategorien[0] || '');
@@ -168,6 +241,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   });
   const [showKategorieCreate, setShowKategorieCreate] = React.useState(false);
   const [editingKategorie, setEditingKategorie] = React.useState(null);
+  const [showCsvImport, setShowCsvImport] = React.useState(false);
 
   function fetchAll() {
     window.api.lernmaterial.list({}).then(res => {
@@ -302,6 +376,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
           {!selectedKategorie && (
             <Btn kind="secondary" accent={accent} icon="plus" onClick={() => setShowKategorieCreate(true)}>Kategorie anlegen</Btn>
           )}
+          <Btn kind="secondary" accent={accent} icon="download" onClick={() => setShowCsvImport(true)}>CSV importieren</Btn>
           <Btn kind="primary" accent={accent} icon="plus" onClick={() => setShowCreate(true)}>Material anlegen</Btn>
         </div>
       </div>
@@ -384,6 +459,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
         </>
       )}
 
+      {showCsvImport && <LernmaterialCsvImportDialog accent={accent} onClose={() => setShowCsvImport(false)} onImported={() => { setShowCsvImport(false); fetchAll(); }} />}
       {showCreate && <LernmaterialCreateDialog accent={accent} kategorien={kategorien} onClose={() => setShowCreate(false)} onSave={addItem} />}
       {editingItem && <LernmaterialEditDialog accent={accent} item={editingItem} kategorien={kategorien} onClose={() => setEditingItem(null)} onSave={data => saveItem(editingItem.id, data)} />}
       {showKategorieCreate && <KategorieCreateDialog accent={accent} kategorien={kategorien} onClose={() => setShowKategorieCreate(false)} onSave={addKategorie} />}

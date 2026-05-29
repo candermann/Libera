@@ -61,6 +61,7 @@ function App() {
       klassenversetzung: 'Klassenversetzung',
       schuelerarchiv: 'Schülerarchiv',
       profil: 'Einstellungen',
+      einstellungen: 'Einstellungen',
     };
     document.title = `Bibliomat – ${labels[current] || current}`;
   }, [current]);
@@ -107,7 +108,8 @@ function App() {
       case 'buchhaltung': content = <window.Buchhaltung accent={t.accent} />; break;
       case 'klassenversetzung': content = <window.Klassenversetzung accent={t.accent} />; break;
       case 'schuelerarchiv': content = <window.Archiv accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
-      case 'profil': content = <window.Profil accent={t.accent} />; break;
+      case 'profil':
+      case 'einstellungen': content = <window.Profil accent={t.accent} />; break;
       default: content = <window.Home onNav={handleNav} accent={t.accent} />; break;
     }
   }

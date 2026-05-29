@@ -1,5 +1,18 @@
 # Patchnotes
 
+## 2026-05-29 - Lernmaterial CSV-Import
+
+### Lernmaterial
+- **CSV-Import**: Lernmaterial kann jetzt per CSV-Datei massenhaft eingespeichert werden — analog zum Bücher-CSV-Import
+- Button „CSV importieren" erscheint in der Lernmaterial-Übersicht neben „Material anlegen"
+- Neues Backend-Endpunkt `POST /api/lernmaterial/import/csv`
+- Pflichtfelder der CSV: `name` (oder `bezeichnung`/`artikel`), `kategorie` (oder `category`/`typ`), `preis` (oder `preis_cents`/`betrag`)
+- Optionales Feld: `bestand` (oder `anzahl`/`menge`) — Standard: 0
+- Encoding-Erkennung: UTF-8, CP1252, Latin-1; Trennzeichen Komma oder Semikolon automatisch erkannt
+- Fehlerhafte Zeilen werden übersprungen und im Ergebnis gemeldet; Import wird nicht abgebrochen
+
+---
+
 ## 2026-05-26 - Bibliomat Redesign & UX-Verbesserungen
 
 ### Design & Branding

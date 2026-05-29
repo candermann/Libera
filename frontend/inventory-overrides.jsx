@@ -532,6 +532,94 @@ window.Rueckgabe = function Rueckgabe(props) {
   );
 };
 
+function BooksCsvImportDialog({ accent, onClose, onImported }) {
+  var _React$useStateCsv = React.useState(false), importing = _React$useStateCsv[0], setImporting = _React$useStateCsv[1];
+  var _React$useStateErr = React.useState(''), error = _React$useStateErr[0], setError = _React$useStateErr[1];
+  var _React$useStateFile = React.useState(''), fileName = _React$useStateFile[0], setFileName = _React$useStateFile[1];
+  var fileInputRef = React.useRef(null);
+
+  async function importFile(file) {
+    if (!file) return;
+    setImporting(true);
+    setError('');
+    setFileName(file.name || '');
+    try {
+      var res = await window.api.buecher.importCsv(file);
+      var fachText = res.created_faecher && res.created_faecher.length > 0
+        ? ' Neue Fächer: ' + res.created_faecher.join(', ') + '.'
+        : '';
+      window.showToast('success', res.imported + ' Bücher importiert.' + fachText);
+      if (res.skipped > 0) {
+        window.showToast('info', res.skipped + ' Zeilen wurden übersprungen.');
+      }
+      onImported(res);
+    } catch (err) {
+      setError(err.message || 'Import fehlgeschlagen.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Modal onClose={onClose} width={620}>
+      <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>Bücher per CSV importieren</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Neue Fächer werden beim Import automatisch angelegt.</div>
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}>
+          <Icon name="x" size={18}/>
+        </button>
+      </div>
+
+      <div style={{ padding: '16px 22px', display: 'grid', gap: 14 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={function (e) {
+            var file = e.target.files && e.target.files[0];
+            if (file) importFile(file);
+          }}
+          style={{ display: 'none' }}
+        />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Btn kind="secondary" icon="download" onClick={function () { fileInputRef.current && fileInputRef.current.click(); }} disabled={importing}>
+            {importing ? 'Import läuft...' : 'CSV auswählen'}
+          </Btn>
+          <span style={{ fontSize: 12, color: '#64748b' }}>{fileName || 'Noch keine Datei ausgewählt'}</span>
+        </div>
+
+        {error ? (
+          <div style={{
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid #fecaca',
+            background: '#fef2f2',
+            color: '#b91c1c',
+            fontSize: 12.5,
+          }}>
+            {error}
+          </div>
+        ) : null}
+
+        <div style={{ border: '1px solid #e8ecef', borderRadius: 10, background: '#fbfcfd', padding: 12 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>Erwartete Spalten</div>
+          <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7 }}>
+            Pflicht: <strong>titel</strong>, <strong>fach</strong>, <strong>stufe</strong>, <strong>preis</strong><br />
+            Optional: untertitel, isbn, verlag, bestand, schutzgebuehr
+          </div>
+        </div>
+      </div>
+
+      <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
+        <Btn kind="ghost" onClick={onClose}>Schließen</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 window.BuecherListe = function BuecherListe(props) {
   var accent = props.accent;
   var constantFaecher = (window.CONSTANTS && window.CONSTANTS.FAECHER) || [];
@@ -542,6 +630,7 @@ window.BuecherListe = function BuecherListe(props) {
   var _React$useState23 = React.useState(0), total = _React$useState23[0], setTotal = _React$useState23[1];
   var _React$useState24 = React.useState(''), query = _React$useState24[0], setQuery = _React$useState24[1];
   var _React$useState25 = React.useState(false), showCreate = _React$useState25[0], setShowCreate = _React$useState25[1];
+  var _React$useStateImport = React.useState(false), showCsvImport = _React$useStateImport[0], setShowCsvImport = _React$useStateImport[1];
   var _React$useState26 = React.useState(null), editingBook = _React$useState26[0], setEditingBook = _React$useState26[1];
   var _React$useState27 = React.useState(null), confirmDelete = _React$useState27[0], setConfirmDelete = _React$useState27[1];
   var _React$useState28 = React.useState({}), settings = _React$useState28[0], setSettings = _React$useState28[1];
@@ -720,6 +809,7 @@ window.BuecherListe = function BuecherListe(props) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Btn kind="secondary" accent={accent} icon="plus" onClick={function () { setShowFachCreate(true); }}>Fach anlegen</Btn>
+          <Btn kind="secondary" accent={accent} icon="download" onClick={function () { setShowCsvImport(true); }}>CSV importieren</Btn>
           <Btn kind="primary" accent={accent} icon="plus" onClick={function () { setShowCreate(true); }}>Buch anlegen</Btn>
         </div>
       </div>
@@ -921,6 +1011,15 @@ window.BuecherListe = function BuecherListe(props) {
 
       {showFachCreate ? <FachCreateDialog accent={accent} faecher={faecher} onClose={function () { setShowFachCreate(false); }} onSave={addFach} /> : null}
       {editingFach ? <FachEditDialog accent={accent} fach={editingFach} faecher={faecher} onClose={function () { setEditingFach(null); }} onSave={function (neu) { renameFach(editingFach, neu); }} /> : null}
+      {showCsvImport ? <BooksCsvImportDialog accent={accent} onClose={function () { setShowCsvImport(false); }} onImported={function (res) {
+        setShowCsvImport(false);
+        if (res && res.created_faecher && res.created_faecher.length > 0) {
+          var mergedExtra = Array.from(new Set(extraFaecher.concat(res.created_faecher)));
+          setExtraFaecher(mergedExtra);
+          try { localStorage.setItem('bibliomat_extra_faecher', JSON.stringify(mergedExtra)); } catch (e) {}
+        }
+        fetchAll();
+      }} /> : null}
       {showCreate ? <InventoryCreateBookDialog accent={accent} faecher={faecher} initialFach={selectedFach} onClose={function () { setShowCreate(false); }} onSave={addBook} /> : null}
       {editingBook ? <InventoryEditBookDialog accent={accent} faecher={faecher} book={editingBook} onClose={function () { setEditingBook(null); }} onSave={function (book) { editBook(editingBook.id, book); }} /> : null}
       {confirmDelete ? <ConfirmDialog
