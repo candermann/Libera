@@ -2,6 +2,7 @@
 Admin router — Benutzerverwaltung und Backup/Restore.
 """
 
+import logging
 import os
 from datetime import date
 from pathlib import Path
@@ -16,6 +17,7 @@ from app.db import get_db
 from app.models import Benutzer, Einstellungen
 from app.security import get_current_user, get_password_hash
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
@@ -68,6 +70,7 @@ def create_benutzer(
     neuer = Benutzer(benutzername=name, passwort_hash=get_password_hash(data.passwort))
     db.add(neuer)
     db.commit()
+    logger.info("Benutzer angelegt: '%s'", name)
     return {"benutzername": name}
 
 
@@ -85,6 +88,7 @@ def delete_benutzer(
         raise HTTPException(status_code=404, detail=f"Benutzer '{benutzername}' nicht gefunden.")
     db.delete(benutzer)
     db.commit()
+    logger.warning("Benutzer gelöscht: '%s'", benutzername)
     return None
 
 
@@ -148,7 +152,7 @@ def _db_path() -> Path:
 @router.get("/backup")
 def backup_db(
     db: Session = Depends(get_db),
-    _: str = Depends(require_admin),
+    current_user: str = Depends(require_admin),
 ):
     """SQLite-Datenbankdatei zum Download."""
     db.execute(text("PRAGMA wal_checkpoint(FULL)"))
@@ -156,6 +160,7 @@ def backup_db(
     if not db_path.exists():
         raise HTTPException(status_code=404, detail="Datenbankdatei nicht gefunden.")
     filename = f"bibliomat-backup-{date.today().isoformat()}.db"
+    logger.info("Backup heruntergeladen von Benutzer '%s'", current_user)
     return FileResponse(
         path=str(db_path),
         media_type="application/octet-stream",
@@ -170,7 +175,7 @@ SQLITE_MAGIC = b"SQLite format 3\x00"
 async def restore_db(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    _: str = Depends(require_admin),
+    current_user: str = Depends(require_admin),
 ):
     """Datenbank aus Upload-Datei wiederherstellen."""
     header = await file.read(16)
@@ -184,4 +189,5 @@ async def restore_db(
     db_path.parent.mkdir(parents=True, exist_ok=True)
     db_path.write_bytes(content)
 
+    logger.warning("Datenbank-Restore ausgeführt von Benutzer '%s'", current_user)
     return {"status": "restored"}

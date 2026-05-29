@@ -504,6 +504,106 @@ Backup über Admin-Panel: Profil → System → Backup herunterladen.
 
 ---
 
+---
+
+# 🔐 DSGVO
+
+> Datenschutz-Grundverordnung — Prüfbericht und Maßnahmen für den Betrieb mit personenbezogenen Daten Minderjähriger
+
+Bibliomat verarbeitet personenbezogene Daten von Schülerinnen und Schülern (Minderjährige) sowie deren Erziehungsberechtigten. Der Betreiber — die Schule Panketal — trägt als Verantwortlicher im Sinne von Art. 4 Nr. 7 DSGVO die Rechenschaftspflicht (Art. 5 Abs. 2 DSGVO).
+
+---
+
+## Prüfstatus (29.05.2026)
+
+| Bereich | Artikel | Status | Kurzbefund |
+|---|---|---|---|
+| Personenbezogene Daten Minderjähriger | Art. 8 | ⚠️ | Rechtsgrundlage nicht dokumentiert |
+| Datensicherheit | Art. 32 | ⚠️ / ❌ | JWT-Laufzeit, fehlendes Rate Limiting — **behoben** |
+| Datensparsamkeit / Zweckbindung | Art. 5 | ✅ | 10-Jahres-Frist implementiert |
+| Auskunfts- und Löschrecht | Art. 15–17 | ⚠️ | Nur Soft-Delete, kein Auskunftsexport |
+| E-Mail / Datenübertragung | Art. 25, 32 | ✅ / ⚠️ | STARTTLS vorhanden, SMTP-Passwort im Klartext |
+| Protokollierung / Audit-Trail | Art. 5 Abs. 2 | ⚠️ | Logging für Auth-Ereignisse — **behoben** |
+| Drittland / Auftragsverarbeitung | Art. 44 ff. | ⚠️ | sslip.io-Abhängigkeit, AVV-Entwurf vorhanden |
+| Technische Schwachstellen | Art. 32 | ⚠️ | Standardpasswort entfernt — **behoben** |
+
+---
+
+## Pflichten des Betreibers
+
+Folgende organisatorischen Maßnahmen liegen außerhalb des Codes und sind vom Betreiber sicherzustellen:
+
+- **Verzeichnis der Verarbeitungstätigkeiten (VVT)** nach Art. 30 DSGVO — Pflicht für öffentliche Einrichtungen
+- **Rechtsgrundlage** für jede Datenkategorie festhalten (wahrscheinlich Art. 6 Abs. 1 lit. e für Schüler- und Finanzdaten)
+- **Datenschutz-Folgenabschätzung (DPIA)** nach Art. 35 prüfen lassen — Minderjährige + Finanzdaten
+- **Auftragsverarbeitungsvertrag (AVV)** mit dem Softwareentwickler schriftlich abschließen (Entwurf vorhanden)
+- **Backup-Dateien** sicher aufbewahren (verschlüsselter Speicher, kein Versand per E-Mail) — Backups enthalten alle Schülerdaten im Klartext
+- **Passwortrichtlinie** für alle Benutzerkonten einführen und dokumentieren
+- **Sitzungsabmeldung** an öffentlich zugänglichen Schulrechnern sicherstellen (manuell oder Inaktivitäts-Timer)
+- **Das Feld `Notizen`** darf keine besonderen Kategorien personenbezogener Daten (Art. 9) enthalten — z. B. keine Gesundheitsdaten
+
+---
+
+## Offene technische Punkte (noch nicht behoben)
+
+| Priorität | Maßnahme |
+|---|---|
+| Mittel | JWT-Token in HttpOnly-Cookie statt `localStorage` |
+| Mittel | SMTP-Passwort verschlüsseln statt Klartext in DB |
+| Mittel | Physische Löschfunktion / Anonymisierung für Art.-17-Anträge |
+| Mittel | Jinja2 `SandboxedEnvironment` für Admin-editierbare E-Mail-Templates |
+| Gering | Sicherheits-HTTP-Header im Caddyfile (`X-Frame-Options`, CSP, HSTS) |
+| Gering | Passwortlänge beim Ändern erzwingen (mind. 12 Zeichen) |
+| Gering | Eigene Schuldomain statt `sslip.io` |
+
+---
+
+## Sonderpatch DSGVO
+
+> Commit: `dsgvo-patch` — Behobene kritische Mängel aus dem Prüfbericht vom 29.05.2026
+
+### 1. Hardcoded Standardpasswort entfernt
+
+**Datei:** `backend/app/db.py`
+
+Der Fallback `"Bibliomat2024!"` für die Benutzerkonten `lehrer`, `schulleiter` und `sekretariat` wurde entfernt. Der Server startet jetzt nicht mehr, wenn `EXTRA_USERS_PASSWORD` in der `.env` fehlt und noch keine dieser Benutzer in der Datenbank existieren. Bestehende Instanzen (Benutzer bereits in DB) sind nicht betroffen.
+
+**Erforderliche Maßnahme:** `EXTRA_USERS_PASSWORD=<sicheres-passwort>` in die `.env` eintragen, bevor ein frischer Server gestartet wird.
+
+### 2. JWT-Token-Laufzeit auf 8 Stunden reduziert
+
+**Datei:** `backend/app/security.py`
+
+Die Token-Laufzeit wurde von 7 Tagen (`60 * 24 * 7`) auf 8 Stunden (`60 * 8`) reduziert. Ein gestohlenes Token (z. B. durch XSS aus `localStorage`) ist damit maximal 8 Stunden gültig statt einer Woche.
+
+**Hinweis für Benutzer:** Nach 8 Stunden Inaktivität ist eine erneute Anmeldung erforderlich.
+
+### 3. Rate Limiting am Login-Endpunkt
+
+**Dateien:** `backend/pyproject.toml`, `backend/app/main.py`, `backend/app/routers/auth.py`
+
+Der `/api/auth/login`-Endpunkt ist jetzt auf **10 Anfragen pro Minute pro IP-Adresse** beschränkt. Brute-Force-Angriffe auf Passwörter werden damit erheblich erschwert. Implementiert mit `slowapi`.
+
+### 4. Logging für sicherheitsrelevante Ereignisse
+
+**Dateien:** `backend/app/routers/auth.py`, `backend/app/routers/admin.py`
+
+Folgende Ereignisse werden jetzt strukturiert im Application-Log protokolliert:
+
+| Ereignis | Log-Level | Inhalt |
+|---|---|---|
+| Erfolgreicher Login | `INFO` | Benutzername, Zeitstempel |
+| Fehlgeschlagener Login | `WARNING` | Benutzername (ohne Passwort), Zeitstempel |
+| Rate-Limit überschritten | `WARNING` | Automatisch via slowapi |
+| Backup-Download | `INFO` | Benutzername, Zeitstempel |
+| DB-Restore | `WARNING` | Benutzername, Zeitstempel |
+| Benutzer angelegt | `INFO` | Neuer Benutzername, ausführender Admin |
+| Benutzer gelöscht | `WARNING` | Gelöschter Benutzername, ausführender Admin |
+
+Die Logs erscheinen im Container-Output (`docker compose logs bibliomat`).
+
+---
+
 ## Changelog
 
 ### Mai 2026 (29.05.2026)

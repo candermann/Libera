@@ -11,7 +11,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 1 week
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours — reduced for DSGVO compliance
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

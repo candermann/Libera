@@ -542,7 +542,19 @@ def _ensure_benutzer_table(conn: Connection):
 def _seed_initial_benutzer(conn: Connection):
     from app.security import get_password_hash
 
-    initial_password = (os.getenv("EXTRA_USERS_PASSWORD") or "Bibliomat2024!").strip()
+    initial_password = (os.getenv("EXTRA_USERS_PASSWORD") or "").strip()
+    needs_seed = any(
+        not conn.execute(
+            text("SELECT benutzername FROM benutzer WHERE benutzername = :u"),
+            {"u": u},
+        ).first()
+        for u in ("lehrer", "schulleiter", "sekretariat")
+    )
+    if needs_seed and not initial_password:
+        raise RuntimeError(
+            "EXTRA_USERS_PASSWORD muss in der .env gesetzt sein, "
+            "bevor der Server zum ersten Mal gestartet wird."
+        )
     for username in ("lehrer", "schulleiter", "sekretariat"):
         existing = conn.execute(
             text("SELECT benutzername FROM benutzer WHERE benutzername = :u"),

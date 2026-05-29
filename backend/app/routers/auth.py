@@ -1,5 +1,6 @@
+import logging
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -10,7 +11,9 @@ from app.security import (
     create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
 )
+from app.limiter import limiter
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _INVALID = HTTPException(
@@ -21,7 +24,9 @@ _INVALID = HTTPException(
 
 
 @router.post("/login")
+@limiter.limit("10/minute")
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
@@ -31,6 +36,7 @@ def login(
     benutzer = db.query(Benutzer).filter(Benutzer.benutzername == username).first()
     if benutzer:
         if not verify_password(form_data.password, benutzer.passwort_hash):
+            logger.warning("Login fehlgeschlagen: Benutzer '%s'", username)
             raise _INVALID
     elif username == "admin":
         # Admin password stored in einstellungen for backward compatibility
@@ -43,10 +49,13 @@ def login(
                 detail="Admin-Passwort ist nicht initialisiert. Bitte Setup ausfuehren.",
             )
         if not verify_password(form_data.password, hash_record.wert):
+            logger.warning("Login fehlgeschlagen: Benutzer '%s'", username)
             raise _INVALID
     else:
+        logger.warning("Login fehlgeschlagen: unbekannter Benutzer '%s'", username)
         raise _INVALID
 
+    logger.info("Login erfolgreich: Benutzer '%s'", username)
     access_token = create_access_token(
         data={"sub": username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
