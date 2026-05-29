@@ -39,12 +39,13 @@ Die Anwendung unterstützt den vollständigen Verwaltungsprozess rund um Schulb�
 - Schüler-Salden und Vorgangsverläufe verfolgen
 - Zahlungen und Auszahlungen erfassen
 - Buchhaltungsübersichten nach Schuljahr erstellen
+- Benutzerverwaltung und Backup/Restore über Admin-Panel
 
 Die App ist bewusst einfach gehalten:
 
 | Eigenschaft | Beschreibung |
 |---|---|
-| Benutzerkonzept | Einzelner Admin-Login |
+| Benutzerkonzept | Admin + verwaltbare Benutzer |
 | Frontend | JSX direkt im Browser, kein Build-Schritt |
 | Backend | FastAPI |
 | Datenbank | SQLite mit WAL-Modus |
@@ -80,8 +81,8 @@ Die App ist bewusst einfach gehalten:
 
 - Schüler anlegen, bearbeiten und löschen
 - CSV-Import mit Vorschau und Fehlerliste
-- Klassenübersicht und Klassenversetzung
-- Archivierung von Abgangsschülern
+- Klassenübersicht und Klassenversetzung (Abgangsstufe: Klasse 12)
+- Archivierung von Abgangsschülern — optional mit Büchern (behalten-Flag)
 - Reaktivierung archivierter Schüler
 - Saldo je Schüler
 - Vorgangsverlauf je Schüler
@@ -91,8 +92,9 @@ Die App ist bewusst einfach gehalten:
 
 - Bücherkatalog mit ISBN, Fach, Klasse, Basispreis und Schutzgebühr
 - Fächerübersicht
-- Bestand nach Nutzungsjahr
-- automatische Preisberechnung je Nutzungsjahr
+- Bestand nach Nutzungsjahr (automatische Alterung pro Schuljahr)
+- `bestand_frei` immer aus Bucket-Summe berechnet
+- Automatische Preisberechnung je Nutzungsjahr
 - Rückgabe und Wiederverkauf
 - Soft-Delete für nicht mehr genutzte Bücher
 
@@ -101,13 +103,14 @@ Die App ist bewusst einfach gehalten:
 - Lernmaterial mit Kategorie, Preis und Bestand
 - Lernmaterial-Positionen auf Rechnungen
 - Freie Rechnungspositionen
-- wiederverwendbare Freiposten-Vorlagen
+- Wiederverwendbare Freiposten-Vorlagen
 
 ### Rechnungen, Gutschriften und Auszahlungen
 
 - Verkauf mehrerer Bücher pro Schüler
+- Oberstufe (Kl. 11/12): optionale Buchausgabe per Checkbox
 - Rückgaben im Verkaufsworkflow
-- automatische Verrechnung vorhandener Guthaben
+- Automatische Verrechnung vorhandener Guthaben
 - Rechnungserstellung mit fortlaufender Rechnungsnummer
 - Gutschrifterstellung bei Rückgabe
 - Auszahlungsbelege für Schüler-Guthaben
@@ -117,7 +120,7 @@ Die App ist bewusst einfach gehalten:
 ### Kommunikation
 
 - SMTP-basierter Rechnungsversand
-- konfigurierbare Absender-, Betreff- und Textvorlagen
+- Konfigurierbare Absender-, Betreff- und Textvorlagen
 - Versandstatus pro Rechnung
 - Dashboard für unversandte Rechnungen
 - Mail-Vorschau vor dem Versand
@@ -128,7 +131,13 @@ Die App ist bewusst einfach gehalten:
 - Listen für unversandte und versandte Rechnungen
 - Zahlungseingänge erfassen
 - Auszahlungen erfassen
-- schülerbezogene Salden
+- Schülerbezogene Salden
+
+### Admin-Panel (Profil → Konten / System)
+
+- Benutzer anlegen, löschen und Passwort ändern
+- Datenbank-Backup herunterladen
+- Datenbank-Restore aus Datei
 
 ---
 
@@ -145,11 +154,10 @@ Die App ist bewusst einfach gehalten:
 | Templates | Jinja2 |
 | E-Mail | SMTP |
 | Dependency Management | uv |
-| Frontend-Typecheck | TypeScript mit `allowJs` |
 | Tests | pytest, httpx |
 | Deployment | Docker, Docker Compose, Caddy |
 
-**Wichtig:** Das Frontend hat keinen Node-/Webpack-/Vite-Build. Die JSX-Dateien liegen in `frontend/` und werden direkt vom Browser über Babel Standalone kompiliert.
+**Wichtig:** Das Frontend hat keinen Node-/Webpack-/Vite-Build. Die JSX-Dateien liegen in `frontend/` und werden direkt vom Browser über Babel Standalone kompiliert. Änderungen immer in `api.js` vornehmen (nicht `api.ts`).
 
 ---
 
@@ -189,45 +197,47 @@ Bibliomat FastAPI Container
 ## Projektstruktur
 
 ```text
-Gymnasium Panketal/Bibliomat/
-├── Dokumentation.html
+Bibliomat/
 ├── docker-compose.yml
 ├── Caddyfile
-├── schueler_2026_2027.csv
 ├── frontend/
-│   ├── index.html
+│   ├── index.html           # Einstiegspunkt, Versionsnummern (?v=N)
 │   ├── app.jsx              # Routing, globaler Zustand
-│   ├── api.jsx              # API-Client
+│   ├── api.js               # API-Client (aktiv, vom Browser geladen)
+│   ├── api.ts               # TypeScript-Quelle (nicht vom Browser geladen)
 │   ├── login.jsx
 │   ├── home.jsx             # Dashboard
-│   ├── schueler-detail.jsx
-│   ├── verkauf.jsx
+│   ├── screens.jsx          # SchuelerListe, Buchhaltung, Klassenversetzung, Archiv
+│   ├── schueler-detail.jsx  # Schüler-Detailansicht
+│   ├── verkauf.jsx          # Buchausgabe-Flow
+│   ├── profil.jsx           # Einstellungen, Konten, Backup/Restore
 │   ├── lernmaterial.jsx
-│   ├── profil.jsx
-│   ├── print.jsx
-│   └── logo.png
-├── backend/
-│   ├── Dockerfile
-│   ├── pyproject.toml
-│   ├── uv.lock
-│   ├── reset_bestand.py
-│   ├── reset_schueler.py
-│   ├── app/
-│   │   ├── main.py          # FastAPI-App, CORS, Router, Static-Files
-│   │   ├── db.py            # Engine, Sessions, Schema-Vorbereitung
-│   │   ├── models.py        # SQLAlchemy-Modelle
-│   │   ├── schemas.py       # Pydantic-Schemas
-│   │   ├── security.py      # JWT, bcrypt, Auth-Dependency
-│   │   ├── seed.py          # Start-/Beispieldaten
-│   │   ├── routers/
-│   │   ├── services/
-│   │   └── templates/       # PDF-/HTML-Templates
-│   └── tests/
-└── Sonstiges/
-    ├── docs/                # ältere Spezifikationen
-    ├── migrations/          # alte Hilfsmigrationen
-    ├── debug-scripts/
-    └── test-data/
+│   ├── inventory-overrides.jsx
+│   └── ui.jsx / layout.jsx  # UI-Primitives
+└── backend/
+    ├── Dockerfile
+    ├── pyproject.toml
+    ├── app/
+    │   ├── main.py          # FastAPI-App, CORS, Router, Static-Files
+    │   ├── db.py            # Engine, Sessions, Schema-Vorbereitung
+    │   ├── models.py        # SQLAlchemy-Modelle
+    │   ├── schemas.py       # Pydantic-Schemas
+    │   ├── security.py      # JWT, bcrypt, Auth-Dependency
+    │   ├── routers/
+    │   │   ├── admin.py     # Benutzerverwaltung, Backup/Restore
+    │   │   ├── auth.py
+    │   │   ├── schueler.py
+    │   │   ├── verkauf.py
+    │   │   ├── gutschrift.py
+    │   │   ├── buecher.py
+    │   │   ├── klassenversetzung.py
+    │   │   └── ...
+    │   ├── services/
+    │   │   ├── pdf.py       # WeasyPrint
+    │   │   ├── zustand.py   # Preisberechnung, NJ-Logik
+    │   │   └── ...
+    │   └── templates/       # Jinja2: rechnung, gutschrift, auszahlung, mahnung
+    └── tests/
 ```
 
 ---
@@ -241,16 +251,10 @@ Gymnasium Panketal/Bibliomat/
 
 ### Starten
 
-```bash
-cd "Gymnasium Panketal/Bibliomat/backend"
-
+```powershell
+cd backend
 uv sync
-
-export SECRET_KEY="min-32-zeichen-langer-geheimschluessel"
-export CORS_ORIGINS="http://localhost:8000"
-export ADMIN_INITIAL_PASSWORD="adminpasswort"
-
-uv run uvicorn app.main:app --reload --port 8000
+uv run --env-file .env uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
 Danach ist die App erreichbar unter:
@@ -265,38 +269,6 @@ Swagger/OpenAPI:
 http://localhost:8000/docs
 ```
 
-Health-Check:
-
-```text
-http://localhost:8000/api/health
-```
-
-### TypeScript-Typecheck
-
-Das Frontend unterstützt TypeScript schrittweise. Bestehende `.jsx`-Dateien laufen weiter im Browser, neue kritische Dateien können als `.ts`/`.tsx` ergänzt werden.
-
-```bash
-npm install
-npm run typecheck
-npm run build:frontend
-```
-
-Aktuell sind `frontend/api.ts` und `frontend/print.ts` migriert. Sie werden zu `frontend/api.js` und `frontend/print.js` kompiliert und von `index.html` direkt geladen.
-
-### Windows PowerShell
-
-```powershell
-cd "Gymnasium Panketal/Bibliomat/backend"
-
-uv sync
-
-$env:SECRET_KEY="min-32-zeichen-langer-geheimschluessel"
-$env:CORS_ORIGINS="http://localhost:8000"
-$env:ADMIN_INITIAL_PASSWORD="adminpasswort"
-
-uv run uvicorn app.main:app --reload --port 8000
-```
-
 ---
 
 ## Umgebungsvariablen
@@ -304,17 +276,18 @@ uv run uvicorn app.main:app --reload --port 8000
 | Variable | Pflicht | Beschreibung |
 |---|---:|---|
 | `SECRET_KEY` | Ja | JWT-Signing-Key, mindestens 32 Zeichen. Beispiel: `openssl rand -hex 32` |
-| `CORS_ORIGINS` | Ja | Kommagetrennte Liste erlaubter Origins. `*` ist nicht erlaubt. |
-| `ADMIN_INITIAL_PASSWORD` | Nein | Startpasswort für `admin`, wird nur beim ersten Initialisieren genutzt. Standard ist `admin`. |
-| `DATABASE_URL` | Nein | SQLAlchemy-URL. Lokal Standard: `sqlite:///schulbuch.db`. Docker Standard: `sqlite:////app/data/schulbuch.db`. |
-| `PORT` | Nein | Port im Docker-Container. Standard: `8000`. |
+| `CORS_ORIGINS` | Ja | Kommagetrennte Liste erlaubter Origins. |
+| `ADMIN_INITIAL_PASSWORD` | Nein | Startpasswort für `admin`, wird nur beim **ersten Start** gesetzt (INSERT OR IGNORE). Danach im Admin-Panel änderbar. |
+| `DATABASE_URL` | Nein | SQLAlchemy-URL. Standard: `sqlite:///data/schulbuch.db`. |
+| `EXTRA_USERS_PASSWORD` | Nein | Initiales Passwort für lehrer/schulleiter/sekretariat. |
 
-Beispiel `.env` für Docker Compose:
+Beispiel `.env`:
 
 ```env
 SECRET_KEY=hier-einen-zufaelligen-key-mit-mindestens-32-zeichen
 CORS_ORIGINS=https://46.225.119.204.sslip.io,http://localhost:8000
 ADMIN_INITIAL_PASSWORD=BitteAendern
+DATABASE_URL=sqlite:///data/schulbuch.db
 ```
 
 ---
@@ -331,7 +304,7 @@ Alle Geldbeträge werden als **Integer in Cent** gespeichert. Dadurch gibt es ke
 | `lernmaterial` | zusätzliche Materialien |
 | `lernmaterial_posten` | Lernmaterial auf Rechnungen |
 | `rechnungen` | Rechnungskopf |
-| `rechnungs_posten` | Buchpositionen einer Rechnung |
+| `rechnungs_posten` | Buchpositionen einer Rechnung; Flags: zurueckgegeben, behalten |
 | `rechnung_freiposten` | freie Positionen einer Rechnung |
 | `freiposten_vorlagen` | Vorlagen für freie Positionen |
 | `gutschriften` | Gutschriftkopf |
@@ -339,9 +312,9 @@ Alle Geldbeträge werden als **Integer in Cent** gespeichert. Dadurch gibt es ke
 | `rechnung_verrechnungen` | Verrechnung von Guthaben mit Rechnungen |
 | `zahlungen` | Zahlungseingänge |
 | `auszahlungen` | Auszahlungen von Guthaben |
-| `einstellungen` | Key-Value-Store für Schul-, Mail- und Preis-Einstellungen |
+| `benutzer` | Benutzerkonten (außer admin) mit bcrypt-Passwort-Hash |
+| `einstellungen` | Key-Value-Store für Schul-, Mail-, Preis-Einstellungen und admin_password_hash |
 | `v_schueler_saldo` | berechneter Saldo je Schüler |
-| `v_schueler_vorgaenge` | chronologische Vorgänge je Schüler |
 
 ### ID-Formate
 
@@ -365,7 +338,7 @@ Alle Geldbeträge werden als **Integer in Cent** gespeichert. Dadurch gibt es ke
 | `1` bis `5` | Gebraucht, je nach Nutzungsdauer mit Abschlag |
 | `6` | Nur noch Schutzgebühr bzw. vollständig abgeschrieben |
 
-Das Nutzungsjahr steigt anhand des Schuljahres. Stichtag für die Logik ist der 1. August.
+Das Nutzungsjahr steigt anhand des Schuljahres. Stichtag für die Logik ist der 1. August. NJ=0 altert nie.
 
 ### Standard-Abschläge
 
@@ -391,14 +364,22 @@ Die Abschläge sind in den Einstellungen konfigurierbar.
 
 ## API
 
-Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gültigen JWT-Bearer-Token.
+Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gültigen JWT-Bearer-Token. Admin-Endpunkte (`/api/admin/*`) erfordern zusätzlich den `admin`-Account.
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
-| `POST` | `/api/auth/login` | Login als `admin` |
+| `POST` | `/api/auth/login` | Login |
 | `GET` | `/api/health` | Health-Check |
+| `GET` | `/api/admin/benutzer` | Benutzerliste (nur Admin) |
+| `POST` | `/api/admin/benutzer` | Benutzer anlegen (nur Admin) |
+| `DELETE` | `/api/admin/benutzer/{name}` | Benutzer löschen (nur Admin) |
+| `PATCH` | `/api/admin/benutzer/{name}/passwort` | Passwort ändern (nur Admin) |
+| `PATCH` | `/api/admin/passwort` | Admin-Passwort ändern |
+| `GET` | `/api/admin/backup` | Datenbank herunterladen (nur Admin) |
+| `POST` | `/api/admin/restore` | Datenbank wiederherstellen (nur Admin) |
 | `GET`/`POST` | `/api/schueler` | Schüler auflisten / anlegen |
 | `GET`/`PATCH`/`DELETE` | `/api/schueler/{id}` | Schüler lesen / bearbeiten / löschen |
+| `POST` | `/api/schueler/{id}/archivieren` | Schüler archivieren |
 | `GET` | `/api/schueler/{id}/vorgaenge` | Vorgangsverlauf |
 | `GET` | `/api/schueler/{id}/aktive-buecher` | aktive Bücher |
 | `POST` | `/api/schueler/import/csv/preview` | CSV-Import prüfen |
@@ -414,57 +395,46 @@ Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gült
 | `POST` | `/api/rechnungen/{id}/storno` | Rechnung stornieren |
 | `GET` | `/api/rechnungen/{id}/pdf` | Rechnung als PDF |
 | `GET` | `/api/rechnungen/{id}/html` | Rechnung als HTML |
-| `GET` | `/api/rechnungen/{id}/mail-vorlage` | E-Mail-Vorlage laden |
-| `POST` | `/api/rechnungen/{id}/mail-vorschau` | E-Mail-Vorschau |
 | `POST` | `/api/rechnungen/{id}/mail` | Rechnung per E-Mail senden |
 | `POST` | `/api/gutschrift` | Gutschrift erstellen |
 | `GET` | `/api/gutschriften/{id}` | Gutschrift abrufen |
 | `GET` | `/api/gutschriften/{id}/pdf` | Gutschrift als PDF |
 | `GET` | `/api/gutschriften/{id}/html` | Gutschrift als HTML |
-| `POST` | `/api/gutschriften/{id}/auszahlen` | Gutschrift auszahlen |
 | `GET`/`POST` | `/api/zahlungen` | Zahlungen auflisten / erfassen |
 | `PATCH`/`DELETE` | `/api/zahlungen/{id}` | Zahlung bearbeiten / löschen |
 | `POST` | `/api/auszahlungen` | Auszahlung erfassen |
 | `DELETE` | `/api/auszahlungen/{id}` | Auszahlung löschen |
 | `GET` | `/api/auszahlungen/{id}/pdf` | Auszahlungsbeleg als PDF |
-| `GET` | `/api/dashboard` | Dashboard-Daten |
 | `GET`/`PATCH` | `/api/einstellungen` | Einstellungen lesen / ändern |
 | `GET` | `/api/buchhaltung/schuljahre` | Schuljahresübersicht |
 | `GET` | `/api/buchhaltung/rechnungen` | Rechnungen eines Schuljahres |
-| `GET` | `/api/buchhaltung/unversandt` | unversandte Rechnungen |
-| `GET` | `/api/buchhaltung/versandt` | versandte Rechnungen |
 | `GET` | `/api/klassenversetzung/vorschau` | Versetzungsvorschau |
 | `POST` | `/api/klassenversetzung/ausfuehren` | Klassenversetzung ausführen |
+| `GET` | `/api/benachrichtigungen` | System-Warnungen |
 
 Vollständige Request-/Response-Schemata stehen im laufenden Server unter `/docs`.
-
-Hinweis: Im Code existiert zusätzlich ein Router für Mahnungen. Er ist in der aktuellen App-Initialisierung nicht eingebunden und deshalb nicht als aktiver API-Bereich dokumentiert.
 
 ---
 
 ## Authentifizierung
 
-- Es gibt genau einen Benutzer: `admin`.
-- Login erfolgt über `/api/auth/login`.
-- Das Backend gibt einen JWT-Bearer-Token zurück.
-- Der Token ist 7 Tage gültig.
-- Das Passwort wird mit bcrypt gehasht in der Tabelle `einstellungen` gespeichert.
-- `SECRET_KEY` ist Pflicht und muss mindestens 32 Zeichen lang sein.
-
-Beim ersten Start wird das initiale Admin-Passwort aus `ADMIN_INITIAL_PASSWORD` übernommen. Danach kann es über die Einstellungen geändert werden.
+- Login über `/api/auth/login` — gibt JWT-Bearer-Token zurück (7 Tage gültig)
+- `SECRET_KEY` ist Pflicht, mindestens 32 Zeichen
+- Passwörter werden mit **bcrypt** gehasht gespeichert — niemals im Klartext
+- Nutzer `admin`: Hash in `einstellungen.admin_password_hash`
+- Alle anderen Nutzer: Hash in `benutzer.passwort_hash`
+- `ADMIN_INITIAL_PASSWORD` wird nur beim **ersten Start** gesetzt (INSERT OR IGNORE). Danach kann das Passwort im Admin-Panel geändert werden und bleibt auch nach Neustarts erhalten
+- Admin-Passwort zurücksetzen: Eintrag `admin_password_hash` aus `einstellungen` löschen + Server neu starten
 
 ---
 
 ## Tests
 
 ```bash
-cd "Gymnasium Panketal/Bibliomat/backend"
-
+cd backend
 uv sync --extra dev
 uv run pytest
 ```
-
-Die Tests liegen in `backend/tests/` und decken unter anderem Verkauf, Gutschrift, Saldo, Regeln und Rechnungs-E-Mail ab.
 
 ---
 
@@ -472,183 +442,50 @@ Die Tests liegen in `backend/tests/` und decken unter anderem Verkauf, Gutschrif
 
 ### Docker Compose
 
-Im Projekt liegt bereits eine Compose-Konfiguration mit App-Container und Caddy-Reverse-Proxy.
-
 ```bash
-cd "Gymnasium Panketal/Bibliomat"
+# Von WSL — DB nicht überschreiben
+rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='backend/data' /mnt/c/Users/keanu/dev/Bibliomat/ root@46.225.119.204:/opt/libera/
 
-touch .env
+# Auf Server
+cd /opt/libera
+docker compose down
 docker compose up -d --build
 ```
 
-In `.env` mindestens diese Werte setzen:
-
-```env
-SECRET_KEY=hier-einen-zufaelligen-key-mit-mindestens-32-zeichen
-CORS_ORIGINS=https://46.225.119.204.sslip.io,http://localhost:8000
-ADMIN_INITIAL_PASSWORD=BitteAendern
-```
-
-Die Datenbank wird standardmäßig über dieses Volume persistent gespeichert:
-
-```text
-Gymnasium Panketal/Bibliomat/data/schulbuch.db
-```
-
-Der Pfad kann über `BIBLIOMAT_DATA_DIR` geändert werden.
-
-### Docker manuell
+### DB auf Server übertragen (überschreibt Server-DB!)
 
 ```bash
-cd "Gymnasium Panketal/Bibliomat"
-
-docker build -f backend/Dockerfile -t bibliomat .
-
-docker run -d \
-  --name bibliomat \
-  -p 8000:8000 \
-  -v "$(pwd)/data:/app/data" \
-  -e SECRET_KEY="$(openssl rand -hex 32)" \
-  -e CORS_ORIGINS="http://localhost:8000" \
-  -e ADMIN_INITIAL_PASSWORD="BitteAendern" \
-  bibliomat
+ssh root@46.225.119.204 "cd /opt/libera && docker compose down"
+rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@46.225.119.204:/opt/libera/data/
+ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
 ```
 
 ---
 
 ## Aktuelles Hosting
 
-Die aktuelle Hosting-Konfiguration liegt im Ordner `Gymnasium Panketal/Bibliomat/` und nutzt Docker Compose mit zwei Diensten:
-
 | Dienst | Zweck |
 |---|---|
 | `bibliomat` | FastAPI-App mit statischem Frontend, intern auf Port `8000` |
 | `caddy` | Reverse Proxy mit HTTPS/TLS |
 
-Die App ist laut aktuellem `Caddyfile` über diese Adresse vorgesehen:
-
 ```text
-https://46.225.119.204.sslip.io
+46.225.119.204.sslip.io → Caddy → bibliomat:8000
 ```
-
-Direkte HTTP-Aufrufe auf die Server-IP werden weitergeleitet:
-
-```text
-http://46.225.119.204 -> https://46.225.119.204.sslip.io
-```
-
-Caddy verwendet `sslip.io`, damit die IP-Adresse ohne eigene Domain als HTTPS-fähiger Hostname genutzt werden kann. Der Reverse Proxy leitet anschließend intern an den App-Container weiter:
-
-```text
-46.225.119.204.sslip.io
-  -> Caddy
-  -> bibliomat:8000
-```
-
-Die App selbst wird im Compose-Setup zusätzlich nur lokal auf dem Server gebunden:
-
-```text
-127.0.0.1:8000:8000
-```
-
-Dadurch ist der direkte App-Port von außen nicht öffentlich gedacht; der normale Zugriff läuft über Caddy/HTTPS.
-
-### Datenablage im aktuellen Hosting
-
-Die SQLite-Datenbank liegt persistent im gemounteten Datenordner:
-
-```text
-Gymnasium Panketal/Bibliomat/data/schulbuch.db
-```
-
-Der Pfad kann über `BIBLIOMAT_DATA_DIR` geändert werden. Ohne diese Variable nutzt Compose automatisch `./data`.
-
-### Betrieb auf dem Server
-
-```bash
-cd "Gymnasium Panketal/Bibliomat"
-
-docker compose ps
-docker compose logs -f bibliomat
-docker compose logs -f caddy
-```
-
-Update/Neustart:
-
-```bash
-cd "Gymnasium Panketal/Bibliomat"
-
-git pull
-docker compose up -d --build
-```
-
-Health-Check:
-
-```bash
-curl https://46.225.119.204.sslip.io/api/health
-```
-
-Wichtige Konfiguration:
-
-| Datei | Bedeutung |
-|---|---|
-| `docker-compose.yml` | Container, Ports, Volumes, Healthcheck |
-| `Caddyfile` | öffentlicher Hostname, HTTPS, Reverse Proxy |
-| `.env` | Secrets, CORS-Origins, initiales Admin-Passwort |
-| `data/` | persistente Datenbankdateien |
 
 ---
 
 ## Backup und Betrieb
 
-### Wichtige Dateien
-
 | Datei/Ordner | Bedeutung |
 |---|---|
-| `data/schulbuch.db` | produktive SQLite-Datenbank im Docker-Setup |
-| `data/schulbuch.db-wal` | SQLite WAL-Datei, falls aktiv |
-| `data/schulbuch.db-shm` | SQLite Shared-Memory-Datei, falls aktiv |
-| `backend/schulbuch.db` | lokale Datenbank bei Entwicklung ohne Docker |
+| `data/schulbuch.db` | produktive SQLite-Datenbank |
+| `data/schulbuch.db-wal` | SQLite WAL-Datei |
+| `data/schulbuch.db-shm` | SQLite Shared-Memory-Datei |
 
-### Backup erstellen
+Beim Kopieren der DB immer **alle drei Dateien zusammen** übertragen — sonst fehlen neuere Einträge.
 
-Am zuverlässigsten ist ein Backup bei gestopptem Container:
-
-```bash
-cd "Gymnasium Panketal/Bibliomat"
-
-docker compose stop bibliomat
-tar -czf "backup-bibliomat-$(date +%Y%m%d-%H%M).tar.gz" data/
-docker compose start bibliomat
-```
-
-Für lokale Entwicklung:
-
-```bash
-cd "Gymnasium Panketal/Bibliomat/backend"
-cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
-```
-
-### Betriebsempfehlungen
-
-- Vor jedem Schuljahreswechsel ein manuelles Backup erstellen.
-- Regelmäßige automatische Backups einrichten.
-- Backups extern speichern.
-- `.env` und Datenbankdateien nicht in Git committen.
-- Nach Deployment `/api/health` prüfen.
-- SMTP-Einstellungen nach Änderungen mit einer einzelnen Rechnung testen.
-
----
-
-## Hilfsskripte
-
-| Skript | Zweck |
-|---|---|
-| `backend/reset_bestand.py` | Bestand neu aufbauen |
-| `backend/reset_schueler.py` | Schülerdaten für Test-/Entwicklungszwecke zurücksetzen |
-| `backend/app/seed.py` | Start-/Beispieldaten erzeugen |
-| `Sonstiges/migrations/*.py` | historische Migrations- und Reparaturskripte |
-| `Sonstiges/debug-scripts/*.py` | Debug-Helfer für lokale Analyse |
+Backup über Admin-Panel: Profil → System → Backup herunterladen.
 
 ---
 
@@ -656,11 +493,9 @@ cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
 
 | Thema | Details |
 |---|---|
-| Einzelbenutzer | Es gibt nur den `admin`-Account. Keine Rollen, keine Mehrbenutzer-Verwaltung. |
 | SQLite | Gut für den internen Betrieb mit wenigen gleichzeitigen Nutzern. Nicht für hohe Schreiblast gedacht. |
-| Frontend ohne Build | Babel Standalone kompiliert JSX im Browser. Das vereinfacht Deployment, verursacht aber kurze Ladezeit. |
+| Frontend ohne Build | Babel Standalone kompiliert JSX im Browser. Das vereinfacht Deployment, verursacht aber kurze Ladezeit. Versionsnummern in `index.html` müssen nach Änderungen manuell erhöht werden. |
 | Migrationen | Kein Alembic. Schema-Anpassungen laufen idempotent beim Start über `init_db()`/`prepare_schema()`. |
-| Downgrades | Rückwärtsmigrationen sind nicht vorgesehen. |
 | PDF | WeasyPrint benötigt Systembibliotheken. Im Dockerfile sind sie enthalten. |
 | E-Mail | SMTP statt OAuth. Zugangsdaten werden in den Einstellungen gepflegt. |
 | Datenschutz | Es werden personenbezogene Daten Minderjähriger gespeichert. Betrieb, Zugriff und Backups müssen entsprechend abgesichert werden. |
@@ -669,51 +504,23 @@ cp schulbuch.db "schulbuch-backup-$(date +%Y%m%d-%H%M).db"
 
 ## Changelog
 
-### Mai 2026 (2026-05-26)
+### Mai 2026 (29.05.2026)
 
-#### Design & Branding
-- **Bibliomat-Logo** als SVG neu erstellt (Buch + Cursor-Icon, zentriert)
-- **Playfair Display** Schriftart für alle Seitenüberschriften, Begrüßung und Flow-Titel (Ausgabe, Buchrückgabe)
-- **Sidebar** mit dezenten Blau-Verlauf (`#eef3ff → #f8fafc`) für mehr Tiefe
-- **Aktiver Navigationseintrag** wird jetzt farbig gefüllt (Akzentfarbe)
-- **Input-Fokus-Glow** global: blauer Rahmen + Schimmer beim Fokussieren von Feldern
-- **Login-Screen** komplett modernisiert: Verlaufshintergrund, Bibliomat-Branding, SVG-Logo
+- **Admin-Panel**: Benutzerverwaltung (anlegen, löschen, Passwort ändern) im Profil-Tab „Konten"
+- **Backup/Restore**: DB-Download und -Upload direkt im Profil-Tab „System"
+- **behalten-Flag**: Schüler aus Kl. 12 können Bücher beim Archivieren behalten; Bestand wird korrekt aktualisiert
+- **Oberstufe**: Buchausgabe für Kl. 11/12 optional per Checkbox aktivierbar
+- **Bestandsfix**: `bestand_frei` immer aus Bucket-Summe (nicht `gesamt - ausgegeben`); `bestand_gesamt` für alle Bücher auf korrekte Summe gebracht
+- **Admin-Passwort**: wird nur beim ersten Start gesetzt (INSERT OR IGNORE) — UI-Änderungen bleiben nach Neustart erhalten
+- **Gutschrift-PDF**: Gutschrift-ID nicht mehr im Dokument sichtbar
+- **Klassenversetzung**: Abgangsstufe ist Klasse 12
 
-#### Navigation & Bezeichnungen
-- „Bücherei Sekretariat" → **„Bibliomat"** in der Sidebar (Playfair Display)
-- „Rechnungsversand & Buchhaltung" → **„Buchhaltung"** in Navigation und Seitenüberschrift
-- „Verkauf" → **„Ausgabe"** in allen Schritten des Ausgabe-Flows
-- „Verkauf" → **„Buchausgabe"** im Schülerprofil-Button
+### Mai 2026 (26.05.2026)
 
-#### Bücher & Lernmaterial
-- **Fächer löschen & umbenennen** direkt aus der Bücher-Ansicht
-- **Gebühr** (früher „Schutzgebühr") bereits beim Anlegen eines Buches eingebbar
-- Gebühr-Feld zeigt Platzhalter statt „0,00" wenn leer
-- **Lernmaterial** mit Kategorien-Gruppenansicht (wie Bücher nach Fach)
-- Kategorien in Lernmaterial haben jeweils eigene Icons
-
-#### Nutzungsjahre-Farbskala
-- Nutzungsjahr-Badges wechseln Farbe je Alter: **grün → limette → amber → orange → rot**
-- Gilt in der Buchauswahl (Ausgabe-Flow), Rückgabe-Flow und Bücher-Bestandsübersicht
-
-#### Archiv & Benachrichtigungen
-- Archivierte Schüler werden korrekt dem Schuljahr der Archivierung zugeordnet
-- **10-Jahres-Aufbewahrungspflicht**: System erkennt abgelaufene Archiveinträge
-- **Benachrichtigungs-Glocke** auf dem Startbildschirm für Systemhinweise
-- Benutzer kann abgelaufene Archiveinträge nach Bestätigung löschen
-
-#### Fixes
-- Eurozeichen in Buchhaltungs-Karte nicht mehr auf separater Zeile
-- Klasse 5 fehlte im Schüler-Filter — jetzt ergänzt
-
-### Mai 2026
-
-- Umbenennung zu **Bibliomat**
-- Fächerübersicht in der Bücher-Ansicht
-- Zurück-Buttons und Breadcrumbs in mehrstufigen Ansichten
-- Klassenversetzung mit Auswahl aller Schüler
-- Dashboard mit sechs letzten Vorgängen
-- Dashboard-Widget für unversandte Rechnungen
-- aktuelles Schuljahr aus Einstellungen
-- numerische Klassensortierung
-- Erweiterungen für Lernmaterial, Freiposten, Auszahlungen und Buchhaltung
+- Design & Branding: Bibliomat-Logo, Playfair Display, modernisierter Login
+- Bücher: Fächer umbenennen/löschen, Schutzgebühr beim Anlegen
+- Nutzungsjahr-Farbskala (grün → rot je Alter)
+- Archiv: 10-Jahres-Aufbewahrungspflicht, Benachrichtigungs-Glocke
+- Lernmaterial: Kategorien-Gruppenansicht
+- Klassenversetzung: alle Schüler auswählbar
+- Dashboard: letzte Vorgänge, unversandte Rechnungen
