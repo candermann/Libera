@@ -296,7 +296,7 @@ function Home({ onNav, onOpenStudent, accent, density }) {
       description: 'Zählt alle erstellten Gutschriften ab dem ersten Tag des aktuellen Monats.',
       formula: 'Gutschriften mit Datum im aktuellen Monat.',
       actionLabel: 'Rückgabe starten',
-      action: () => onNav('rueckgabe'),
+      action: () => onNav('buchruckgabe'),
     },
     ausleihen: {
       title: 'Offene Ausleihen',
@@ -423,19 +423,19 @@ function Home({ onNav, onOpenStudent, accent, density }) {
       {/* Big action cards */}
       <div style={{ display: 'flex', gap: 14, marginBottom: 24 }}>
         <ActionCard
-          id="kombiniert" icon="refresh-cw"
+          id="ausgabe-rueckgabe" icon="refresh-cw"
           title="Ausgabe & Rückgabe"
           subtitle="Rückgabe und Neuausgabe in einem Schritt."
           tone={{ bg: '#fff7ed', fg: '#c2410c' }}
         />
         <ActionCard
-          id="verkauf" icon="cart"
+          id="buchausgabe" icon="cart"
           title="Buchausgabe"
           subtitle="Bücher ausgeben und Rechnung erstellen."
           tone={{ bg: '#eff6ff', fg: accent }}
         />
         <ActionCard
-          id="rueckgabe" icon="return"
+          id="buchruckgabe" icon="return"
           title="Buchrückgabe"
           subtitle="Bücher zurücknehmen und Gutschrift ausstellen."
           tone={{ bg: '#ecfdf5', fg: '#047857' }}

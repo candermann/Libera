@@ -51,15 +51,15 @@ function App() {
   React.useEffect(() => {
     const labels = {
       home: 'Übersicht',
-      verkauf: 'Ausgabe',
-      rueckgabe: 'Rückgabe',
-      kombiniert: 'Kombiniert',
+      buchausgabe: 'Buchausgabe',
+      buchruckgabe: 'Buchrückgabe',
+      'ausgabe-rueckgabe': 'Ausgabe & Rückgabe',
       schueler: 'Schüler',
       buecher: 'Bücher',
       lernmaterial: 'Lernmaterial',
       buchhaltung: 'Buchhaltung',
       klassenversetzung: 'Klassenversetzung',
-      archiv: 'Archiv',
+      schuelerarchiv: 'Schülerarchiv',
       profil: 'Einstellungen',
     };
     document.title = `Bibliomat – ${labels[current] || current}`;
@@ -98,15 +98,15 @@ function App() {
   } else {
     switch (current) {
       case 'home': content = <window.Home onNav={handleNav} onOpenStudent={handleOpenStudent} accent={t.accent} density={t.density} />; break;
-      case 'verkauf': content = <window.Verkauf accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
-      case 'rueckgabe': content = <window.Rueckgabe accent={t.accent} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
-      case 'kombiniert': content = <window.KombiniertFlow accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
+      case 'buchausgabe': content = <window.Verkauf accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
+      case 'buchruckgabe': content = <window.Rueckgabe accent={t.accent} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
+      case 'ausgabe-rueckgabe': content = <window.KombiniertFlow accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
       case 'schueler': content = <window.SchuelerListe accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
       case 'buecher': content = <window.BuecherListe accent={t.accent} />; break;
       case 'lernmaterial': content = <window.LernmaterialListe accent={t.accent} />; break;
       case 'buchhaltung': content = <window.Buchhaltung accent={t.accent} />; break;
       case 'klassenversetzung': content = <window.Klassenversetzung accent={t.accent} />; break;
-      case 'archiv': content = <window.Archiv accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
+      case 'schuelerarchiv': content = <window.Archiv accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
       case 'profil': content = <window.Profil accent={t.accent} />; break;
       default: content = <window.Home onNav={handleNav} accent={t.accent} />; break;
     }

@@ -2,15 +2,15 @@
 
 const NAV_ITEMS = [
   { id: 'home', label: 'Start', icon: 'home' },
-  { id: 'kombiniert', label: 'Ausgabe & Rückgabe', icon: 'refresh-cw' },
-  { id: 'verkauf', label: 'Buchausgabe', icon: 'cart' },
-  { id: 'rueckgabe', label: 'Buchrückgabe', icon: 'return' },
+  { id: 'ausgabe-rueckgabe', label: 'Ausgabe & Rückgabe', icon: 'refresh-cw' },
+  { id: 'buchausgabe', label: 'Buchausgabe', icon: 'cart' },
+  { id: 'buchruckgabe', label: 'Buchrückgabe', icon: 'return' },
   { id: 'schueler', label: 'Schüler', icon: 'users' },
   { id: 'buecher', label: 'Bücher', icon: 'book' },
   { id: 'lernmaterial', label: 'Lernmaterial', icon: 'package' },
   { id: 'buchhaltung', label: 'Buchhaltung', icon: 'euro' },
-  { id: 'klassenversetzung', label: 'Versetzung', icon: 'arrow-right' },
-  { id: 'archiv', label: 'Archiv', icon: 'archive' },
+  { id: 'klassenversetzung', label: 'Klassenversetzung', icon: 'arrow-right' },
+  { id: 'schuelerarchiv', label: 'Schülerarchiv', icon: 'archive' },
   { id: 'profil', label: 'Einstellungen', icon: 'settings' },
 ];
 

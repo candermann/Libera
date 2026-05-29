@@ -307,7 +307,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 1) {
     return (
-      <FlowShell title="Ausgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
+      <FlowShell title="Buchausgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <SearchInput value={query} onChange={setQuery} placeholder="Schüler suchen - Name, Klasse oder ID..." autoFocus />
           <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
@@ -345,7 +345,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 2) {
     return (
-      <FlowShell title="Ausgabe" subtitle="Schritt 2 von 3 · Buchqualität auswählen" onCancel={onDone} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
+      <FlowShell title="Buchausgabe" subtitle="Schritt 2 von 3 · Buchqualität auswählen" onCancel={onDone} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
@@ -792,7 +792,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   }
 
   return (
-    <FlowShell title="Ausgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={onDone} step={3} accent={accent}>
+    <FlowShell title="Buchausgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={onDone} step={3} accent={accent}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
         <div>
           <div style={{ fontSize: 11.5, color: '#94a3b8', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Vorschau</div>

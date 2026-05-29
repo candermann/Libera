@@ -332,8 +332,8 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
         </div>
         {!isArchived && (
           <div style={{ display: 'flex', gap: 7, flexShrink: 0 }}>
-            <Btn kind="secondary" icon="cart" onClick={() => onNav('verkauf', detail)}>Buchausgabe</Btn>
-            <Btn kind="secondary" icon="return" onClick={() => onNav('rueckgabe', detail)}>Buchrückgabe</Btn>
+            <Btn kind="secondary" icon="cart" onClick={() => onNav('buchausgabe', detail)}>Buchausgabe</Btn>
+            <Btn kind="secondary" icon="return" onClick={() => onNav('buchruckgabe', detail)}>Buchrückgabe</Btn>
             <Btn kind="secondary" icon="check" onClick={() => setShowZahlungDialog(true)}>Zahlung verbuchen</Btn>
             {detail.konto.saldo_cents > 0 && (
               <Btn kind="secondary" icon="arrow-right" accent={accent} onClick={() => setShowAuszahlungDialog(true)}>Guthaben auszahlen</Btn>
