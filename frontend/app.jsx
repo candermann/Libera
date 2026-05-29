@@ -9,7 +9,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const initialRoute = (() => {
     const id = (window.location.hash || '').replace(/^#/, '');
-    return window.NAV_ITEMS?.some(item => item.id === id) ? id : 'home';
+    return window.NAV_ITEMS?.some(item => item.id === id) ? id : 'start';
   })();
   const [current, setCurrent] = useState(initialRoute);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -33,13 +33,13 @@ function App() {
       const state = event.state;
       if (!state || state.app !== 'bibliomat') {
         const id = (window.location.hash || '').replace(/^#/, '');
-        setCurrent(window.NAV_ITEMS?.some(item => item.id === id) ? id : 'home');
+        setCurrent(window.NAV_ITEMS?.some(item => item.id === id) ? id : 'start');
         setSelectedStudent(null);
         setNavContext(null);
         return;
       }
 
-      setCurrent(state.current || 'home');
+      setCurrent(state.current || 'start');
       setSelectedStudent(state.selectedStudent || null);
       setNavContext(state.navContext || null);
     };
@@ -97,10 +97,10 @@ function App() {
     content = <window.SchuelerDetail schueler={selectedStudent} accent={t.accent} onBack={() => commitRoute('schueler', null, null)} onNav={handleNav} />;
   } else {
     switch (current) {
-      case 'home': content = <window.Home onNav={handleNav} onOpenStudent={handleOpenStudent} accent={t.accent} density={t.density} />; break;
-      case 'buchausgabe': content = <window.Verkauf accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
-      case 'buchruckgabe': content = <window.Rueckgabe accent={t.accent} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
-      case 'ausgabe-rueckgabe': content = <window.KombiniertFlow accent={t.accent} density={t.density} onDone={() => handleNav('home')} preselectedStudent={navContext} />; break;
+      case 'start': content = <window.Home onNav={handleNav} onOpenStudent={handleOpenStudent} accent={t.accent} density={t.density} />; break;
+      case 'buchausgabe': content = <window.Verkauf accent={t.accent} density={t.density} onDone={() => handleNav('start')} preselectedStudent={navContext} />; break;
+      case 'buchruckgabe': content = <window.Rueckgabe accent={t.accent} onDone={() => handleNav('start')} preselectedStudent={navContext} />; break;
+      case 'ausgabe-rueckgabe': content = <window.KombiniertFlow accent={t.accent} density={t.density} onDone={() => handleNav('start')} preselectedStudent={navContext} />; break;
       case 'schueler': content = <window.SchuelerListe accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
       case 'buecher': content = <window.BuecherListe accent={t.accent} />; break;
       case 'lernmaterial': content = <window.LernmaterialListe accent={t.accent} />; break;

@@ -1,7 +1,7 @@
 // Sidebar / Topbar layout shells
 
 const NAV_ITEMS = [
-  { id: 'home', label: 'Start', icon: 'home' },
+  { id: 'start', label: 'Start', icon: 'start' },
   { id: 'ausgabe-rueckgabe', label: 'Ausgabe & Rückgabe', icon: 'refresh-cw' },
   { id: 'buchausgabe', label: 'Buchausgabe', icon: 'cart' },
   { id: 'buchruckgabe', label: 'Buchrückgabe', icon: 'return' },
