@@ -73,7 +73,8 @@ def list_rechnungen_buchhaltung(
                    s.klasse, s.email_eltern,
                    r.datum, r.summe_cents, r.verrechnet_cents,
                    (r.summe_cents - r.verrechnet_cents) AS zu_zahlen_cents,
-                   r.status, r.schuljahr, r.mail_versandt_am, r.mail_versandt_an
+                   r.status, r.schuljahr, r.mail_versandt_am, r.mail_versandt_an,
+                   COALESCE((SELECT SUM(z.betrag_cents) FROM zahlungen z WHERE z.schueler_id = r.schueler_id), 0) AS zahlungen_cents
             FROM rechnungen r
             JOIN schueler s ON s.id = r.schueler_id
             ORDER BY r.schuljahr DESC, s.klasse, s.nachname, s.vorname
@@ -89,6 +90,7 @@ def list_rechnungen_buchhaltung(
             "summe_cents": r.summe_cents,
             "verrechnet_cents": r.verrechnet_cents,
             "zu_zahlen_cents": r.zu_zahlen_cents,
+            "zahlungen_cents": getattr(r, "zahlungen_cents", None) or 0,
             "status": r.status,
             "schuljahr": r.schuljahr,
             "mail_versandt_am": r.mail_versandt_am,

@@ -1141,10 +1141,20 @@ function KlassenlisteTab({ accent, tabBar }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // Pro Schüler eine Zeile, Beträge summiert, neuestes Schuljahr anzeigen
-  const deduped = React.useMemo(() => {
+
+  const schuljahre = [...new Set(alle.map(r => r.schuljahr).filter(Boolean))].sort().reverse();
+  const klassen = [...new Set(
+    alle.filter(r => !filterSj || r.schuljahr === filterSj).map(r => r.klasse).filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+
+  const gefiltert = React.useMemo(() => {
+    const source = alle.filter(r => {
+      if (filterSj && r.schuljahr !== filterSj) return false;
+      if (filterKlasse && r.klasse !== filterKlasse) return false;
+      return true;
+    });
     const map = new Map();
-    alle.forEach(r => {
+    source.forEach(r => {
       if (map.has(r.schueler_id)) {
         const entry = map.get(r.schueler_id);
         entry.zu_zahlen_cents += r.zu_zahlen_cents;
@@ -1154,19 +1164,16 @@ function KlassenlisteTab({ accent, tabBar }) {
         map.set(r.schueler_id, { ...r, _key: r.schueler_id });
       }
     });
-    return [...map.values()];
-  }, [alle]);
-
-  const schuljahre = [...new Set(deduped.map(r => r.schuljahr).filter(Boolean))].sort().reverse();
-  const klassen = [...new Set(
-    deduped.filter(r => !filterSj || r.schuljahr === filterSj).map(r => r.klasse).filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
-
-  const gefiltert = deduped.filter(r => {
-    if (filterSj && r.schuljahr !== filterSj) return false;
-    if (filterKlasse && r.klasse !== filterKlasse) return false;
-    return true;
-  });
+    return [...map.values()]
+      .map(r => ({ ...r, zu_zahlen_cents: Math.max(0, r.zu_zahlen_cents - (r.zahlungen_cents || 0)) }))
+      .filter(r => r.zu_zahlen_cents > 0)
+      .sort((a, b) => {
+      const kA = parseInt(a.klasse, 10) || 0;
+      const kB = parseInt(b.klasse, 10) || 0;
+      if (kA !== kB) return kA - kB;
+      return (a.schueler_name || '').localeCompare(b.schueler_name || '', 'de');
+    });
+  }, [alle, filterSj, filterKlasse]);
 
   const toggleOne = (id) => setSelected(prev => {
     const next = new Set(prev);
@@ -1191,7 +1198,7 @@ function KlassenlisteTab({ accent, tabBar }) {
     ausgewaehlt.forEach(r => {
       rows += `<tr><td style="padding:5px 10px;color:#888;font-family:monospace;font-size:10pt;">${r.schueler_id}</td><td style="padding:5px 10px;">${r.schueler_name}</td><td style="padding:5px 10px;">${r.klasse}</td><td style="padding:5px 10px;color:#888;">${r.schuljahr}</td><td style="text-align:right;padding:5px 10px;font-family:monospace;">${(r.zu_zahlen_cents/100).toFixed(2).replace('.',',')} €</td></tr>`;
     });
-    const html = `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Klassenliste</title><style>body{font-family:Arial,sans-serif;font-size:11pt;color:#222;margin:18mm;}h2{color:#1a3c6e;margin-bottom:4px;}table{width:100%;border-collapse:collapse;}th{text-align:left;font-size:9pt;text-transform:uppercase;letter-spacing:.05em;color:#888;padding:6px 10px;border-bottom:2px solid #e2e8f0;}tr:nth-child(even){background:#f8fafc;}tfoot td{font-weight:700;border-top:2px solid #1a3c6e;padding:8px 10px;}@media print{@page{size:A4;margin:18mm;}}</style></head><body><h2>Klassenliste — ${titelZeile()}</h2><p style="font-size:10pt;color:#888;margin-bottom:16px;">Stand: ${new Date().toLocaleDateString('de-DE')} · ${ausgewaehlt.length} Einträge</p><table><thead><tr><th>ID</th><th>Name</th><th>Klasse</th><th>Schuljahr</th><th style="text-align:right;">Einzugsbetrag</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4">Gesamt (${ausgewaehlt.length} ausgewählt)</td><td style="text-align:right;">${(ausgewaehltSumme/100).toFixed(2).replace('.',',')} €</td></tr></tfoot></table></body></html>`;
+    const html = `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Klassenliste</title><style>body{font-family:Arial,sans-serif;font-size:11pt;color:#222;margin:18mm;}h2{color:#1a3c6e;margin-bottom:4px;}table{width:100%;border-collapse:collapse;}th{text-align:left;font-size:9pt;text-transform:uppercase;letter-spacing:.05em;color:#888;padding:6px 10px;border-bottom:2px solid #e2e8f0;}tr:nth-child(even){background:#f8fafc;}tfoot td{font-weight:700;border-top:2px solid #1a3c6e;padding:8px 10px;}@media print{@page{size:A4;margin:18mm;}}</style></head><body><h2>Klassenliste — ${titelZeile()}</h2><p style="font-size:10pt;color:#888;margin-bottom:16px;">Stand: ${new Date().toLocaleDateString('de-DE')} · ${ausgewaehlt.length} Einträge</p><table><thead><tr><th>ID</th><th>Name</th><th>Klasse</th><th>Schuljahr</th><th style="text-align:right;">Zu zahlen</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4">Gesamt (${ausgewaehlt.length} ausgewählt)</td><td style="text-align:right;">${(ausgewaehltSumme/100).toFixed(2).replace('.',',')} €</td></tr></tfoot></table></body></html>`;
     const w = window.open('', '_blank');
     w.document.write(html);
     w.document.close();
@@ -1202,7 +1209,7 @@ function KlassenlisteTab({ accent, tabBar }) {
   const downloadCSV = () => {
     if (ausgewaehlt.length === 0) return;
     const bom = '﻿';
-    const header = 'ID;Name;Klasse;Schuljahr;Einzugsbetrag\n';
+    const header = 'ID;Name;Klasse;Schuljahr;Zu zahlen\n';
     const zeilen = ausgewaehlt.map(r =>
       `${r.schueler_id};"${r.schueler_name}";${r.klasse};${r.schuljahr};"${(r.zu_zahlen_cents/100).toFixed(2).replace('.',',')} €"`
     ).join('\n');
@@ -1270,7 +1277,7 @@ function KlassenlisteTab({ accent, tabBar }) {
             <div>Name</div>
             <div>Klasse</div>
             <div>Schuljahr</div>
-            <div style={{ textAlign: 'right' }}>Einzugsbetrag</div>
+            <div style={{ textAlign: 'right' }}>Zu zahlen</div>
           </div>
           {gefiltert.map((r, i) => {
             const isSelected = selected.has(r._key);

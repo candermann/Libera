@@ -1138,7 +1138,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
       });
       setSaleResult(res);
       setStep(3);
-      const rueckgabeInfo = rueckgabe_posten_ids.length > 0 ? ` · ${rueckgabe_posten_ids.length} ${rueckgabe_posten_ids.length === 1 ? 'Buch' : 'Bücher'} zurückgenommen` : '';
+      const rueckgabeInfo = rueckgaben_kombi.length > 0 ? ` · ${rueckgaben_kombi.length} ${rueckgaben_kombi.length === 1 ? 'Buch' : 'Bücher'} zurückgenommen` : '';
       window.showToast('success', `Rechnung ${res.id} erstellt.${rueckgabeInfo}`);
     } catch (error) {
       console.error(error);
