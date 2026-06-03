@@ -10,15 +10,15 @@
 
 ---
 
-## Live-System
+## Interner Betrieb
 
-### [Bibliomat öffnen](https://46.225.119.204.sslip.io)
+### Bibliomat öffnen
 
 ```text
-https://46.225.119.204.sslip.io
+http://SERVER-IP:8000
 ```
 
-Die Anwendung läuft aktuell auf einem Server unter dieser Adresse. Der Zugriff erfolgt per HTTPS über Caddy als Reverse Proxy.
+Die Anwendung ist für den internen Betrieb ohne Reverse Proxy vorbereitet. Docker Compose veröffentlicht die FastAPI-App direkt auf Port `8000`.
 
 ---
 
@@ -49,7 +49,7 @@ Die App ist bewusst einfach gehalten:
 | Frontend | JSX direkt im Browser, kein Build-Schritt |
 | Backend | FastAPI |
 | Datenbank | SQLite mit WAL-Modus |
-| Deployment | Docker oder Docker Compose mit Caddy |
+| Deployment | Docker Compose |
 | Zielgruppe | Schulbuch-Büro / interne Verwaltung |
 
 ---
@@ -156,7 +156,7 @@ Die App ist bewusst einfach gehalten:
 | E-Mail | SMTP |
 | Dependency Management | uv |
 | Tests | pytest, httpx |
-| Deployment | Docker, Docker Compose, Caddy |
+| Deployment | Docker, Docker Compose |
 
 **Wichtig:** Das Frontend hat keinen Node-/Webpack-/Vite-Build. Die JSX-Dateien liegen in `frontend/` und werden direkt vom Browser über Babel Standalone kompiliert. Änderungen immer in `api.js` vornehmen (nicht `api.ts`).
 
@@ -176,16 +176,10 @@ FastAPI Backend
 SQLite Datenbank
 ```
 
-Im Produktivbetrieb kann Caddy davor geschaltet werden:
-
 ```text
-Internet
+Browser im internen Netzwerk
   |
-  | HTTPS
-  v
-Caddy Reverse Proxy
-  |
-  | HTTP intern
+  | HTTP :8000
   v
 Bibliomat FastAPI Container
   |
@@ -200,7 +194,6 @@ Bibliomat FastAPI Container
 ```text
 Bibliomat/
 ├── docker-compose.yml
-├── Caddyfile
 ├── frontend/
 │   ├── index.html           # Einstiegspunkt, Versionsnummern (?v=N)
 │   ├── app.jsx              # Routing, globaler Zustand
@@ -286,7 +279,7 @@ Beispiel `.env`:
 
 ```env
 SECRET_KEY=hier-einen-zufaelligen-key-mit-mindestens-32-zeichen
-CORS_ORIGINS=https://46.225.119.204.sslip.io,http://localhost:8000
+CORS_ORIGINS=http://SERVER-IP:8000,http://localhost:8000
 ADMIN_INITIAL_PASSWORD=BitteAendern
 DATABASE_URL=sqlite:///data/schulbuch.db
 ```
@@ -445,8 +438,9 @@ uv run pytest
 ### Docker Compose
 
 ```bash
-# Von WSL — DB nicht überschreiben
-rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='backend/data' /mnt/c/Users/keanu/dev/Bibliomat/ root@46.225.119.204:/opt/libera/
+# Erstinstallation per Git
+cd /opt
+git clone -b dev https://github.com/candermann/Libera.git libera
 
 # Auf Server
 cd /opt/libera
@@ -454,12 +448,18 @@ docker compose down
 docker compose up -d --build
 ```
 
+Danach im internen Netzwerk öffnen:
+
+```text
+http://SERVER-IP:8000
+```
+
 ### DB auf Server übertragen (überschreibt Server-DB!)
 
 ```bash
-ssh root@46.225.119.204 "cd /opt/libera && docker compose down"
-rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@46.225.119.204:/opt/libera/data/
-ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
+ssh root@SERVER-IP "cd /opt/libera && docker compose down"
+rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@SERVER-IP:/opt/libera/data/
+ssh root@SERVER-IP "cd /opt/libera && docker compose up -d --build"
 ```
 
 ---
@@ -468,11 +468,10 @@ ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
 
 | Dienst | Zweck |
 |---|---|
-| `bibliomat` | FastAPI-App mit statischem Frontend, intern auf Port `8000` |
-| `caddy` | Reverse Proxy mit HTTPS/TLS |
+| `bibliomat` | FastAPI-App mit statischem Frontend, veröffentlicht auf Port `8000` |
 
 ```text
-46.225.119.204.sslip.io → Caddy → bibliomat:8000
+http://SERVER-IP:8000 → bibliomat:8000
 ```
 
 ---
@@ -524,7 +523,7 @@ Bibliomat verarbeitet personenbezogene Daten von Schülerinnen und Schülern (Mi
 | Auskunfts- und Löschrecht | Art. 15–17 | ⚠️ | Nur Soft-Delete, kein Auskunftsexport |
 | E-Mail / Datenübertragung | Art. 25, 32 | ✅ / ⚠️ | STARTTLS vorhanden, SMTP-Passwort im Klartext |
 | Protokollierung / Audit-Trail | Art. 5 Abs. 2 | ⚠️ | Logging für Auth-Ereignisse — **behoben** |
-| Drittland / Auftragsverarbeitung | Art. 44 ff. | ⚠️ | sslip.io-Abhängigkeit, AVV-Entwurf vorhanden |
+| Drittland / Auftragsverarbeitung | Art. 44 ff. | ⚠️ | AVV-Entwurf vorhanden |
 | Technische Schwachstellen | Art. 32 | ⚠️ | Standardpasswort entfernt — **behoben** |
 
 ---
@@ -552,9 +551,8 @@ Folgende organisatorischen Maßnahmen liegen außerhalb des Codes und sind vom B
 | Mittel | SMTP-Passwort verschlüsseln statt Klartext in DB |
 | Mittel | Physische Löschfunktion / Anonymisierung für Art.-17-Anträge |
 | Mittel | Jinja2 `SandboxedEnvironment` für Admin-editierbare E-Mail-Templates |
-| Gering | Sicherheits-HTTP-Header im Caddyfile (`X-Frame-Options`, CSP, HSTS) |
+| Gering | Sicherheits-HTTP-Header bei späterem Reverse Proxy ergänzen |
 | Gering | Passwortlänge beim Ändern erzwingen (mind. 12 Zeichen) |
-| Gering | Eigene Schuldomain statt `sslip.io` |
 
 ---
 

@@ -5,16 +5,16 @@ Schulbuch-Verwaltungssystem für ein Gymnasium. FastAPI-Backend + React-Frontend
 
 **Repo**: https://github.com/candermann/Libera.git  
 **Branch**: `dev` (Haupt-Arbeitsbranch)  
-**Server**: root@46.225.119.204 — `/opt/libera/`  
+**Server**: `/opt/libera/`  
 **Lokales Projekt**: `C:\Users\keanu\dev\Bibliomat\`  
-**Domain**: https://46.225.119.204.sslip.io
+**Interne URL**: `http://SERVER-IP:8000`
 
 ---
 
 ## Stack
 - **Backend**: Python 3.12, FastAPI, SQLAlchemy, SQLite, WeasyPrint (PDF), uv
 - **Frontend**: React 18 (CDN), Babel Standalone, kein Bundler
-- **Server**: Docker + Caddy (Reverse Proxy + HTTPS)
+- **Server**: Docker Compose, interner HTTP-Betrieb auf Port `8000`
 
 ---
 
@@ -27,8 +27,9 @@ uv run --env-file .env uvicorn app.main:app --reload --host 127.0.0.1 --port 800
 
 ## Deploy auf Server
 ```bash
-# Von WSL — backend/data ausschließen damit DB auf Server nicht überschrieben wird
-rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='sonstiges/logs' --exclude='backend/data' /mnt/c/Users/keanu/dev/Bibliomat/ root@46.225.119.204:/opt/libera/
+# Erstinstallation per Git
+cd /opt
+git clone -b dev https://github.com/candermann/Libera.git libera
 
 # Auf Server — immer --build, da Frontend-Dateien ins Image kopiert werden
 cd /opt/libera
@@ -39,12 +40,11 @@ docker compose up -d --build
 ## DB auf Server übertragen (lokal → Server, überschreibt Server-DB!)
 ```bash
 # Server zuerst stoppen
-ssh root@46.225.119.204 "cd /opt/libera && docker compose down"
+ssh root@SERVER-IP "cd /opt/libera && docker compose down"
 # Alle drei DB-Dateien übertragen (WAL-Modus: immer alle drei zusammen!)
-rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@46.225.119.204:/opt/libera/data/
+rsync -avz --delete /mnt/c/Users/keanu/dev/Bibliomat/backend/data/ root@SERVER-IP:/opt/libera/data/
 # Code deployen + neu starten
-rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='sonstiges/logs' --exclude='backend/data' /mnt/c/Users/keanu/dev/Bibliomat/ root@46.225.119.204:/opt/libera/
-ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
+ssh root@SERVER-IP "cd /opt/libera && docker compose up -d --build"
 ```
 
 `.env` liegt auf dem Server unter `/opt/libera/.env` — wird nicht per rsync überschrieben.

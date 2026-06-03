@@ -1,7 +1,0 @@
-46.225.119.204.sslip.io {
-  reverse_proxy bibliomat:8000
-}
-
-http://46.225.119.204 {
-  redir https://46.225.119.204.sslip.io{uri} permanent
-}
