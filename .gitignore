@@ -17,3 +17,11 @@ sonstiges/logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# App data / local secrets
+data/
+*.sqlite
+*.sqlite3
+*.db
+*.pem
+*.key
