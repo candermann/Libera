@@ -238,11 +238,12 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
   const [archivWorking, setArchivWorking] = React.useState(false);
 
   const handleArchivieren = async () => {
-    const hatAktiveBuecher = aktiveBuecher.length > 0;
+    const aktiveOffeneBuecher = aktiveBuecher.filter(b => !b.zurueckgegeben);
+    const hatAktiveBuecher = aktiveOffeneBuecher.length > 0;
     window.showConfirm({
       message: `${detail.nachname}, ${detail.vorname} archivieren?`,
       detail: hatAktiveBuecher
-        ? `Schüler hat ${aktiveBuecher.length} nicht zurückgegebene${aktiveBuecher.length === 1 ? 's Buch' : ' Bücher'} — ${aktiveBuecher.length === 1 ? 'dieses wird' : 'diese werden'} als „behalten" markiert und aus dem aktiven Bestand entfernt.`
+        ? `Schüler hat ${aktiveOffeneBuecher.length} nicht zurückgegebene${aktiveOffeneBuecher.length === 1 ? 's Buch' : ' Bücher'} — ${aktiveOffeneBuecher.length === 1 ? 'dieses wird' : 'diese werden'} als „behalten" markiert und aus dem aktiven Bestand entfernt.`
         : 'Der Schüler wird aus der aktiven Liste entfernt und kann jederzeit reaktiviert werden.',
       confirmLabel: 'Archivieren',
       danger: true,
@@ -262,7 +263,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
 
   const reload = () => {
     window.api.schueler.get(schueler.id).then(setDetail).catch(console.error);
-    window.api.schueler.aktiveBuecher(schueler.id).then(res => setAktiveBuecher(res.items || [])).catch(console.error);
+    window.api.schueler.aktiveBuecher(schueler.id, { include_beschaedigte_rueckgaben: true }).then(res => setAktiveBuecher(res.items || [])).catch(console.error);
     window.api.schueler.vorgaenge(schueler.id).then(res => setVorgaenge(res.items || [])).catch(console.error);
     window.api.zahlungen.list(schueler.id).then(res => setZahlungen(res.items || [])).catch(console.error);
   };
@@ -277,6 +278,8 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
 
   const saldo = detail.konto.saldo_cents / 100;
   const sichtbareVorgaenge = vorgaenge.filter(v => v.typ !== 'verrechnung');
+  const offeneBuecher = aktiveBuecher.filter(b => !b.zurueckgegeben);
+  const beschaedigteBuecher = aktiveBuecher.filter(b => b.beschaedigt);
 
   const saldoFarbe = saldo > 0.005 ? '#047857' : (saldo < -0.005 ? '#b91c1c' : '#64748b');
   const saldoLabel = saldo > 0.005 ? 'Guthaben' : (saldo < -0.005 ? 'Offen' : 'Ausgeglichen');
@@ -372,11 +375,15 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
             Gekaufte Bücher
           </div>
           <div style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', marginTop: 4, fontFamily: 'JetBrains Mono, monospace' }}>
-            {aktiveBuecher.length}
+            {offeneBuecher.length}
           </div>
           {detail.konto.anzahl_behalten_buecher > 0 ? (
             <div style={{ fontSize: 11, color: '#b45309', marginTop: 1, fontWeight: 500 }}>
               {detail.konto.anzahl_behalten_buecher} behalten
+            </div>
+          ) : beschaedigteBuecher.length > 0 ? (
+            <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 1, fontWeight: 500 }}>
+              {beschaedigteBuecher.length} beschädigt
             </div>
           ) : (
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>im Schuljahr 2025/26</div>
@@ -474,7 +481,9 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.005em' }}>Gekaufte Bücher</h2>
-            <span style={{ fontSize: 11.5, color: '#94a3b8' }}>{aktiveBuecher.length} offen</span>
+            <span style={{ fontSize: 11.5, color: '#94a3b8' }}>
+              {offeneBuecher.length} offen{beschaedigteBuecher.length > 0 ? ` · ${beschaedigteBuecher.length} beschädigt` : ''}
+            </span>
           </div>
           <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
             {aktiveBuecher.length === 0 ? (
@@ -484,11 +493,13 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
             ) : aktiveBuecher.map((b, i) => {
               const fachText = (b.fach || 'Fach').toString();
               const hue = (fachText.charCodeAt(0) * 7) % 360;
+              const isBeschaedigt = !!b.beschaedigt;
               return (
                 <div key={b.rechnungs_posten_id} style={{
                   display: 'flex', alignItems: 'center', gap: 10,
                   padding: '10px 12px',
                   borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
+                  background: isBeschaedigt ? '#fff7f7' : 'transparent',
                 }}>
                   <div style={{
                     width: 28, height: 36, borderRadius: 3,
@@ -500,7 +511,22 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
                   }}>{fachText.slice(0, 3).toUpperCase()}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.titel}</div>
-                    <div style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{(b.preis_cents / 100).toFixed(2).replace('.',',')} €</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>{(b.preis_cents / 100).toFixed(2).replace('.',',')} €</span>
+                      {isBeschaedigt && (
+                        <span style={{
+                          fontSize: 10,
+                          color: '#b91c1c',
+                          background: '#fee2e2',
+                          border: '1px solid #fecaca',
+                          borderRadius: 999,
+                          padding: '1px 6px',
+                          fontWeight: 600,
+                        }}>
+                          Beschädigt
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

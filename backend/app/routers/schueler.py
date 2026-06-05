@@ -628,13 +628,21 @@ def get_schueler_vorgaenge(schueler_id: str, db: Session = Depends(get_db)):
 
 
 @router.get("/{schueler_id}/aktive-buecher", response_model=AktiveBuecherResponse)
-def get_schueler_aktive_buecher(schueler_id: str, db: Session = Depends(get_db)):
+def get_schueler_aktive_buecher(
+    schueler_id: str,
+    include_beschaedigte_rueckgaben: bool = False,
+    db: Session = Depends(get_db),
+):
     """Get books currently held by the student."""
     s = db.query(Schueler).filter(Schueler.id == schueler_id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Schüler nicht gefunden")
 
-    buecher = get_aktive_buecher(db, schueler_id)
+    buecher = get_aktive_buecher(
+        db,
+        schueler_id,
+        include_beschaedigte_rueckgaben=include_beschaedigte_rueckgaben,
+    )
     return AktiveBuecherResponse(
         items=[AktivesBuchItem(**b) for b in buecher]
     )

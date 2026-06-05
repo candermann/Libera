@@ -90,6 +90,24 @@ declare global {
     notizen?: string | null;
   }
 
+  interface AktivesBuch {
+    rechnungs_posten_id: number;
+    rechnung_id: ApiId;
+    buch_id: ApiId;
+    titel: string;
+    fach: string;
+    verlag?: string | null;
+    kaufdatum: ISODateString;
+    verkauft_schuljahr?: string | null;
+    preis_cents: number;
+    gutschrift_cents: number;
+    nutzungsjahr: number;
+    abschreibung_prozent: number;
+    schutzgebuehr_cents: number;
+    zurueckgegeben?: boolean;
+    beschaedigt?: boolean;
+  }
+
   interface RechnungMailPreview {
     to_email?: string;
     subject: string;
@@ -134,7 +152,7 @@ declare global {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Schueler>>;
       get(id: ApiId): Promise<Schueler>;
       vorgaenge(id: ApiId): Promise<ApiListResponse<unknown>>;
-      aktiveBuecher(id: ApiId): Promise<ApiListResponse<unknown>>;
+      aktiveBuecher(id: ApiId, params?: Record<string, unknown>): Promise<ApiListResponse<AktivesBuch>>;
       create(data: Partial<Schueler>): Promise<Schueler>;
       update(id: ApiId, data: Partial<Schueler>): Promise<Schueler>;
       remove(id: ApiId): Promise<null>;
@@ -199,6 +217,7 @@ declare global {
     buchhaltung: {
       schuljahre(): Promise<ApiListResponse<unknown>>;
       rechnungen(schuljahr: string): Promise<ApiListResponse<Rechnung>>;
+      alleRechnungen(): Promise<ApiListResponse<Rechnung>>;
       unversandt(): Promise<ApiListResponse<Rechnung>>;
       versandt(): Promise<ApiListResponse<Rechnung>>;
     };

@@ -100,6 +100,41 @@ class TestSchuelerCrud:
         assert len(data["items"]) == 1
         assert data["items"][0]["buch_id"] == b["id"]
 
+    def test_aktive_buecher_can_include_damaged_returns(self, client):
+        """Damaged returns stay hidden by default but can be shown for the profile."""
+        s = create_test_schueler(client)
+        b = create_test_buch(client, bestand_gesamt=10)
+
+        verkauf = client.post("/api/verkauf", json={
+            "schueler_id": s["id"],
+            "buch_ids": [b["id"]],
+        })
+        assert verkauf.status_code == 201
+        posten_id = verkauf.json()["posten"][0]["rechnungs_posten_id"]
+
+        rueckgabe = client.post("/api/gutschrift", json={
+            "schueler_id": s["id"],
+            "rueckgaben": [
+                {"rechnungs_posten_id": posten_id, "beschaedigt": True},
+            ],
+        })
+        assert rueckgabe.status_code == 201
+
+        default_resp = client.get(f"/api/schueler/{s['id']}/aktive-buecher")
+        assert default_resp.status_code == 200
+        assert default_resp.json()["items"] == []
+
+        profile_resp = client.get(
+            f"/api/schueler/{s['id']}/aktive-buecher"
+            "?include_beschaedigte_rueckgaben=true"
+        )
+        assert profile_resp.status_code == 200
+        items = profile_resp.json()["items"]
+        assert len(items) == 1
+        assert items[0]["buch_id"] == b["id"]
+        assert items[0]["zurueckgegeben"] is True
+        assert items[0]["beschaedigt"] is True
+
 
 class TestSchuelerCsvImport:
     """CSV preview + import tests for students."""

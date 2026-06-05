@@ -1130,6 +1130,7 @@ function RechnungMailDialog({ rechnung, accent, onClose, onSent }) {
 // ---- Klassenliste (eigenständige Komponente) ----
 function KlassenlisteTab({ accent, tabBar }) {
   const [alle, setAlle] = React.useState([]);
+  const [settings, setSettings] = React.useState({});
   const [loading, setLoading] = React.useState(true);
   const [filterSj, setFilterSj] = React.useState('');
   const [filterKlasse, setFilterKlasse] = React.useState('');
@@ -1146,6 +1147,12 @@ function KlassenlisteTab({ accent, tabBar }) {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  }, []);
+
+  React.useEffect(() => {
+    window.api?.einstellungen?.get?.()
+      .then(res => setSettings(res || {}))
+      .catch(console.error);
   }, []);
 
 
@@ -1201,12 +1208,206 @@ function KlassenlisteTab({ accent, tabBar }) {
 
   const downloadPDF = () => {
     if (ausgewaehlt.length === 0) return;
-    let rows = '';
-    ausgewaehlt.forEach(r => {
-      rows += `<tr><td style="padding:5px 10px;color:#888;font-family:monospace;font-size:10pt;">${r.schueler_id}</td><td style="padding:5px 10px;">${r.schueler_name}</td><td style="padding:5px 10px;">${r.klasse}</td><td style="padding:5px 10px;color:#888;">${r.schuljahr}</td><td style="text-align:right;padding:5px 10px;font-family:monospace;">${(r.zu_zahlen_cents/100).toFixed(2).replace('.',',')} €</td></tr>`;
-    });
-    const html = `<!DOCTYPE html><html lang="de"><head><meta charset="UTF-8"><title>Klassenliste</title><style>body{font-family:Arial,sans-serif;font-size:11pt;color:#222;margin:18mm;}h2{color:#1a3c6e;margin-bottom:4px;}table{width:100%;border-collapse:collapse;}th{text-align:left;font-size:9pt;text-transform:uppercase;letter-spacing:.05em;color:#888;padding:6px 10px;border-bottom:2px solid #e2e8f0;}tr:nth-child(even){background:#f8fafc;}tfoot td{font-weight:700;border-top:2px solid #1a3c6e;padding:8px 10px;}@media print{@page{size:A4;margin:18mm;}}</style></head><body><h2>Klassenliste — ${titelZeile()}</h2><p style="font-size:10pt;color:#888;margin-bottom:16px;">Stand: ${new Date().toLocaleDateString('de-DE')} · ${ausgewaehlt.length} Einträge</p><table><thead><tr><th>ID</th><th>Name</th><th>Klasse</th><th>Schuljahr</th><th style="text-align:right;">Zu zahlen</th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td colspan="4">Gesamt (${ausgewaehlt.length} ausgewählt)</td><td style="text-align:right;">${(ausgewaehltSumme/100).toFixed(2).replace('.',',')} €</td></tr></tfoot></table></body></html>`;
+    const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[char]));
+    const eur = (cents) => `${(Number(cents || 0) / 100).toFixed(2).replace('.', ',')} €`;
+    const docAccent = '#0f766e';
+    const schoolName = settings.schule_name || 'Staedtisches Gymnasium';
+    const schoolStreet = settings.schule_strasse || 'Schulstrasse 12';
+    const schoolZipCity = [settings.schule_plz || '52538', settings.schule_ort || 'Gangelt'].filter(Boolean).join(' ');
+    const schoolPhone = settings.schule_telefon || '02454 / 12345';
+    const schoolBank = settings.schule_bank || 'Sparkasse Heinsberg';
+    const schoolIban = settings.schule_iban || 'DE12 3704 0044 0532 0130 00';
+    const schoolBic = settings.schule_bic || 'COBADEFFXXX';
+    const heute = new Date().toLocaleDateString('de-DE');
+    const rows = ausgewaehlt.map(r => `
+        <tr>
+          <td class="mono muted">${esc(r.schueler_id)}</td>
+          <td>${esc(r.schueler_name)}</td>
+          <td>${esc(r.klasse)}</td>
+          <td class="muted">${esc(r.schuljahr)}</td>
+          <td class="right">${eur(r.zu_zahlen_cents)}</td>
+        </tr>
+      `).join('');
+    const html = `<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Klassenliste</title>
+  <style>
+    @page { size: A4; margin: 18mm 18mm 26mm 18mm; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      line-height: 1.5;
+      color: #222;
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .main-content { flex: 1; padding-bottom: 24mm; }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid ${docAccent};
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    }
+    .header-left { display: flex; align-items: flex-start; gap: 14px; }
+    .header-logo { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+    .school-name { font-size: 15pt; font-weight: 700; color: ${docAccent}; line-height: 1.2; }
+    .school-address { font-size: 8.5pt; color: #555; margin-top: 4px; }
+    .doc-info { text-align: right; }
+    .doc-title { font-size: 14pt; font-weight: 700; color: ${docAccent}; }
+    .doc-date { font-size: 9pt; color: #555; margin-top: 2px; }
+    .summary {
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: #f0fdfa;
+      border-left: 4px solid ${docAccent};
+    }
+    .summary .label {
+      font-size: 8pt;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .summary .title { font-size: 13pt; font-weight: 700; color: ${docAccent}; }
+    .summary .meta { font-size: 9.5pt; color: #555; margin-top: 2px; }
+    .section-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: ${docAccent};
+      margin: 16px 0 8px;
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    thead { display: table-header-group; }
+    thead th {
+      background: ${docAccent};
+      color: #fff;
+      font-size: 8.5pt;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 7px 10px;
+      text-align: left;
+    }
+    tbody td, tfoot td {
+      padding: 7px 10px;
+      border-bottom: 1px solid #e0e0e0;
+      font-size: 9.5pt;
+      vertical-align: top;
+    }
+    tbody tr { break-inside: avoid; page-break-inside: avoid; }
+    tbody tr:nth-child(even) { background: #fafcfc; }
+    tfoot td {
+      border-top: 2px solid ${docAccent};
+      border-bottom: none;
+      font-weight: 700;
+      font-size: 11pt;
+      padding-top: 8px;
+    }
+    .right { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .mono { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-variant-numeric: tabular-nums; }
+    .muted { color: #777; }
+    .footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      border-top: 1px solid #ccc;
+      padding: 6px 18mm 5px;
+      font-size: 7.5pt;
+      color: #777;
+      display: flex;
+      justify-content: space-between;
+      background: #fff;
+    }
+    .footer .bank-info { text-align: right; }
+    @media screen {
+      body { min-height: 257mm !important; }
+      .footer {
+        position: static !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        margin-top: auto !important;
+        padding: 6px 0 5px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="main-content">
+  <div class="header">
+    <div class="header-left">
+      <img class="header-logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+      <div>
+        <div class="school-name">${esc(schoolName)}</div>
+        <div class="school-address">
+          ${esc(schoolStreet)}<br>
+          ${esc(schoolZipCity)}<br>
+          Tel: ${esc(schoolPhone)}
+        </div>
+      </div>
+    </div>
+    <div class="doc-info">
+      <div class="doc-title">Klassenliste</div>
+      <div class="doc-date">Datum: ${esc(heute)}</div>
+      <div class="doc-date">${esc(titelZeile())}</div>
+    </div>
+  </div>
+
+  <div class="summary">
+    <div class="label">Auswahl</div>
+    <div class="title">${esc(titelZeile())}</div>
+    <div class="meta">${ausgewaehlt.length} Einträge · Gesamtbetrag ${eur(ausgewaehltSumme)}</div>
+  </div>
+
+  <div class="section-title">Einzugsbeträge</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:90px;">ID</th>
+        <th>Name</th>
+        <th style="width:70px;">Klasse</th>
+        <th style="width:110px;">Schuljahr</th>
+        <th class="right" style="width:120px;">Zu zahlen</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4">Gesamt (${ausgewaehlt.length} ausgewählt)</td>
+        <td class="right">${eur(ausgewaehltSumme)}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<div class="footer">
+  <div>${esc(schoolName)} · ${esc(schoolStreet)} · ${esc(schoolZipCity)}</div>
+  <div class="bank-info">IBAN: ${esc(schoolIban)} · BIC: ${esc(schoolBic)}<br>${esc(schoolBank)}</div>
+</div>
+</body>
+</html>`;
     const w = window.open('', '_blank');
+    if (!w) {
+      window.showToast?.('error', 'Bitte Pop-ups erlauben, um die Klassenliste anzuzeigen.');
+      return;
+    }
     w.document.write(html);
     w.document.close();
     w.focus();

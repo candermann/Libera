@@ -194,6 +194,8 @@ class AktivesBuchItem(BaseModel):
     nutzungsjahr: int = 1
     abschreibung_prozent: int = 0
     schutzgebuehr_cents: int = 0
+    zurueckgegeben: bool = False
+    beschaedigt: bool = False
 
 
 class AktiveBuecherResponse(BaseModel):

@@ -46,7 +46,11 @@ def get_vorgaenge(db: Session, schueler_id: str) -> list[dict]:
     return items
 
 
-def get_aktive_buecher(db: Session, schueler_id: str) -> list[dict]:
+def get_aktive_buecher(
+    db: Session,
+    schueler_id: str,
+    include_beschaedigte_rueckgaben: bool = False,
+) -> list[dict]:
     from app.models import Einstellungen
     schuljahr_row = db.query(Einstellungen).filter(
         Einstellungen.schluessel == "schuljahr_aktuell"
@@ -68,18 +72,30 @@ def get_aktive_buecher(db: Session, schueler_id: str) -> list[dict]:
                 rp.preis_cents,
                 rp.nutzungsjahr_beim_kauf,
                 b.preis_cents AS basispreis_cents,
-                COALESCE(b.schutzgebuehr_cents, 0) AS schutzgebuehr_cents
+                COALESCE(b.schutzgebuehr_cents, 0) AS schutzgebuehr_cents,
+                COALESCE(rp.zurueckgegeben, 0) AS zurueckgegeben,
+                CASE
+                    WHEN COALESCE(gp.beschaedigt, 0) = 1 THEN 1
+                    ELSE 0
+                END AS beschaedigt
             FROM rechnungs_posten rp
             JOIN rechnungen r ON r.id = rp.rechnung_id
             JOIN buecher b ON b.id = rp.buch_id
+            LEFT JOIN gutschrift_posten gp ON gp.rechnungs_posten_id = rp.id
             WHERE r.schueler_id = :sid
               AND r.status != 'storniert'
-              AND rp.zurueckgegeben = 0
+              AND (
+                rp.zurueckgegeben = 0
+                OR (:include_beschaedigte_rueckgaben = 1 AND COALESCE(gp.beschaedigt, 0) = 1)
+              )
               AND COALESCE(rp.behalten, 0) = 0
-            ORDER BY r.datum DESC, b.titel
+            ORDER BY COALESCE(rp.zurueckgegeben, 0), r.datum DESC, b.titel
             """
         ),
-        {"sid": schueler_id},
+        {
+            "sid": schueler_id,
+            "include_beschaedigte_rueckgaben": 1 if include_beschaedigte_rueckgaben else 0,
+        },
     ).fetchall()
 
     abschlaege = get_nutzungsjahr_abschlaege(db)
@@ -95,6 +111,8 @@ def get_aktive_buecher(db: Session, schueler_id: str) -> list[dict]:
             row.basispreis_cents,
             row.nutzungsjahr_beim_kauf,
         )
+        ist_beschaedigt = bool(row.beschaedigt)
+        ist_zurueckgegeben = bool(row.zurueckgegeben)
         result.append({
             "rechnungs_posten_id": row.rechnungs_posten_id,
             "rechnung_id": row.rechnung_id,
@@ -109,6 +127,8 @@ def get_aktive_buecher(db: Session, schueler_id: str) -> list[dict]:
             "nutzungsjahr": nutzungsjahr,
             "abschreibung_prozent": abschreibung_prozent,
             "schutzgebuehr_cents": row.schutzgebuehr_cents,
+            "zurueckgegeben": ist_zurueckgegeben,
+            "beschaedigt": ist_beschaedigt,
         })
     return result
 
