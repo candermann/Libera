@@ -1,0 +1,5 @@
+cat > Caddyfile <<'EOF'
+:80 {
+    reverse_proxy bibliomat:8000
+}
+EOF
