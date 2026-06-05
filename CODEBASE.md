@@ -26,7 +26,7 @@ Bibliomat/
 │   │   │   ├── benachrichtigungen.py — System-Warnungen, Jahreserinnerung
 │   │   │   ├── einstellungen.py  — Schuldaten, SMTP, Schuljahr
 │   │   │   ├── auth.py           — Login (JWT), admin + benutzer-Tabelle
-│   │   │   ├── lernmaterial.py   — Lernmaterial-Bestand, CSV-Import
+│   │   │   ├── lernmaterial.py   — Lernmaterial-Bestand
 │   │   │   └── freiposten.py     — Manuelle Posten, Vorlagen
 │   │   ├── services/
 │   │   │   ├── pdf.py            — WeasyPrint: Rechnung/Gutschrift/Auszahlung→PDF/HTML

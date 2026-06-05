@@ -614,12 +614,13 @@ function ImportStudentsCsvDialog({ accent, onClose, onImported }) {
               <Btn kind="ghost" onClick={toggleAll}>{allSelected ? 'Alle abwählen' : 'Alle markieren'}</Btn>
             </div>
             <div style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '42px 70px 1fr 1fr 90px 1fr 110px 1fr 170px', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', background: '#fbfcfd' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '42px 70px 1fr 1fr 90px 1fr 1fr 110px 1fr 170px', gap: 10, padding: '8px 14px', borderBottom: '1px solid #f1f5f9', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', background: '#fbfcfd' }}>
                 <div />
                 <div>Zeile</div>
-                <div>Vorname</div>
                 <div>Nachname</div>
+                <div>Vorname</div>
                 <div>Klasse</div>
+                <div>E-Mail</div>
                 <div>Straße</div>
                 <div>PLZ</div>
                 <div>Ort</div>
@@ -645,7 +646,7 @@ function ImportStudentsCsvDialog({ accent, onClose, onImported }) {
                 return (
                   <div key={`${row.row_number}-${index}`} style={{
                     display: 'grid',
-                    gridTemplateColumns: '42px 70px 1fr 1fr 90px 1fr 110px 1fr 170px',
+                    gridTemplateColumns: '42px 70px 1fr 1fr 90px 1fr 1fr 110px 1fr 170px',
                     gap: 10,
                     padding: '9px 14px',
                     alignItems: 'center',
@@ -665,19 +666,25 @@ function ImportStudentsCsvDialog({ accent, onClose, onImported }) {
                     </div>
                     <div style={{ fontSize: 11.5, color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{row.row_number}</div>
                     <input
-                      value={row.vorname || ''}
-                      onChange={(e) => updateRowField(row.row_number, 'vorname', e.target.value)}
-                      style={cellInputStyle(row, 'vorname')}
-                    />
-                    <input
                       value={row.nachname || ''}
                       onChange={(e) => updateRowField(row.row_number, 'nachname', e.target.value)}
                       style={cellInputStyle(row, 'nachname')}
                     />
                     <input
+                      value={row.vorname || ''}
+                      onChange={(e) => updateRowField(row.row_number, 'vorname', e.target.value)}
+                      style={cellInputStyle(row, 'vorname')}
+                    />
+                    <input
                       value={row.klasse || ''}
                       onChange={(e) => updateRowField(row.row_number, 'klasse', e.target.value)}
                       style={cellInputStyle(row, 'klasse')}
+                    />
+                    <input
+                      value={row.email_eltern || ''}
+                      onChange={(e) => updateRowField(row.row_number, 'email_eltern', e.target.value)}
+                      style={cellInputStyle(row, 'email_eltern')}
+                      placeholder="optional"
                     />
                     <input
                       value={row.strasse || ''}
@@ -707,7 +714,7 @@ function ImportStudentsCsvDialog({ accent, onClose, onImported }) {
 
       <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
         <div style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>
-          Pflichtfelder: <strong>vorname, nachname, klasse</strong>
+          Pflichtfelder: <strong>nachname, vorname, klasse</strong> · Optional: e-mail, straße, plz, ort
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>

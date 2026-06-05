@@ -1,0 +1,63 @@
+vorname;nachname;klasse;strasse;plz;ort;email_eltern;notizen
+Emma;Albrecht;5a;Lindenstraße 4;16321;Panketal;albrecht.eltern@gmail.com;Neuaufnahme
+Leon;Hartmann;5a;Birkenweg 11;16321;Bernau;hartmann@web.de;
+Sofia;Neumann;5a;Ahornallee 3;16341;Zepernick;neumann.familie@outlook.de;
+Ben;Zimmermann;5a;Hauptstraße 22;16321;Panketal;;
+Mia;Hoffmann;5a;Rosenweg 7;16356;Ahrensfelde;hoffmann-eltern@gmx.de;
+Elias;Brandt;5a;Gartenstraße 15;16321;Bernau;brandt@gmail.com;Quereinsteiger aus Berlin
+Klara;Vogel;5b;Waldstraße 9;16341;Zepernick;vogel.eltern@web.de;
+Noah;Bauer;5b;Feldstraße 2;16321;Panketal;bauer@outlook.de;
+Leni;König;5b;Parkstraße 18;16321;Bernau;;
+Felix;Schäfer;5b;Kirchweg 5;16356;Ahrensfelde;schaefer.eltern@gmail.com;
+Hannah;Wolf;5b;Bergstraße 31;16321;Panketal;wolf@web.de;Sportbefreiung
+Luis;Richter;5b;Seestraße 8;16341;Zepernick;;
+Amelie;Krause;6a;Brunnenstraße 14;16321;Bernau;krause.a@gmail.com;
+Tom;Lange;6a;Dorfstraße 6;16321;Panketal;lange.eltern@web.de;
+Julia;Werner;6a;Bahnhofstraße 27;16356;Ahrensfelde;werner@outlook.de;Klassensprecherin
+Paul;Braun;6a;Lindenweg 3;16321;Bernau;;
+Nele;Schmitt;6a;Wiesenstraße 12;16341;Zepernick;schmitt@gmx.de;
+Lukas;Berger;6b;Eichenallee 20;16321;Panketal;berger.eltern@gmail.com;
+Marie;Weiß;6b;Schulstraße 1;16321;Bernau;weiss@web.de;LRS-Förderung
+Jonas;Krüger;6b;Am Sportplatz 4;16341;Zepernick;;
+Lara;Fuchs;6b;Waldweg 17;16356;Ahrensfelde;fuchs.eltern@outlook.de;
+David;Groß;6b;Hauptstraße 45;16321;Panketal;gross@gmail.com;
+Sophia;Köhler;7a;Kastanienallee 8;16321;Bernau;koehler@web.de;
+Finn;Peters;7a;Birkenstraße 23;16341;Zepernick;peters.eltern@gmx.de;
+Mila;Schulze;7a;Gartenweg 10;16321;Panketal;;
+Jan;Meyer;7a;Feldweg 6;16356;Ahrensfelde;meyer.j@gmail.com;Wiederholer
+Lia;Walter;7a;Rosenstraße 34;16321;Bernau;walter@outlook.de;
+Max;Herrmann;7b;Parkweg 2;16321;Panketal;herrmann.eltern@web.de;
+Sarah;Fischer;7b;Kirchstraße 19;16341;Zepernick;fischer.s@gmail.com;Austausch aus Frankreich bis 2027-02
+Erik;Lehmann;7b;Seeweg 7;16321;Bernau;;
+Nina;Keller;7b;Brunnenweg 11;16356;Ahrensfelde;keller@gmx.de;
+Tobias;Beck;7b;Waldstraße 25;16321;Panketal;beck.eltern@gmail.com;
+Anna;Möller;8a;Lindenstraße 16;16321;Bernau;moeller@web.de;
+Simon;Wagner;8a;Ahornweg 3;16341;Zepernick;wagner.s@outlook.de;
+Laura;Roth;8a;Hauptweg 8;16321;Panketal;;Allergien: Nüsse (Info Mensa)
+Nico;Sauer;8a;Birkenallee 29;16356;Ahrensfelde;sauer.eltern@gmail.com;
+Alina;Zimmermann;8a;Dorfstraße 14;16321;Bernau;zimmermann@web.de;Klassensprecherin
+Henrik;Klein;8b;Gartenstraße 5;16321;Panketal;klein.h@gmx.de;
+Lea;Schwarz;8b;Feldstraße 33;16341;Zepernick;schwarz@outlook.de;
+Moritz;Becker;8b;Kirchgasse 7;16321;Bernau;;LRS-Förderung
+Zoe;Müller;8b;Wiesenweg 21;16356;Ahrensfelde;mueller.z@gmail.com;
+Philipp;Schneider;8b;Parkstraße 4;16321;Panketal;schneider.p@web.de;
+Charlotte;Hoffmann;9a;Eichenstraße 12;16321;Bernau;c.hoffmann@gmail.com;
+Lasse;Frank;9a;Rosenallee 6;16341;Zepernick;frank.eltern@outlook.de;
+Maja;Schreiber;9a;Schulstraße 18;16321;Panketal;;
+Luisa;Jung;9a;Bahnhofstraße 9;16356;Ahrensfelde;jung.l@gmx.de;
+Ole;Hahn;9a;Bergweg 3;16321;Bernau;hahn@web.de;Klassensprecher
+Clara;Pohl;9b;Kastanienweg 14;16321;Panketal;pohl.eltern@gmail.com;
+Dominik;Neumann;9b;Waldstraße 37;16341;Zepernick;neumann.d@outlook.de;
+Pia;Riedel;9b;Birkenweg 22;16321;Bernau;;
+Fabian;Lorenz;9b;Feldstraße 5;16356;Ahrensfelde;lorenz@gmx.de;
+Isabel;Kramer;9b;Seestraße 28;16321;Panketal;kramer.i@gmail.com;Sportbefreiung
+Jonathan;Arnold;10a;Lindenallee 1;16321;Bernau;arnold.j@web.de;
+Katharina;Vogt;10a;Gartenweg 20;16341;Zepernick;vogt@outlook.de;Klassensprecherin
+Markus;Brauer;10a;Hauptstraße 56;16321;Panketal;;
+Theresa;Günther;10a;Kirchstraße 10;16356;Ahrensfelde;guenther@gmail.com;
+Bastian;Horn;10a;Parkweg 15;16321;Bernau;horn.b@web.de;
+Elena;Wolf;10b;Rosenweg 9;16321;Panketal;wolf.e@gmx.de;
+Kevin;Bergmann;10b;Wiesenstraße 8;16341;Zepernick;;
+Vanessa;Kaiser;10b;Dorfstraße 31;16321;Bernau;kaiser.v@gmail.com;
+Sven;Lenz;10b;Feldweg 14;16356;Ahrensfelde;lenz@outlook.de;Wiederholer
+Miriam;Busch;10b;Brunnenstraße 6;16321;Panketal;busch.m@web.de;

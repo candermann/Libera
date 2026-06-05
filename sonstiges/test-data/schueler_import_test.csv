@@ -1,0 +1,7 @@
+vorname;nachname;klasse;strasse;plz;ort;email_eltern;notizen
+Lina;Sommer;6a;Hauptstrasse 12;16321;Panketal;lina.eltern@example.com;Neuaufnahme
+Mika;Schulz;6a;Birkenweg 4;16321;Panketal;mika.eltern@example.com;
+Tom;Becker;7b;Ahornallee 8;16321;Bernau;;
+Nora;;7b;Parkstrasse 2;16321;Panketal;nora.eltern@example.com;Fehlender Nachname
+Tom;Becker;7b;Ahornallee 8;16321;Bernau;;Duplikat in der Datei
+Sara;Klein;8c;;;;;Nur Pflichtfelder

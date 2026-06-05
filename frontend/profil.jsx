@@ -36,6 +36,7 @@ function Profil({ accent }) {
     schuljahr_aktuell: '',
     schuljahr_naechster_beginn: '',
     versetzung_sperre_aktiv: 'true',
+    mail_auth_method: 'smtp',
     mail_smtp_host: '',
     mail_smtp_port: '587',
     mail_smtp_username: '',
@@ -43,11 +44,17 @@ function Profil({ accent }) {
     mail_smtp_password_set: 'false',
     mail_smtp_use_starttls: 'true',
     mail_smtp_use_ssl: 'false',
+    mail_oauth2_tenant_id: '',
+    mail_oauth2_client_id: '',
+    mail_oauth2_client_secret: '',
+    mail_oauth2_client_secret_set: 'false',
     mail_from_email: '',
     mail_from_name: '',
     mail_reply_to: '',
     mail_subject_template: '',
     mail_body_template: '',
+    mail_signature_text: '',
+    mail_signature_html: '',
   });
 
   React.useEffect(() => {
@@ -662,56 +669,111 @@ function Profil({ accent }) {
       {activeTab === 'email' && (
         <div style={{ display: 'grid', gap: 14 }}>
           <Card padding={20}>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>SMTP-Zugangsdaten</div>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>Mailserver-Zugangsdaten</div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 14 }}>
               Ausgehender Mailserver für den Rechnungsversand aus der Buchhaltung.
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 10 }}>
+
+            {/* Auth-Methode */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Authentifizierungsprotokoll</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { value: 'smtp', label: 'Benutzername / Passwort (SMTP)' },
+                  { value: 'oauth2', label: 'OAuth2 (Microsoft / Office 365)' },
+                ].map(opt => (
+                  <label key={opt.value} style={{
+                    display: 'flex', alignItems: 'center', gap: 7, padding: '8px 14px', cursor: 'pointer',
+                    border: '1px solid ' + (form.mail_auth_method === opt.value ? '#2563eb' : '#e2e8f0'),
+                    borderRadius: 8, background: form.mail_auth_method === opt.value ? '#eff6ff' : '#fff',
+                    fontSize: 12.5, color: '#0f172a',
+                  }}>
+                    <input type="radio" name="mail_auth_method" value={opt.value}
+                      checked={form.mail_auth_method === opt.value}
+                      onChange={() => setField('mail_auth_method', opt.value)}
+                      style={{ accentColor: '#2563eb' }} />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Host + Port — immer sichtbar */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 10, marginBottom: 10 }}>
               <div>
                 <label style={labelStyle}>SMTP Host</label>
-                <input value={form.mail_smtp_host} onChange={(e) => setField('mail_smtp_host', e.target.value)} placeholder="z.B. smtp.office365.com" style={fieldStyle} />
+                <input value={form.mail_smtp_host} onChange={(e) => setField('mail_smtp_host', e.target.value)}
+                  placeholder={form.mail_auth_method === 'oauth2' ? 'smtp.office365.com' : 'z.B. smtp.office365.com'} style={fieldStyle} />
               </div>
               <div>
                 <label style={labelStyle}>SMTP Port</label>
                 <input value={form.mail_smtp_port} onChange={(e) => setField('mail_smtp_port', e.target.value)} placeholder="587" style={fieldStyle} />
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-              <div>
-                <label style={labelStyle}>Benutzername</label>
-                <input value={form.mail_smtp_username} onChange={(e) => setField('mail_smtp_username', e.target.value)} style={fieldStyle} />
-              </div>
-              <div>
-                <label style={labelStyle}>Passwort</label>
-                <input type="password" value={form.mail_smtp_password} onChange={(e) => setField('mail_smtp_password', e.target.value)} placeholder={form.mail_smtp_password_set === 'true' ? 'Gespeichert - leer lassen, um beizubehalten' : ''} style={fieldStyle} />
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={form.mail_smtp_use_starttls === 'true'}
-                  onChange={(e) => setField('mail_smtp_use_starttls', e.target.checked ? 'true' : 'false')}
-                  style={{ width: 15, height: 15, accentColor: '#2563eb', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: 12.5, color: '#0f172a' }}>STARTTLS nutzen</span>
-              </label>
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={form.mail_smtp_use_ssl === 'true'}
-                  onChange={(e) => setField('mail_smtp_use_ssl', e.target.checked ? 'true' : 'false')}
-                  style={{ width: 15, height: 15, accentColor: '#2563eb', cursor: 'pointer' }}
-                />
-                <span style={{ fontSize: 12.5, color: '#0f172a' }}>SSL direkt nutzen</span>
-              </label>
-            </div>
+
+            {/* SMTP: Benutzername + Passwort + Flags */}
+            {form.mail_auth_method !== 'oauth2' && (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={labelStyle}>Benutzername</label>
+                    <input value={form.mail_smtp_username} onChange={(e) => setField('mail_smtp_username', e.target.value)} style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Passwort</label>
+                    <input type="password" value={form.mail_smtp_password} onChange={(e) => setField('mail_smtp_password', e.target.value)}
+                      placeholder={form.mail_smtp_password_set === 'true' ? 'Gespeichert – leer lassen, um beizubehalten' : ''} style={fieldStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.mail_smtp_use_starttls === 'true'}
+                      onChange={(e) => setField('mail_smtp_use_starttls', e.target.checked ? 'true' : 'false')}
+                      style={{ width: 15, height: 15, accentColor: '#2563eb', cursor: 'pointer' }} />
+                    <span style={{ fontSize: 12.5, color: '#0f172a' }}>STARTTLS nutzen</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 10px', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer' }}>
+                    <input type="checkbox" checked={form.mail_smtp_use_ssl === 'true'}
+                      onChange={(e) => setField('mail_smtp_use_ssl', e.target.checked ? 'true' : 'false')}
+                      style={{ width: 15, height: 15, accentColor: '#2563eb', cursor: 'pointer' }} />
+                    <span style={{ fontSize: 12.5, color: '#0f172a' }}>SSL direkt nutzen</span>
+                  </label>
+                </div>
+              </>
+            )}
+
+            {/* OAuth2: Tenant-ID, Client-ID, Client-Secret */}
+            {form.mail_auth_method === 'oauth2' && (
+              <>
+                <div style={{ padding: '10px 12px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0369a1', marginBottom: 10 }}>
+                  Für Microsoft Office 365 / Exchange Online: App-Registrierung im Azure-Portal erforderlich. SMTP-Host: <strong>smtp.office365.com</strong>, Port: <strong>587</strong>.
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <label style={labelStyle}>Benutzername (SMTP AUTH – E-Mail-Adresse des Absenders)</label>
+                  <input value={form.mail_smtp_username} onChange={(e) => setField('mail_smtp_username', e.target.value)}
+                    placeholder="sekretariat@schule.de" style={fieldStyle} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <label style={labelStyle}>Tenant-ID (Azure AD)</label>
+                    <input value={form.mail_oauth2_tenant_id} onChange={(e) => setField('mail_oauth2_tenant_id', e.target.value)}
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={fieldStyle} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={labelStyle}>Client-ID (App-Registrierung)</label>
+                    <input value={form.mail_oauth2_client_id} onChange={(e) => setField('mail_oauth2_client_id', e.target.value)}
+                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={fieldStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Client-Secret</label>
+                    <input type="password" value={form.mail_oauth2_client_secret} onChange={(e) => setField('mail_oauth2_client_secret', e.target.value)}
+                      placeholder={form.mail_oauth2_client_secret_set === 'true' ? 'Gespeichert – leer lassen, um beizubehalten' : ''} style={fieldStyle} />
+                  </div>
+                </div>
+              </>
+            )}
           </Card>
 
           <Card padding={20}>
@@ -745,6 +807,24 @@ function Profil({ accent }) {
               <code>{'{{ rechnung.summe_eur }}'}</code>, <code>{'{{ rechnung.zu_zahlen_eur }}'}</code>, <code>{'{{ schule.name }}'}</code>.
             </div>
           </Card>
+
+          <Card padding={20}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>E-Mail-Signatur</div>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 14 }}>
+              Wird automatisch unter jede versendete E-Mail gesetzt. Logo-Datei: <code>backend/app/static/logo.jpeg</code> (einfach dort ablegen, kein Neustart nötig).
+            </div>
+            <div style={{ marginBottom: 10 }}>
+              <label style={labelStyle}>Klartext-Signatur (für E-Mail-Clients ohne HTML)</label>
+              <textarea value={form.mail_signature_text} onChange={(e) => setField('mail_signature_text', e.target.value)} style={{ ...textAreaStyle, minHeight: 90, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }} />
+            </div>
+            <div>
+              <label style={labelStyle}>HTML-Signatur (mit Logo, für HTML-E-Mail-Clients)</label>
+              <textarea value={form.mail_signature_html} onChange={(e) => setField('mail_signature_html', e.target.value)} style={{ ...textAreaStyle, minHeight: 90, fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5 }} />
+            </div>
+            <div style={{ marginTop: 8, fontSize: 11.5, color: '#64748b' }}>
+              Das Logo wird als <code>cid:school_logo_bibliomat</code> eingebettet — dieser Wert muss im HTML-Src stehen.
+            </div>
+          </Card>
         </div>
       )}
 
@@ -767,6 +847,7 @@ function pickProfileFields(data) {
     schuljahr_aktuell: data.schuljahr_aktuell || '',
     schuljahr_naechster_beginn: data.schuljahr_naechster_beginn || '',
     versetzung_sperre_aktiv: data.versetzung_sperre_aktiv ?? 'true',
+    mail_auth_method: data.mail_auth_method || 'smtp',
     mail_smtp_host: data.mail_smtp_host || '',
     mail_smtp_port: data.mail_smtp_port || '587',
     mail_smtp_username: data.mail_smtp_username || '',
@@ -774,11 +855,17 @@ function pickProfileFields(data) {
     mail_smtp_password_set: data.mail_smtp_password_set ? 'true' : 'false',
     mail_smtp_use_starttls: data.mail_smtp_use_starttls ?? 'true',
     mail_smtp_use_ssl: data.mail_smtp_use_ssl ?? 'false',
+    mail_oauth2_tenant_id: data.mail_oauth2_tenant_id || '',
+    mail_oauth2_client_id: data.mail_oauth2_client_id || '',
+    mail_oauth2_client_secret: '',
+    mail_oauth2_client_secret_set: data.mail_oauth2_client_secret_set ? 'true' : 'false',
     mail_from_email: data.mail_from_email || '',
     mail_from_name: data.mail_from_name || '',
     mail_reply_to: data.mail_reply_to || '',
     mail_subject_template: data.mail_subject_template || '',
     mail_body_template: data.mail_body_template || '',
+    mail_signature_text: data.mail_signature_text || '--\nSpreestraße 2 · 16341 Panketal\nTel.   030 – 94 41 81 24\nFax.  030 – 94 41 86 96\nwww.gymnasium-panketal.de',
+    mail_signature_html: data.mail_signature_html || '<table style="border-top:1px solid #e2e8f0;padding-top:12px;margin-top:20px;font-family:Arial,sans-serif;font-size:12px;color:#374151;line-height:1.7;"><tr><td style="padding-right:16px;vertical-align:top;"><img src="cid:school_logo_bibliomat" alt="Gymnasium Panketal" style="height:55px;width:auto;"></td><td style="vertical-align:top;">Spreestraße 2 · 16341 Panketal<br>Tel.&nbsp;&nbsp;030 – 94 41 81 24<br>Fax.&nbsp;&nbsp;030 – 94 41 86 96<br><a href="http://www.gymnasium-panketal.de" style="color:#374151;text-decoration:none;">www.gymnasium-panketal.de</a></td></tr></table>',
   };
 }
 
@@ -786,7 +873,9 @@ function sanitizeForm(form) {
   const out = {};
   Object.entries(form).forEach(([key, value]) => {
     if (key === 'mail_smtp_password_set') return;
+    if (key === 'mail_oauth2_client_secret_set') return;
     if (key === 'mail_smtp_password' && !(value ?? '').toString().trim()) return;
+    if (key === 'mail_oauth2_client_secret' && !(value ?? '').toString().trim()) return;
     out[key] = (value ?? '').toString().trim();
   });
   return out;

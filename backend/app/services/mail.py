@@ -4,19 +4,31 @@ Mail service for sending invoices with template-based subject/body.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 from datetime import date
-from email.message import EmailMessage
+from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import html
+import json
+from pathlib import Path
 import re
 import smtplib
 import ssl
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from jinja2 import BaseLoader, Environment, TemplateError
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services.pdf import render_rechnung_pdf
+
+_LOGO_PATH = Path(__file__).parent.parent / "static" / "logo.jpeg"
+_LOGO_CID = "school_logo_bibliomat"
 
 
 @dataclass
@@ -30,6 +42,10 @@ class MailConfig:
     from_email: str
     from_name: str
     reply_to: str
+    auth_method: str = "smtp"
+    oauth2_tenant_id: str = ""
+    oauth2_client_id: str = ""
+    oauth2_client_secret: str = ""
 
 
 class MailTemplateError(ValueError):
@@ -145,19 +161,121 @@ def _render_template(template_value: str, context: dict) -> str:
         raise MailTemplateError(f"Template konnte nicht gerendert werden: {exc}") from exc
 
 
-def _plain_text_to_html(text_value: str) -> str:
+def _plain_text_to_html_inner(text_value: str) -> str:
     escaped = html.escape(text_value)
     escaped = _bold_re.sub(r"<strong>\1</strong>", escaped)
-    html_lines = escaped.replace("\n", "<br>\n")
+    return escaped.replace("\n", "<br>\n")
+
+
+def _plain_text_to_html(text_value: str) -> str:
     return (
         "<html><body style=\"font-family: Arial, sans-serif; font-size: 14px; "
         "line-height: 1.45; color: #111;\">"
-        f"{html_lines}"
+        f"{_plain_text_to_html_inner(text_value)}"
         "</body></html>"
     )
 
 
+def _try_load_logo() -> bytes | None:
+    try:
+        if _LOGO_PATH.exists():
+            return _LOGO_PATH.read_bytes()
+    except OSError:
+        pass
+    return None
+
+
+def _build_email_message(
+    config: MailConfig,
+    to_email: str,
+    subject: str,
+    body_text: str,
+    pdf_bytes: bytes,
+    pdf_filename: str,
+    signature_text: str = "",
+    signature_html: str = "",
+) -> MIMEMultipart:
+    logo_data = _try_load_logo()
+
+    full_text = (body_text + "\n\n" + signature_text).rstrip() if signature_text else body_text
+
+    body_html_inner = _plain_text_to_html_inner(body_text)
+    sig_html = signature_html
+    if sig_html and not logo_data:
+        sig_html = re.sub(r'<img[^>]*cid:[^>]*>', '', sig_html)
+    full_html = (
+        "<html><body style=\"font-family:Arial,sans-serif;font-size:14px;"
+        "line-height:1.45;color:#111;\">"
+        f"{body_html_inner}"
+        f"{sig_html}"
+        "</body></html>"
+    )
+
+    from_header = f"{config.from_name} <{config.from_email}>" if config.from_name else config.from_email
+
+    root = MIMEMultipart("mixed")
+    root["From"] = from_header
+    root["To"] = to_email
+    root["Subject"] = subject
+    if config.reply_to:
+        root["Reply-To"] = config.reply_to
+
+    if logo_data and sig_html:
+        related = MIMEMultipart("related")
+        alternative = MIMEMultipart("alternative")
+        alternative.attach(MIMEText(full_text, "plain", "utf-8"))
+        alternative.attach(MIMEText(full_html, "html", "utf-8"))
+        related.attach(alternative)
+        img = MIMEImage(logo_data, "jpeg")
+        img.add_header("Content-ID", f"<{_LOGO_CID}>")
+        img.add_header("Content-Disposition", "inline")
+        related.attach(img)
+        root.attach(related)
+    else:
+        alternative = MIMEMultipart("alternative")
+        alternative.attach(MIMEText(full_text, "plain", "utf-8"))
+        alternative.attach(MIMEText(full_html, "html", "utf-8"))
+        root.attach(alternative)
+
+    pdf_part = MIMEApplication(pdf_bytes, "pdf")
+    pdf_part.add_header("Content-Disposition", "attachment", filename=pdf_filename)
+    root.attach(pdf_part)
+
+    return root
+
+
+def _get_oauth2_token(tenant_id: str, client_id: str, client_secret: str) -> str:
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+    data = urllib.parse.urlencode({
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "scope": "https://outlook.office365.com/.default",
+    }).encode()
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        try:
+            body = json.loads(exc.read())
+            error = body.get("error_description") or body.get("error") or str(exc)
+        except Exception:
+            error = str(exc)
+        raise MailConfigurationError(f"OAuth2-Token konnte nicht abgerufen werden: {error}") from exc
+    except (OSError, TimeoutError) as exc:
+        raise MailDeliveryError(f"Verbindung zu Microsoft-Login-Server fehlgeschlagen: {exc}") from exc
+
+    if "access_token" not in result:
+        error = result.get("error_description") or result.get("error") or "Unbekannter Fehler"
+        raise MailConfigurationError(f"OAuth2-Token fehlt in Antwort: {error}")
+
+    return result["access_token"]
+
+
 def _build_mail_config(settings: dict[str, str]) -> MailConfig:
+    auth_method = (settings.get("mail_auth_method") or "smtp").strip().lower()
     use_ssl = _to_bool(settings.get("mail_smtp_use_ssl"), default=False)
     default_port = 465 if use_ssl else 587
 
@@ -171,19 +289,38 @@ def _build_mail_config(settings: dict[str, str]) -> MailConfig:
         from_email=(settings.get("mail_from_email") or "").strip(),
         from_name=(settings.get("mail_from_name") or "").strip(),
         reply_to=(settings.get("mail_reply_to") or "").strip(),
+        auth_method=auth_method,
+        oauth2_tenant_id=(settings.get("mail_oauth2_tenant_id") or "").strip(),
+        oauth2_client_id=(settings.get("mail_oauth2_client_id") or "").strip(),
+        oauth2_client_secret=settings.get("mail_oauth2_client_secret") or "",
     )
 
     if not cfg.host:
         raise MailConfigurationError("SMTP-Host fehlt. Bitte im Profil hinterlegen.")
     if not cfg.from_email:
         raise MailConfigurationError("Absender-E-Mail fehlt. Bitte im Profil hinterlegen.")
-    if cfg.use_ssl and cfg.use_starttls:
-        raise MailConfigurationError("SMTP SSL und STARTTLS koennen nicht gleichzeitig aktiv sein.")
+
+    if auth_method == "oauth2":
+        if not cfg.oauth2_tenant_id:
+            raise MailConfigurationError("OAuth2 Tenant-ID fehlt. Bitte im Profil hinterlegen.")
+        if not cfg.oauth2_client_id:
+            raise MailConfigurationError("OAuth2 Client-ID fehlt. Bitte im Profil hinterlegen.")
+        if not cfg.oauth2_client_secret:
+            raise MailConfigurationError("OAuth2 Client-Secret fehlt. Bitte im Profil hinterlegen.")
+        if not cfg.username:
+            raise MailConfigurationError("Absender-Benutzername (E-Mail-Adresse) fehlt. Bitte im Profil hinterlegen.")
+    else:
+        if cfg.use_ssl and cfg.use_starttls:
+            raise MailConfigurationError("SMTP SSL und STARTTLS koennen nicht gleichzeitig aktiv sein.")
 
     return cfg
 
 
 def _deliver_via_smtp(config: MailConfig, message: EmailMessage) -> None:
+    if config.auth_method == "oauth2":
+        _deliver_via_smtp_oauth2(config, message)
+        return
+
     try:
         if config.use_ssl:
             with smtplib.SMTP_SSL(
@@ -205,6 +342,32 @@ def _deliver_via_smtp(config: MailConfig, message: EmailMessage) -> None:
             if config.username:
                 server.login(config.username, config.password)
             server.send_message(message)
+    except (smtplib.SMTPException, OSError, TimeoutError) as exc:
+        raise MailDeliveryError(f"Mailversand fehlgeschlagen: {exc}") from exc
+
+
+def _deliver_via_smtp_oauth2(config: MailConfig, message: EmailMessage) -> None:
+    token = _get_oauth2_token(
+        config.oauth2_tenant_id,
+        config.oauth2_client_id,
+        config.oauth2_client_secret,
+    )
+    xoauth2 = base64.b64encode(
+        f"user={config.username}\x01auth=Bearer {token}\x01\x01".encode()
+    ).decode()
+    try:
+        with smtplib.SMTP(host=config.host, port=config.port, timeout=20) as server:
+            server.ehlo()
+            server.starttls(context=ssl.create_default_context())
+            server.ehlo()
+            code, _ = server.docmd("AUTH", f"XOAUTH2 {xoauth2}")
+            if code != 235:
+                raise MailDeliveryError(
+                    f"OAuth2-SMTP-Authentifizierung fehlgeschlagen (Code {code})."
+                )
+            server.send_message(message)
+    except MailDeliveryError:
+        raise
     except (smtplib.SMTPException, OSError, TimeoutError) as exc:
         raise MailDeliveryError(f"Mailversand fehlgeschlagen: {exc}") from exc
 
@@ -235,13 +398,16 @@ def get_invoice_mail_preview(
     rendered_subject = _render_template(subject_tpl, context)
     rendered_body = _render_template(body_tpl, context)
 
+    signature_text = settings.get("mail_signature_text") or ""
+    preview_body = (rendered_body + "\n\n" + signature_text).rstrip() if signature_text else rendered_body
+
     return {
         "rechnung_id": rechnung_id,
         "to_email": target_email,
         "subject_template": subject_tpl,
         "body_template": body_tpl,
         "rendered_subject": rendered_subject,
-        "rendered_body": rendered_body,
+        "rendered_body": preview_body,
         "context_meta": {
             "schueler_name": context["schueler"]["name"],
             "schueler_klasse": context["schueler"]["klasse"],
@@ -279,23 +445,15 @@ def send_invoice_mail(
     if not pdf_bytes:
         raise RuntimeError("PDF fuer die Rechnung konnte nicht erzeugt werden.")
 
-    msg = EmailMessage()
-    if config.from_name:
-        msg["From"] = f"{config.from_name} <{config.from_email}>"
-    else:
-        msg["From"] = config.from_email
-    msg["To"] = preview["to_email"]
-    msg["Subject"] = preview["rendered_subject"]
-    if config.reply_to:
-        msg["Reply-To"] = config.reply_to
-
-    msg.set_content(preview["rendered_body"])
-    msg.add_alternative(_plain_text_to_html(preview["rendered_body"]), subtype="html")
-    msg.add_attachment(
-        pdf_bytes,
-        maintype="application",
-        subtype="pdf",
-        filename=f"{rechnung_id}.pdf",
+    msg = _build_email_message(
+        config=config,
+        to_email=preview["to_email"],
+        subject=preview["rendered_subject"],
+        body_text=preview["rendered_body"],
+        pdf_bytes=pdf_bytes,
+        pdf_filename=f"{rechnung_id}.pdf",
+        signature_text=settings.get("mail_signature_text") or "",
+        signature_html=settings.get("mail_signature_html") or "",
     )
 
     _deliver_via_smtp(config, msg)

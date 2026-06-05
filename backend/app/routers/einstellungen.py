@@ -32,12 +32,19 @@ def _is_sensitive_key(key: str) -> bool:
     return any(part in lowered for part in _SENSITIVE_KEY_PARTS)
 
 
+_SET_FLAG_KEYS = {
+    "mail_smtp_password": "mail_smtp_password_set",
+    "mail_oauth2_client_secret": "mail_oauth2_client_secret_set",
+}
+
+
 def _public_settings(rows):
     data = {}
     for row in rows:
         if _is_sensitive_key(row.schluessel):
-            if row.schluessel == "mail_smtp_password":
-                data["mail_smtp_password_set"] = bool((row.wert or "").strip())
+            flag_key = _SET_FLAG_KEYS.get(row.schluessel)
+            if flag_key:
+                data[flag_key] = bool((row.wert or "").strip())
             continue
         data[row.schluessel] = row.wert
     return data
@@ -69,9 +76,11 @@ def update_einstellungen(data: dict = Body(...), db: Session = Depends(get_db)):
                 detail=f"Ungueltiges Template in '{template_key}': {exc}",
             ) from exc
 
+    _allowed_sensitive = set(_SET_FLAG_KEYS.keys())
+
     for key, value in data.items():
         if _is_sensitive_key(key):
-            if key != "mail_smtp_password":
+            if key not in _allowed_sensitive:
                 raise HTTPException(
                     status_code=400,
                     detail=f"'{key}' darf nicht ueber Einstellungen geaendert werden.",
