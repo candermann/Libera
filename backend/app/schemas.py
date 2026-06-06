@@ -204,6 +204,7 @@ class AktiveBuecherResponse(BaseModel):
 
 class BuchZustandResponse(BaseModel):
     bestand_id: int
+    zustand: str = "sehr_gut"
     nutzungsjahr: int = 0
     preis_cents: int
     bestand_verfuegbar: int
@@ -322,6 +323,7 @@ class RechnungsPostenResponse(BaseModel):
     buch_id: str
     titel: str
     preis_cents: int
+    zustand: str = "sehr_gut"
 
 
 class LernmaterialCreate(BaseModel):
@@ -436,6 +438,7 @@ class RechnungMailSendResponse(BaseModel):
 
 class GutschriftRueckgabeRequest(BaseModel):
     rechnungs_posten_id: int
+    zustand: str = "sehr_gut"
     beschaedigt: bool = False
 
 
@@ -457,6 +460,7 @@ class GutschriftPostenResponse(BaseModel):
     buch_id: str
     titel: str
     betrag_cents: int
+    zustand: str = "sehr_gut"
     abschreibung_prozent: int = 0
     ursprungs_preis_cents: int = 0
     wiederverkaufspreis_cents: int = 0

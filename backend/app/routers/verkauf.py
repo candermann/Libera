@@ -51,9 +51,11 @@ from app.services.pdf import render_rechnung_html, render_rechnung_pdf
 from app.services.zustand import (
     berechne_bucket_preis,
     berechne_gutschrift_nutzungsjahr,
+    berechne_wiederverkaufspreis,
     current_schuljahr_start,
     effective_nutzungsjahr,
     get_nutzungsjahr_abschlaege,
+    get_zustand_abschlaege,
     _infer_purchase_nj,
 )
 
@@ -73,7 +75,7 @@ def _find_bestand_fuer_verkauf(
 
 
 def _get_or_create_bestand(
-    db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int,
+    db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int, zustand: str = "sehr_gut",
 ) -> BuchZustandBestand:
     cur_sj = current_schuljahr_start()
     all_buckets = (
@@ -84,12 +86,15 @@ def _get_or_create_bestand(
     for bucket in all_buckets:
         stored = bucket.nutzungsjahr if bucket.nutzungsjahr is not None else 0
         if effective_nutzungsjahr(stored, bucket.schuljahr_eingestellt) == nutzungsjahr:
+            if bucket.zustand != zustand:
+                continue
+            bucket.zustand = zustand
             bucket.verkaufspreis_cents = preis_cents
             return bucket
 
     bestand = BuchZustandBestand(
         buch_id=buch_id,
-        zustand="sehr_gut",
+        zustand=zustand,
         verkaufspreis_cents=preis_cents,
         bestand_verfuegbar=0,
         nutzungsjahr=nutzungsjahr,
@@ -386,10 +391,13 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
             )
             nj_beim_kauf = inferred_nj if inferred_nj == 0 else max(1, inferred_nj)
 
-        # Compute effective price from effective NJ — this auto-reflects annual aging.
-        eff_bucket_preis = berechne_bucket_preis(
-            buch.preis_cents, nj_beim_kauf, nj_abschlaege, buch.schutzgebuehr_cents
-        )
+        if bestand.zustand != "sehr_gut":
+            eff_bucket_preis = max(0, bestand.verkaufspreis_cents)
+        else:
+            # Compute effective price from effective NJ — this auto-reflects annual aging.
+            eff_bucket_preis = berechne_bucket_preis(
+                buch.preis_cents, nj_beim_kauf, nj_abschlaege, buch.schutzgebuehr_cents
+            )
         # Gebrauchte Bücher (NJ > 0) erhalten den Rückgabe-Aufschlag (%).
         if nj_beim_kauf > 0 and eff_bucket_preis < buch.preis_cents:
             verkaufspreis = round(eff_bucket_preis * (1 + aufschlag_prozent / 100))
@@ -403,6 +411,7 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
                 "buch_id": buch_id,
                 "preis_cents": verkaufspreis,
                 "titel": buch.titel,
+                "zustand": bestand.zustand,
                 "nutzungsjahr_beim_kauf": nj_beim_kauf,
             }
         )
@@ -450,12 +459,14 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
 
     if alle_rueckgaben:
         abschlaege = get_nutzungsjahr_abschlaege(db)
+        zustand_abschlaege = get_zustand_abschlaege(db)
         inline_gutschrift_id = generate_gutschrift_id(db, schuljahr)
 
         rueckgabe_validated = []
         for entry in alle_rueckgaben:
             rp_id = entry.rechnungs_posten_id
             beschaedigt = entry.beschaedigt
+            zustand = "beschaedigt" if beschaedigt else entry.zustand
             rp = db.query(RechnungsPosten).filter(RechnungsPosten.id == rp_id).first()
             if not rp:
                 raise HTTPException(status_code=404, detail=f"Rechnungsposten {rp_id} nicht gefunden")
@@ -494,9 +505,16 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
                     abschlaege,
                     buch_r.schutzgebuehr_cents if buch_r else None,
                 )
+                zustand_abschlag = zustand_abschlaege.get(zustand, 0)
+                if zustand_abschlag > abschreibung_pct:
+                    abschreibung_pct = zustand_abschlag
+                    basispreis = buch_r.preis_cents if buch_r else betrag
+                    betrag = berechne_wiederverkaufspreis(basispreis, abschreibung_pct)
+                    bucket_betrag = betrag
             rueckgabe_validated.append({
                 "rp": rp, "buch": buch_r, "betrag": betrag, "bucket_betrag": bucket_betrag,
                 "abschreibung_pct": abschreibung_pct, "nj": nj, "beschaedigt": beschaedigt,
+                "zustand": zustand,
             })
 
         rueckgabe_credit = sum(v["betrag"] for v in rueckgabe_validated)
@@ -522,13 +540,15 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
                 if vp["beschaedigt"]:
                     buch_r.bestand_gesamt = max(0, buch_r.bestand_gesamt - 1)
             if not vp["beschaedigt"]:
-                bestand_r = _get_or_create_bestand(db, rp.buch_id, vp["bucket_betrag"], vp["nj"])
+                bestand_r = _get_or_create_bestand(
+                    db, rp.buch_id, vp["bucket_betrag"], vp["nj"], vp["zustand"]
+                )
                 bestand_r.bestand_verfuegbar += 1
             gp = GutschriftPosten(
                 gutschrift_id=inline_gutschrift_id,
                 rechnungs_posten_id=rp.id,
                 betrag_cents=vp["betrag"],
-                zustand="beschaedigt" if vp["beschaedigt"] else "sehr_gut",
+                zustand=vp["zustand"],
                 abschreibung_prozent=vp["abschreibung_pct"],
                 ursprungs_preis_cents=rp.preis_cents,
                 nutzungsjahr=vp["nj"],
@@ -580,6 +600,7 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
             rechnung_id=rechnung_id,
             buch_id=snap["buch_id"],
             preis_cents=snap["preis_cents"],
+            zustand=snap["zustand"],
             nutzungsjahr_beim_kauf=snap["nutzungsjahr_beim_kauf"],
         )
         db.add(posten)
@@ -639,6 +660,7 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
                 buch_id=p["posten"].buch_id,
                 titel=p["titel"],
                 preis_cents=p["posten"].preis_cents,
+                zustand=p["posten"].zustand,
             )
             for p in posten_list
         ],
@@ -718,6 +740,7 @@ def get_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
                 buch_id=p.buch_id,
                 titel=buch.titel if buch else "Unbekannt",
                 preis_cents=p.preis_cents,
+                zustand=p.zustand,
             )
         )
 

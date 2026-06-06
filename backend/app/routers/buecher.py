@@ -122,7 +122,7 @@ def _load_zustaende(db: Session, buch_id: str) -> list:
     rows = db.execute(
         text(
             """
-            SELECT id, buch_id, nutzungsjahr, verkaufspreis_cents,
+            SELECT id, buch_id, zustand, nutzungsjahr, verkaufspreis_cents,
                    bestand_verfuegbar, schuljahr_eingestellt
             FROM buch_zustand_bestand
             WHERE buch_id = :buch_id
@@ -137,17 +137,25 @@ def _buch_to_response(
     b: Buecher, zustaende_rows: list, abschlaege: dict[int, int]
 ) -> BuchResponse:
     """Builds BuchResponse, merging buckets by effective Nutzungsjahr and recomputing prices."""
-    merged: dict[int, dict] = {}
+    merged: dict[tuple[str, int], dict] = {}
     for row in zustaende_rows:
         stored_nj = row.nutzungsjahr if row.nutzungsjahr is not None else 0
         eff_nj = effective_nutzungsjahr(stored_nj, row.schuljahr_eingestellt)
-        eff_preis = berechne_bucket_preis(b.preis_cents, eff_nj, abschlaege, b.schutzgebuehr_cents)
-        avail = max(0, row.bestand_verfuegbar)
-        if eff_nj in merged:
-            merged[eff_nj]["bestand_verfuegbar"] += avail
+        if row.zustand != "sehr_gut":
+            eff_preis = max(0, row.verkaufspreis_cents)
         else:
-            merged[eff_nj] = {
+            eff_preis = berechne_bucket_preis(
+                b.preis_cents, eff_nj, abschlaege, b.schutzgebuehr_cents
+            )
+        avail = max(0, row.bestand_verfuegbar)
+        key = (row.zustand, eff_nj)
+        if key in merged:
+            merged[key]["bestand_verfuegbar"] += avail
+        else:
+            merged[key] = {
                 "bestand_id": row.id,
+                "zustand": row.zustand,
+                "nutzungsjahr": eff_nj,
                 "preis_cents": eff_preis,
                 "bestand_verfuegbar": avail,
             }
@@ -156,11 +164,12 @@ def _buch_to_response(
         [
             BuchZustandResponse(
                 bestand_id=v["bestand_id"],
-                nutzungsjahr=nj,
+                zustand=v["zustand"],
+                nutzungsjahr=v["nutzungsjahr"],
                 preis_cents=v["preis_cents"],
                 bestand_verfuegbar=v["bestand_verfuegbar"],
             )
-            for nj, v in merged.items()
+            for v in merged.values()
         ],
         key=lambda r: (r.nutzungsjahr, r.preis_cents),
     )
@@ -192,6 +201,7 @@ def _get_or_create_bestand(
         db.query(BuchZustandBestand)
         .filter(
             BuchZustandBestand.buch_id == buch_id,
+            BuchZustandBestand.zustand == "sehr_gut",
             BuchZustandBestand.nutzungsjahr == nutzungsjahr,
         )
         .first()
@@ -565,6 +575,7 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
         db.query(BuchZustandBestand)
         .filter(
             BuchZustandBestand.buch_id == buch_id,
+            BuchZustandBestand.zustand == "sehr_gut",
             BuchZustandBestand.nutzungsjahr == 0,
         )
         .first()

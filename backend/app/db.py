@@ -390,19 +390,20 @@ def _ensure_additional_columns(conn: Connection):
 
 
 def _merge_duplicate_bestand_buckets(conn: Connection):
-    """Collapse rows that share (buch_id, nutzungsjahr) into one."""
+    """Collapse rows that share (buch_id, zustand, nutzungsjahr) into one."""
     conn.execute(text("""
         UPDATE buch_zustand_bestand
         SET bestand_verfuegbar = (
             SELECT SUM(bestand_verfuegbar)
             FROM buch_zustand_bestand b2
             WHERE b2.buch_id = buch_zustand_bestand.buch_id
+              AND b2.zustand = buch_zustand_bestand.zustand
               AND (b2.nutzungsjahr IS buch_zustand_bestand.nutzungsjahr)
         )
         WHERE id IN (
             SELECT MIN(id)
             FROM buch_zustand_bestand
-            GROUP BY buch_id, nutzungsjahr
+            GROUP BY buch_id, zustand, nutzungsjahr
             HAVING COUNT(*) > 1
         )
     """))
@@ -411,7 +412,7 @@ def _merge_duplicate_bestand_buckets(conn: Connection):
         WHERE id NOT IN (
             SELECT MIN(id)
             FROM buch_zustand_bestand
-            GROUP BY buch_id, nutzungsjahr
+            GROUP BY buch_id, zustand, nutzungsjahr
         )
     """))
 
@@ -423,7 +424,7 @@ def _migrate_nutzungsjahr_constraint(conn: Connection):
     2. Altes Unique-Constraint (buch_id, zustand, preis) entfernen —
        falls es als Inline-Constraint im CREATE TABLE steckt, wird die Tabelle
        neu erstellt (SQLite-typischer Workaround für ALTER TABLE DROP CONSTRAINT).
-    3. Neues Unique-Index (buch_id, nutzungsjahr) anlegen.
+    3. Neues Unique-Index (buch_id, zustand, nutzungsjahr) anlegen.
 
     Läuft idempotent.
     """
@@ -464,11 +465,12 @@ def _migrate_nutzungsjahr_constraint(conn: Connection):
         conn.execute(text("CREATE INDEX idx_buch_zustand_zustand ON buch_zustand_bestand (zustand)"))
         conn.execute(text("PRAGMA foreign_keys = ON"))
 
-    # Schritt 3: Alten Standalone-Index entfernen (falls noch vorhanden) und neuen anlegen
+    # Schritt 3: Alte Standalone-Indizes entfernen (falls noch vorhanden) und neuen anlegen
     conn.execute(text("DROP INDEX IF EXISTS uq_buch_zustand_preis"))
+    conn.execute(text("DROP INDEX IF EXISTS uq_buch_nutzungsjahr"))
     conn.execute(text("""
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_buch_nutzungsjahr
-        ON buch_zustand_bestand (buch_id, nutzungsjahr)
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_buch_zustand_nutzungsjahr
+        ON buch_zustand_bestand (buch_id, zustand, nutzungsjahr)
     """))
 
 

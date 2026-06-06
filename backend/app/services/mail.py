@@ -6,11 +6,8 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from email.message import EmailMessage
 from datetime import date
-from email.mime.application import MIMEApplication
-from email.mime.image import MIMEImage
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import html
 import json
 from pathlib import Path
@@ -194,7 +191,7 @@ def _build_email_message(
     pdf_filename: str,
     signature_text: str = "",
     signature_html: str = "",
-) -> MIMEMultipart:
+) -> EmailMessage:
     logo_data = _try_load_logo()
 
     full_text = (body_text + "\n\n" + signature_text).rstrip() if signature_text else body_text
@@ -213,7 +210,7 @@ def _build_email_message(
 
     from_header = f"{config.from_name} <{config.from_email}>" if config.from_name else config.from_email
 
-    root = MIMEMultipart("mixed")
+    root = EmailMessage()
     root["From"] = from_header
     root["To"] = to_email
     root["Subject"] = subject
@@ -221,25 +218,26 @@ def _build_email_message(
         root["Reply-To"] = config.reply_to
 
     if logo_data and sig_html:
-        related = MIMEMultipart("related")
-        alternative = MIMEMultipart("alternative")
-        alternative.attach(MIMEText(full_text, "plain", "utf-8"))
-        alternative.attach(MIMEText(full_html, "html", "utf-8"))
-        related.attach(alternative)
-        img = MIMEImage(logo_data, "jpeg")
-        img.add_header("Content-ID", f"<{_LOGO_CID}>")
-        img.add_header("Content-Disposition", "inline")
-        related.attach(img)
-        root.attach(related)
+        root.set_content(full_text)
+        root.add_alternative(full_html, subtype="html")
+        html_part = root.get_payload()[-1]
+        html_part.add_related(
+            logo_data,
+            maintype="image",
+            subtype="jpeg",
+            cid=f"<{_LOGO_CID}>",
+            disposition="inline",
+        )
     else:
-        alternative = MIMEMultipart("alternative")
-        alternative.attach(MIMEText(full_text, "plain", "utf-8"))
-        alternative.attach(MIMEText(full_html, "html", "utf-8"))
-        root.attach(alternative)
+        root.set_content(full_text)
+        root.add_alternative(full_html, subtype="html")
 
-    pdf_part = MIMEApplication(pdf_bytes, "pdf")
-    pdf_part.add_header("Content-Disposition", "attachment", filename=pdf_filename)
-    root.attach(pdf_part)
+    root.add_attachment(
+        pdf_bytes,
+        maintype="application",
+        subtype="pdf",
+        filename=pdf_filename,
+    )
 
     return root
 

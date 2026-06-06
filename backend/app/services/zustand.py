@@ -46,6 +46,19 @@ NUTZUNGSJAHR_ABSCHLAG_KEYS = {
 }
 DEFAULT_NUTZUNGSJAHR_ABSCHLAEGE = {1: 0, 2: 10, 3: 20, 4: 30, 5: 40}
 
+ZUSTAND_ABSCHLAG_KEYS = {
+    "sehr_gut": "zustand_abschlag_sehr_gut_prozent",
+    "gut": "zustand_abschlag_gut_prozent",
+    "mangelhaft": "zustand_abschlag_mangelhaft_prozent",
+    "beschaedigt": "zustand_abschlag_beschaedigt_prozent",
+}
+DEFAULT_ZUSTAND_ABSCHLAEGE = {
+    "sehr_gut": 0,
+    "gut": 10,
+    "mangelhaft": 25,
+    "beschaedigt": 50,
+}
+
 
 def _schuljahr_start(d: date) -> int:
     """Returns the start year of the school year a date falls in (Aug 1 cutoff)."""
@@ -89,6 +102,21 @@ def get_nutzungsjahr_abschlaege(db: Session) -> dict[int, int]:
         if key in setting_map:
             try:
                 values[jahr] = max(0, min(100, int(setting_map[key])))
+            except (TypeError, ValueError):
+                pass
+    return values
+
+
+def get_zustand_abschlaege(db: Session) -> dict[str, int]:
+    rows = db.query(Einstellungen).filter(
+        Einstellungen.schluessel.in_(ZUSTAND_ABSCHLAG_KEYS.values())
+    ).all()
+    values = DEFAULT_ZUSTAND_ABSCHLAEGE.copy()
+    setting_map = {row.schluessel: row.wert for row in rows}
+    for zustand, key in ZUSTAND_ABSCHLAG_KEYS.items():
+        if key in setting_map:
+            try:
+                values[zustand] = max(0, min(100, int(setting_map[key])))
             except (TypeError, ValueError):
                 pass
     return values

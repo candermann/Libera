@@ -31,21 +31,23 @@ from app.services.pdf import render_gutschrift_html, render_gutschrift_pdf
 from app.services.zustand import (
     berechne_bucket_preis,
     berechne_gutschrift_nutzungsjahr,
+    berechne_wiederverkaufspreis,
     current_schuljahr_start,
     effective_nutzungsjahr,
     get_nutzungsjahr_abschlaege,
+    get_zustand_abschlaege,
 )
 
 router = APIRouter(prefix="/api", tags=["Gutschrift"])
 
 
 def _get_or_create_bestand(
-    db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int,
+    db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int, zustand: str,
 ) -> BuchZustandBestand:
     """Findet oder erstellt einen Bucket für das gegebene effektive Nutzungsjahr.
 
     Sucht zuerst nach einem Bucket, dessen effektives NJ übereinstimmt (berücksichtigt Alterung).
-    Zustand wird immer als 'sehr_gut' gesetzt.
+    Das Schema erlaubt pro Buch aktuell nur einen Bucket je Nutzungsjahr.
     """
     cur_sj = current_schuljahr_start()
     all_buckets = (
@@ -56,13 +58,16 @@ def _get_or_create_bestand(
     for bucket in all_buckets:
         stored = bucket.nutzungsjahr if bucket.nutzungsjahr is not None else 0
         if effective_nutzungsjahr(stored, bucket.schuljahr_eingestellt) == nutzungsjahr:
+            if bucket.zustand != zustand:
+                continue
+            bucket.zustand = zustand
             bucket.verkaufspreis_cents = preis_cents
             db.flush()
             return bucket
 
     bestand = BuchZustandBestand(
         buch_id=buch_id,
-        zustand="sehr_gut",
+        zustand=zustand,
         verkaufspreis_cents=preis_cents,
         bestand_verfuegbar=0,
         nutzungsjahr=nutzungsjahr,
@@ -94,6 +99,7 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
     gutschrift_id = generate_gutschrift_id(db, schuljahr)
     today = date.today().isoformat()
     abschlaege = get_nutzungsjahr_abschlaege(db)
+    zustand_abschlaege = get_zustand_abschlaege(db)
 
     requested_rueckgaben = data.rueckgaben or [
         {"rechnungs_posten_id": rp_id}
@@ -147,6 +153,13 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
             if hasattr(rueckgabe, "beschaedigt")
             else rueckgabe.get("beschaedigt", False)
         )
+        zustand = (
+            rueckgabe.zustand
+            if hasattr(rueckgabe, "zustand")
+            else rueckgabe.get("zustand", "sehr_gut")
+        )
+        if beschaedigt:
+            zustand = "beschaedigt"
 
         buch = db.query(Buecher).filter(Buecher.id == rp.buch_id).first()
         if beschaedigt:
@@ -169,6 +182,12 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
                 abschlaege,
                 buch.schutzgebuehr_cents if buch else None,
             )
+            zustand_abschlag = zustand_abschlaege.get(zustand, 0)
+            if zustand_abschlag > abschreibung_prozent:
+                abschreibung_prozent = zustand_abschlag
+                basispreis = buch.preis_cents if buch else betrag
+                betrag = berechne_wiederverkaufspreis(basispreis, abschreibung_prozent)
+                bucket_preis = betrag
 
         validated_posten.append(
             {
@@ -180,6 +199,7 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
                 "abschreibung_prozent": abschreibung_prozent,
                 "nj": nj,
                 "beschaedigt": beschaedigt,
+                "zustand": zustand,
             }
         )
         summe += betrag
@@ -210,14 +230,16 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
                 buch.bestand_gesamt = max(0, buch.bestand_gesamt - 1)
 
         if not vp["beschaedigt"]:
-            bestand = _get_or_create_bestand(db, rp.buch_id, vp["bucket_preis"], vp["nj"])
+            bestand = _get_or_create_bestand(
+                db, rp.buch_id, vp["bucket_preis"], vp["nj"], vp["zustand"]
+            )
             bestand.bestand_verfuegbar += 1
 
         gp = GutschriftPosten(
             gutschrift_id=gutschrift_id,
             rechnungs_posten_id=vp["rp_id"],
             betrag_cents=vp["betrag"],
-            zustand="beschaedigt" if vp["beschaedigt"] else "sehr_gut",
+            zustand=vp["zustand"],
             abschreibung_prozent=vp["abschreibung_prozent"],
             ursprungs_preis_cents=rp.preis_cents,
             nutzungsjahr=vp["nj"],
@@ -231,6 +253,7 @@ def create_gutschrift(data: GutschriftRequest, db: Session = Depends(get_db)):
                 "buch_id": rp.buch_id,
                 "titel": buch.titel if buch else "Unbekannt",
                 "betrag_cents": vp["betrag"],
+                "zustand": vp["zustand"],
                 "abschreibung_prozent": vp["abschreibung_prozent"],
                 "ursprungs_preis_cents": rp.preis_cents,
                 "wiederverkaufspreis_cents": vp["betrag"],

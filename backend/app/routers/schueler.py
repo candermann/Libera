@@ -490,8 +490,6 @@ async def preview_csv_import(file: UploadFile = File(...), db: Session = Depends
         if row.valid:
             valid_rows += 1
 
-    rows.sort(key=lambda r: (r.nachname or "", r.vorname or ""))
-
     return SchuelerCsvImportPreviewResponse(
         filename=filename,
         total_rows=len(rows),

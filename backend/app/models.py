@@ -108,8 +108,9 @@ class BuchZustandBestand(Base):
     __table_args__ = (
         UniqueConstraint(
             "buch_id",
+            "zustand",
             "nutzungsjahr",
-            name="uq_buch_nutzungsjahr",
+            name="uq_buch_zustand_nutzungsjahr",
         ),
         Index("idx_buch_zustand_buch", "buch_id"),
         Index("idx_buch_zustand_zustand", "zustand"),

@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 # Required security/cors env for app startup in tests
 os.environ.setdefault("SECRET_KEY", "test-secret-key-0123456789abcdef0123456789")
 os.environ.setdefault("CORS_ORIGINS", "http://localhost")
+os.environ.setdefault("EXTRA_USERS_PASSWORD", "test-extra-users-password")
 
 from app.models import Base
 from app.db import get_db, prepare_schema
