@@ -6,8 +6,8 @@ services:
     image: bibliomat:latest
     container_name: bibliomat
     restart: unless-stopped
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     volumes:
       - ${BIBLIOMAT_DATA_DIR:-./data}:/app/data
     env_file:
@@ -18,20 +18,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: bibliomat-caddy
-    restart: unless-stopped
-    depends_on:
-      - bibliomat
-    ports:
-      - "80:80"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
-volumes:
-  caddy_data:
-  caddy_config:

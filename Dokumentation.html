@@ -155,14 +155,14 @@ uv pip install -r pyproject.toml
 
 # Server starten
 SECRET_KEY=min-32-zeichen-langer-geheimschluessel-hier \
-CORS_ORIGINS=http://localhost:8000 \
+CORS_ORIGINS=http://192.168.64.6:8000,http://localhost:8000,http://127.0.0.1:8000 \
 ADMIN_INITIAL_PASSWORD=adminpasswort \
 uvicorn app.main:app --reload --port 8000
 </code></pre>
 <p>Frontend unter <code>http://localhost:8000</code> abrufbar (wird als Static-Files aus <code>../frontend/</code> gemountet).</p>
 <p><strong>Windows PowerShell:</strong></p>
 <pre><code class="language-powershell">$env:SECRET_KEY=&quot;min-32-zeichen-langer-geheimschluessel-hier&quot;
-$env:CORS_ORIGINS=&quot;http://localhost:8000&quot;
+$env:CORS_ORIGINS=&quot;http://192.168.64.6:8000,http://localhost:8000,http://127.0.0.1:8000&quot;
 $env:ADMIN_INITIAL_PASSWORD=&quot;adminpasswort&quot;
 uvicorn app.main:app --reload --port 8000
 </code></pre>
@@ -575,36 +575,15 @@ docker build -f backend/Dockerfile -t schulbuch-verwaltung .
   -p 8000:8000 \
   -v /pfad/zum/daten-ordner:/app/data \
   -e SECRET_KEY=&quot;$(openssl rand -hex 32)&quot; \
-  -e CORS_ORIGINS=&quot;https://schulbuch.meine-schule.de&quot; \
+  -e CORS_ORIGINS=&quot;http://192.168.64.6:8000,http://localhost:8000,http://127.0.0.1:8000&quot; \
   -e ADMIN_INITIAL_PASSWORD=&quot;sicheresPasswort&quot; \
   schulbuch-verwaltung
 </code></pre>
 <p>Das Volume <code>/app/data</code> enthält die SQLite-Datei <code>schulbuch.db</code> — <strong>dieses Verzeichnis regelmäßig sichern</strong>.</p>
-<h3>Empfohlene Produktionsarchitektur</h3>
-<pre><code>Internet → nginx (HTTPS/TLS) → localhost:8000 (Docker-Container)
+<h3>Direkter Zugriff</h3>
+<pre><code>Browser → http://192.168.64.6:8000 → App-Container
 </code></pre>
-<p>nginx übernimmt SSL-Terminierung (z.B. mit Let's Encrypt via Certbot). Die App selbst läuft nur auf HTTP.</p>
-<h3>Beispiel nginx-Konfiguration</h3>
-<pre><code class="language-nginx">server {
-    listen 443 ssl;
-    server_name schulbuch.meine-schule.de;
-
-    ssl_certificate     /etc/letsencrypt/live/schulbuch.meine-schule.de/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/schulbuch.meine-schule.de/privkey.pem;
-
-    location / {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-
-server {
-    listen 80;
-    server_name schulbuch.meine-schule.de;
-    return 301 https://$host$request_uri;
-}
-</code></pre>
+<p>Die App läuft direkt auf HTTP-Port <code>8000</code>. Vom Server selbst ist sie unter <code>http://localhost:8000</code> erreichbar.</p>
 <hr />
 <h2>Bekannte Einschränkungen</h2>
 <table>

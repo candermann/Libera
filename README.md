@@ -12,13 +12,13 @@
 
 ## Live-System
 
-### [Bibliomat öffnen](https://46.225.119.204.sslip.io)
+### Bibliomat öffnen
 
 ```text
-https://46.225.119.204.sslip.io
+http://192.168.64.6:8000
 ```
 
-Die Anwendung läuft aktuell auf einem Server unter dieser Adresse. Der Zugriff erfolgt per HTTPS über Caddy als Reverse Proxy.
+Die Anwendung läuft direkt über den FastAPI-App-Service auf Port `8000`.
 
 ---
 
@@ -49,7 +49,7 @@ Die App ist bewusst einfach gehalten:
 | Frontend | JSX direkt im Browser, kein Build-Schritt |
 | Backend | FastAPI |
 | Datenbank | SQLite mit WAL-Modus |
-| Deployment | Docker oder Docker Compose mit Caddy |
+| Deployment | Docker oder Docker Compose |
 | Zielgruppe | Schulbuch-Büro / interne Verwaltung |
 
 ---
@@ -156,7 +156,7 @@ Die App ist bewusst einfach gehalten:
 | E-Mail | SMTP |
 | Dependency Management | uv |
 | Tests | pytest, httpx |
-| Deployment | Docker, Docker Compose, Caddy |
+| Deployment | Docker, Docker Compose |
 
 **Wichtig:** Das Frontend hat keinen Node-/Webpack-/Vite-Build. Die JSX-Dateien liegen in `frontend/` und werden direkt vom Browser über Babel Standalone kompiliert. Änderungen immer in `api.js` vornehmen (nicht `api.ts`).
 
@@ -176,22 +176,7 @@ FastAPI Backend
 SQLite Datenbank
 ```
 
-Im Produktivbetrieb kann Caddy davor geschaltet werden:
-
-```text
-Internet
-  |
-  | HTTPS
-  v
-Caddy Reverse Proxy
-  |
-  | HTTP intern
-  v
-Bibliomat FastAPI Container
-  |
-  v
-/app/data/schulbuch.db
-```
+Die lokale Docker-Compose-Konfiguration liefert die App direkt über den FastAPI-Container auf Port `8000` aus.
 
 ---
 
@@ -200,7 +185,6 @@ Bibliomat FastAPI Container
 ```text
 Bibliomat/
 ├── docker-compose.yml
-├── Caddyfile
 ├── frontend/
 │   ├── index.html           # Einstiegspunkt, Versionsnummern (?v=N)
 │   ├── app.jsx              # Routing, globaler Zustand
@@ -286,7 +270,7 @@ Beispiel `.env`:
 
 ```env
 SECRET_KEY=hier-einen-zufaelligen-key-mit-mindestens-32-zeichen
-CORS_ORIGINS=https://46.225.119.204.sslip.io,http://localhost:8000
+CORS_ORIGINS=http://192.168.64.6:8000,http://localhost:8000,http://127.0.0.1:8000
 ADMIN_INITIAL_PASSWORD=BitteAendern
 DATABASE_URL=sqlite:///data/schulbuch.db
 ```
@@ -452,6 +436,7 @@ rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='backend/data' /m
 cd /opt/libera
 docker compose down
 docker compose up -d --build
+curl http://localhost:8000/api/health
 ```
 
 ### DB auf Server übertragen (überschreibt Server-DB!)
@@ -468,11 +453,10 @@ ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
 
 | Dienst | Zweck |
 |---|---|
-| `bibliomat` | FastAPI-App mit statischem Frontend, intern auf Port `8000` |
-| `caddy` | Reverse Proxy mit HTTPS/TLS |
+| `bibliomat` | FastAPI-App mit statischem Frontend, published auf Port `8000` |
 
 ```text
-46.225.119.204.sslip.io → Caddy → bibliomat:8000
+Browser → http://192.168.64.6:8000 → bibliomat:8000
 ```
 
 ---
@@ -552,7 +536,7 @@ Folgende organisatorischen Maßnahmen liegen außerhalb des Codes und sind vom B
 | Mittel | SMTP-Passwort verschlüsseln statt Klartext in DB |
 | Mittel | Physische Löschfunktion / Anonymisierung für Art.-17-Anträge |
 | Mittel | Jinja2 `SandboxedEnvironment` für Admin-editierbare E-Mail-Templates |
-| Gering | Sicherheits-HTTP-Header im Caddyfile (`X-Frame-Options`, CSP, HSTS) |
+| Gering | Sicherheits-HTTP-Header in der FastAPI-App ergänzen (`X-Frame-Options`, CSP) |
 | Gering | Passwortlänge beim Ändern erzwingen (mind. 12 Zeichen) |
 | Gering | Eigene Schuldomain statt `sslip.io` |
 

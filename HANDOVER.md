@@ -7,14 +7,14 @@ Schulbuch-Verwaltungssystem für ein Gymnasium. FastAPI-Backend + React-Frontend
 **Branch**: `dev` (Haupt-Arbeitsbranch)  
 **Server**: root@46.225.119.204 — `/opt/libera/`  
 **Lokales Projekt**: `C:\Users\keanu\dev\Bibliomat\`  
-**Domain**: https://46.225.119.204.sslip.io
+**Browser-URL im LAN**: http://192.168.64.6:8000
 
 ---
 
 ## Stack
 - **Backend**: Python 3.12, FastAPI, SQLAlchemy, SQLite, WeasyPrint (PDF), uv
 - **Frontend**: React 18 (CDN), Babel Standalone, kein Bundler
-- **Server**: Docker + Caddy (Reverse Proxy + HTTPS)
+- **Server**: Docker Compose, App-Service direkt auf Port 8000
 
 ---
 
@@ -34,6 +34,7 @@ rsync -avz --exclude='__pycache__' --exclude='.venv' --exclude='sonstiges/logs' 
 cd /opt/libera
 docker compose down
 docker compose up -d --build
+curl http://localhost:8000/api/health
 ```
 
 ## DB auf Server übertragen (lokal → Server, überschreibt Server-DB!)

@@ -17,4 +17,4 @@
 - **Namen**: Überall auf „Nachname, Vorname" umgestellt — Listen, PDFs, CSVs, Toasts, alle Screens
 - **Navigation**: Klick auf aktiven Reiter springt immer zurück auf die Hauptansicht
 - **Security**: Passwörter/Secrets werden nicht mehr über die Einstellungs-API zurückgegeben; SMTP-Passwort-Feld zeigt ob bereits eines gesetzt ist
-- **Repo**: `.gitignore` hinzugefügt; `__pycache__`, `.env` und DB-Dateien aus Git-Tracking entfernt; `docker-compose.yml` + `Caddyfile` ins Root verschoben
+- **Repo**: `.gitignore` hinzugefügt; `__pycache__`, `.env` und DB-Dateien aus Git-Tracking entfernt; `docker-compose.yml` ins Root verschoben
