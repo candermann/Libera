@@ -136,6 +136,7 @@ function InventoryCreateBookDialog(props) {
   var _React$useState6 = React.useState(''), preis = _React$useState6[0], setPreis = _React$useState6[1];
   var _React$useState7 = React.useState(''), bestand = _React$useState7[0], setBestand = _React$useState7[1];
   var _React$useState8c = React.useState(''), schutzgebuehr = _React$useState8c[0], setSchutzgebuehr = _React$useState8c[1];
+  var _React$useState8d = React.useState({ 1: '', 2: '', 3: '', 4: '', 5: '', 6: '' }), njBestand = _React$useState8d[0], setNjBestand = _React$useState8d[1];
   var valid = titel.trim() && fach && preis;
 
   var fieldStyle = {
@@ -196,14 +197,32 @@ function InventoryCreateBookDialog(props) {
             <input type="number" step="0.01" min="0" value={schutzgebuehr} onChange={function (event) { setSchutzgebuehr(event.target.value); }} placeholder="5.00" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
           </div>
           <div>
-            <label style={labelStyle}>Anfangsbestand</label>
+            <label style={labelStyle}>Bestand NJ 0 (Neu)</label>
             <input type="number" value={bestand} onChange={function (event) { setBestand(event.target.value); }} placeholder="50" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
+          </div>
+        </div>
+        <div style={{ paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
+          <label style={{ ...labelStyle, marginBottom: 8 }}>Bestand nach Nutzungsjahr (optional)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8 }}>
+            {[1, 2, 3, 4, 5, 6].map(function (nj) {
+              return (
+                <div key={nj}>
+                  <label style={{ ...labelStyle, marginBottom: 3 }}>NJ {nj}</label>
+                  <input
+                    type="number" min="0" value={njBestand[nj]}
+                    onChange={function (event) { setNjBestand(function (prev) { var next = Object.assign({}, prev); next[nj] = event.target.value; return next; }); }}
+                    placeholder="0"
+                    style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace', padding: '7px 8px' }}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
       <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
         <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>
-        <Btn kind="primary" accent={accent} icon="check" disabled={!valid} onClick={function () { onSave({ titel: titel, fach: fach, stufe: stufe, verlag: verlag, isbn: isbn, preis: preis, bestand: bestand, schutzgebuehr: schutzgebuehr }); }}>
+        <Btn kind="primary" accent={accent} icon="check" disabled={!valid} onClick={function () { onSave({ titel: titel, fach: fach, stufe: stufe, verlag: verlag, isbn: isbn, preis: preis, bestand: bestand, schutzgebuehr: schutzgebuehr, njBestand: njBestand }); }}>
           Buch anlegen
         </Btn>
       </div>
@@ -708,6 +727,13 @@ window.BuecherListe = function BuecherListe(props) {
   }
 
   function addBook(book) {
+    var nutzungsjahre = [];
+    if (book.njBestand) {
+      [1, 2, 3, 4, 5, 6].forEach(function (nj) {
+        var val = parseInt(book.njBestand[nj], 10);
+        if (val > 0) nutzungsjahre.push({ nutzungsjahr: nj, bestand: val });
+      });
+    }
     window.api.buecher.create({
       titel: book.titel,
       fach: book.fach,
@@ -717,6 +743,7 @@ window.BuecherListe = function BuecherListe(props) {
       preis_cents: Math.round(parseFloat(book.preis) * 100),
       bestand_gesamt: parseInt(book.bestand, 10) || 0,
       schutzgebuehr_cents: Math.max(0, Math.round(parseFloat(book.schutzgebuehr || '0') * 100) || 0),
+      nutzungsjahre: nutzungsjahre.length > 0 ? nutzungsjahre : undefined,
     }).then(function () {
       setShowCreate(false);
       fetchAll();

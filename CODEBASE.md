@@ -98,6 +98,8 @@ Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
 - `bestand_gesamt` = `bestand_ausgegeben` + Summe aller Bucket-Bestände
 - Buckets altern pro Schuljahr: `effective_nutzungsjahr(stored_nj, schuljahr_eingestellt)` in `services/zustand.py`
 - NJ=0 (Neu) altert nie; NJ≥6 → nur Schutzgebühr
+- **Buch anlegen mit NJ-Vorbestand**: `POST /api/buecher` akzeptiert optionales Feld `nutzungsjahre: [{nutzungsjahr, bestand}]` — für jeden Eintrag wird ein Bucket mit `schuljahr_eingestellt=current_schuljahr_start()` angelegt; deren Bestand wird zu `bestand_gesamt` addiert
+- **CSV-Import NJ-Spalten**: `nj_1` bis `nj_6` (auch `nj1`, `nutzungsjahr_1` etc.) — optional; bei Wert > 0 wird ein Bucket angelegt
 
 ---
 
@@ -154,6 +156,8 @@ Views: `v_schueler_saldo` (aggregierter Kontostand je Schüler)
 - **Versionsnummern in `index.html`**: Jede `.jsx`/`.js`-Datei wird mit `?v=N` geladen. Nach Änderungen die Nummer erhöhen damit der Browser nicht cached.
 - **Routen** (`app.jsx`): Hash-basiertes Routing (`#home`, `#schueler`, etc.). Verfügbare Routen: `home`, `verkauf`, `rueckgabe`, `kombiniert`, `schueler`, `buecher`, `lernmaterial`, `buchhaltung`, `klassenversetzung`, `archiv`, `profil`. Einstellungen = `profil` (nicht `einstellungen`).
 - **Kein Build-Step**: Babel Standalone transpiliert JSX direkt im Browser. Kein Webpack, kein Vite.
+- **DB-Pfad ist Working-Directory-relativ**: uvicorn muss aus `backend/` gestartet werden — sonst landet `data/schulbuch.db` im falschen Verzeichnis.
+- **DB löschen unter Windows**: Server stoppen, dann PowerShell `Remove-Item` verwenden — WSL/Bash `rm` kommt nicht an gesperrte Windows-Dateien ran.
 
 ---
 

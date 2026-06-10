@@ -210,6 +210,11 @@ class BuchZustandResponse(BaseModel):
     bestand_verfuegbar: int
 
 
+class NutzungsjahrBestand(BaseModel):
+    nutzungsjahr: int
+    bestand: int
+
+
 class BuchCreate(BaseModel):
     titel: str
     untertitel: Optional[str] = None
@@ -220,6 +225,7 @@ class BuchCreate(BaseModel):
     preis_cents: int
     bestand_gesamt: int
     schutzgebuehr_cents: Optional[int] = None
+    nutzungsjahre: Optional[list[NutzungsjahrBestand]] = None
 
 
 class BuchUpdate(BaseModel):
