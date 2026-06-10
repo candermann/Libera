@@ -21,6 +21,7 @@ from app.schemas import (
     BuchZustandResponse,
     NameCreateRequest,
     NameListResponse,
+    NutzungsjahrBestand,
     RenameRequest,
 )
 
@@ -78,6 +79,12 @@ _CSV_HEADER_ALIASES = {
         "gebuehr",
         "gebuhr",
     },
+    "nj_1": {"nj1", "nj_1", "nutzungsjahr1", "nutzungsjahr_1"},
+    "nj_2": {"nj2", "nj_2", "nutzungsjahr2", "nutzungsjahr_2"},
+    "nj_3": {"nj3", "nj_3", "nutzungsjahr3", "nutzungsjahr_3"},
+    "nj_4": {"nj4", "nj_4", "nutzungsjahr4", "nutzungsjahr_4"},
+    "nj_5": {"nj5", "nj_5", "nutzungsjahr5", "nutzungsjahr_5"},
+    "nj_6": {"nj6", "nj_6", "nutzungsjahr6", "nutzungsjahr_6"},
 }
 
 
@@ -477,6 +484,9 @@ def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
     new_id = generate_buch_id(db)
     _ensure_fach_exists(db, data.fach)
 
+    extra_nj = [nj for nj in (data.nutzungsjahre or []) if 1 <= nj.nutzungsjahr <= 6 and nj.bestand > 0]
+    total_bestand = data.bestand_gesamt + sum(nj.bestand for nj in extra_nj)
+
     buch = Buecher(
         id=new_id,
         titel=data.titel,
@@ -487,7 +497,7 @@ def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
         verlag=data.verlag,
         preis_cents=data.preis_cents,
         gutschrift_cents=data.preis_cents,
-        bestand_gesamt=data.bestand_gesamt,
+        bestand_gesamt=total_bestand,
         bestand_ausgegeben=0,
         schutzgebuehr_cents=data.schutzgebuehr_cents,
     )
@@ -504,6 +514,18 @@ def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
             schuljahr_eingestellt=None,
         )
     )
+    cur_sj = current_schuljahr_start()
+    for nj in extra_nj:
+        db.add(
+            BuchZustandBestand(
+                buch_id=new_id,
+                zustand="sehr_gut",
+                verkaufspreis_cents=data.preis_cents,
+                bestand_verfuegbar=nj.bestand,
+                nutzungsjahr=nj.nutzungsjahr,
+                schuljahr_eingestellt=cur_sj,
+            )
+        )
     db.commit()
     db.refresh(buch)
 
@@ -589,6 +611,12 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
             nutzungsjahr_counts[jahr] = parsed_count if parsed_count is not None else -1
         schutzgebuehr_cents = _parse_money_cents(row.get("schutzgebuehr_cents")) if row.get("schutzgebuehr_cents") else 0
 
+        extra_nj = []
+        for nj_num in range(1, 7):
+            nj_val = _parse_int(row.get(f"nj_{nj_num}"), 0)
+            if nj_val and nj_val > 0:
+                extra_nj.append((nj_num, nj_val))
+
         row_errors = []
         if not titel:
             row_errors.append("Titel fehlt")
@@ -618,6 +646,7 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
             errors.append({"row": row_number, "errors": row_errors})
             continue
 
+        total_bestand = bestand_gesamt + sum(b for _, b in extra_nj)
         new_id = generate_buch_id(db)
         buch = Buecher(
             id=new_id,
@@ -629,7 +658,7 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
             verlag=row.get("verlag"),
             preis_cents=preis_cents,
             gutschrift_cents=preis_cents,
-            bestand_gesamt=bestand_gesamt,
+            bestand_gesamt=total_bestand,
             bestand_ausgegeben=0,
             schutzgebuehr_cents=schutzgebuehr_cents,
         )

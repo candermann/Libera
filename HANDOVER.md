@@ -68,6 +68,8 @@ ssh root@46.225.119.204 "cd /opt/libera && docker compose up -d --build"
 - **Route für Einstellungen heißt `profil`**, nicht `einstellungen`.
 - **Kein Build-Step**: Babel transpiliert JSX direkt im Browser.
 - **SQLite WAL-Modus**: Beim Kopieren der DB immer alle drei Dateien (`schulbuch.db`, `schulbuch.db-wal`, `schulbuch.db-shm`) zusammen übertragen, sonst fehlen neuere Einträge.
+- **DB-Pfad ist relativ zum Working Directory**: `DATABASE_URL=sqlite:///data/schulbuch.db` — uvicorn muss aus `backend/` gestartet werden, sonst landet die DB im falschen Verzeichnis (z.B. Projekt-Root).
+- **DB löschen unter Windows**: SQLite-Dateien können nicht gelöscht werden solange der Server läuft. Server stoppen, dann mit PowerShell löschen — `rm` aus WSL/Bash funktioniert nicht auf gesperrten Windows-Dateien.
 - **Namen**: Überall „Nachname, Vorname" — Avatar-Komponenten sind bewusst Ausnahme (brauchen „Vorname Nachname" für Initialen).
 - **Sensitive Settings**: `mail_smtp_password`, `admin_password_hash` etc. werden von der Einstellungs-API nicht zurückgegeben — nur `mail_smtp_password_set: true/false`.
 - **Admin-Passwort**: `ADMIN_INITIAL_PASSWORD` aus `.env` wird nur beim ersten Start gesetzt (INSERT OR IGNORE). Im Admin-Panel geänderte Passwörter bleiben nach Neustart erhalten. Zurücksetzen: Eintrag `admin_password_hash` aus `einstellungen`-Tabelle löschen + neu starten.
@@ -117,7 +119,7 @@ Navigation: Klick auf Nav-Reiter mountet Komponente immer neu (Reset auf Hauptan
 | `screens.jsx` | v29 |
 | `profil.jsx` | v5 |
 | `lernmaterial.jsx` | v5 |
-| `inventory-overrides.jsx` | v17 |
+| `inventory-overrides.jsx` | v19 |
 | `login.jsx` | v11 |
 | `app.jsx` | v17 |
 | `tweaks-panel.jsx` | v2 |
@@ -133,22 +135,10 @@ Navigation: Klick auf Nav-Reiter mountet Komponente immer neu (Reset auf Hauptan
 
 ---
 
-## Zuletzt geänderte Dateien (Stand 29.05.2026)
+## Zuletzt geänderte Dateien (Stand 10.06.2026)
 | Datei | Was |
 |---|---|
-| `backend/app/routers/admin.py` | NEU: Benutzerverwaltung (anlegen/löschen/Passwort), Backup-Download, Restore-Upload |
-| `backend/app/db.py` | Migration behalten-Spalte; Admin-Passwort nur beim ersten Start (INSERT OR IGNORE) |
-| `backend/app/models.py` | behalten-Feld in RechnungsPosten |
-| `backend/app/schemas.py` | ArchivierungRequest.buecher_behalten, KontoSummary.anzahl_behalten_buecher |
-| `backend/app/routers/schueler.py` | Archivierung mit Büchern: behalten=1 + bestand dekrementieren |
-| `backend/app/routers/klassenversetzung.py` | behalten-Logik für Kl.-12-Abgänger; abgangs_stufe=12 Kommentar bereinigt |
-| `backend/app/routers/buecher.py` | bestand_frei aus Bucket-Summe statt gesamt-ausgegeben |
-| `backend/app/services/saldo.py` | count_aktive_buecher/get_aktive_buecher schließen behalten aus; count_behalten_buecher neu |
-| `backend/app/services/pdf.py` | 0-EUR-Rückgabeposten nicht auf Seite 2; Gutschrift-Template ohne ID |
-| `backend/app/templates/gutschrift.html` | Gutschrift-ID aus Header entfernt |
-| `frontend/app.jsx` | document.title je Route |
-| `frontend/verkauf.jsx` | Oberstufe: optionale Buchausgabe per Checkbox |
-| `frontend/profil.jsx` | Tabs Konten (Admin: Benutzerverwaltung) + System (Backup/Restore) |
-| `frontend/schueler-detail.jsx` | Archivierungs-Dialog: behalten-Hinweis; „X behalten" in Kontostand-Karte |
-| `frontend/api.js` | admin.*-Methoden; archivieren mit buecherBehalten-Parameter |
-| `frontend/index.html` | Versionsnummern aktuell (s.o.) |
+| `backend/app/schemas.py` | `NutzungsjahrBestand`-Schema neu; `BuchCreate` hat optionales Feld `nutzungsjahre` |
+| `backend/app/routers/buecher.py` | `POST /api/buecher`: legt NJ-Buckets 1–6 an wenn übergeben; CSV-Import erkennt Spalten `nj_1`–`nj_6` |
+| `frontend/inventory-overrides.jsx` | Buch-anlegen-Dialog: NJ-1–6-Bestandsfelder; `addBook` übergibt `nutzungsjahre` ans API |
+| `frontend/index.html` | `inventory-overrides.jsx` → v19 |
