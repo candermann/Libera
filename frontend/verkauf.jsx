@@ -130,11 +130,14 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   React.useEffect(() => {
     if (step === 2) {
-      window.api.buecher.list({ q: bookQuery, limit: 20 }).then(res => {
+      var stufe = !bookQuery && selectedStudent
+        ? parseInt(String(selectedStudent.klasse || '').replace(/[^0-9]/g, ''), 10) || undefined
+        : undefined;
+      window.api.buecher.list({ q: bookQuery || undefined, stufe: stufe, limit: 50 }).then(res => {
         setBooks((res.items || []).filter(b => (b.zustaende || []).some(z => z.bestand_verfuegbar > 0)));
       }).catch(console.error);
     }
-  }, [bookQuery, step]);
+  }, [bookQuery, step, selectedStudent?.klasse]);
 
   React.useEffect(() => {
     if (step === 2) {
@@ -853,7 +856,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <Btn kind="primary" full accent={accent} icon="printer" onClick={async () => {
                 try {
-                  await window.openProtectedDocument(window.api.rechnung.html(saleResult.id), true);
+                  await window.openProtectedDocument(window.api.rechnung.pdf(saleResult.id), true);
                 } catch (error) {
                   console.error(error);
                   window.showToast('error', error.message || 'Fehler beim Laden der Rechnung.');
@@ -861,7 +864,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
               }}>Rechnung drucken</Btn>
               <Btn kind="secondary" full icon="download" onClick={async () => {
                 try {
-                  await window.openProtectedDocument(window.api.rechnung.html(saleResult.id), false);
+                  await window.downloadProtectedDocument(window.api.rechnung.pdf(saleResult.id), `${saleResult.id}.pdf`);
                 } catch (error) {
                   console.error(error);
                   window.showToast('error', error.message || 'Fehler beim Laden der Rechnung.');
@@ -1031,11 +1034,14 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
 
   React.useEffect(() => {
     if (step === 2) {
-      window.api.buecher.list({ q: bookQuery, limit: 20 }).then(res => {
+      var stufe = !bookQuery && selectedStudent
+        ? parseInt(String(selectedStudent.klasse || '').replace(/[^0-9]/g, ''), 10) || undefined
+        : undefined;
+      window.api.buecher.list({ q: bookQuery || undefined, stufe: stufe, limit: 50 }).then(res => {
         setBooks((res.items || []).filter(b => (b.zustaende || []).some(z => z.bestand_verfuegbar > 0)));
       }).catch(console.error);
     }
-  }, [bookQuery, step]);
+  }, [bookQuery, step, selectedStudent?.klasse]);
 
   React.useEffect(() => {
     if (step === 2) {
@@ -1577,11 +1583,11 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>Aktionen</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
               <Btn kind="primary" full accent={accent} icon="printer" onClick={async () => {
-                try { await window.openProtectedDocument(window.api.rechnung.html(saleResult.id), true); }
+                try { await window.openProtectedDocument(window.api.rechnung.pdf(saleResult.id), true); }
                 catch (e) { window.showToast('error', e.message || 'Fehler.'); }
               }}>Rechnung drucken</Btn>
               <Btn kind="secondary" full icon="download" onClick={async () => {
-                try { await window.openProtectedDocument(window.api.rechnung.html(saleResult.id), false); }
+                try { await window.downloadProtectedDocument(window.api.rechnung.pdf(saleResult.id), `${saleResult.id}.pdf`); }
                 catch (e) { window.showToast('error', e.message || 'Fehler.'); }
               }}>Als PDF speichern</Btn>
               <Btn kind="secondary" full icon="mail" onClick={() => setMailRechnung({

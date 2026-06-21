@@ -225,7 +225,26 @@ function InventoryEditBookDialog(props) {
   var _React$useState13 = React.useState(book.preis_cents ? (book.preis_cents / 100).toFixed(2) : ''), preis = _React$useState13[0], setPreis = _React$useState13[1];
   var _React$useState14 = React.useState(book.bestand_gesamt || ''), bestand = _React$useState14[0], setBestand = _React$useState14[1];
   var _React$useState15 = React.useState(book.schutzgebuehr_cents ? (Number(book.schutzgebuehr_cents) / 100).toFixed(2) : ''), schutzgebuehr = _React$useState15[0], setSchutzgebuehr = _React$useState15[1];
-  var valid = titel.trim() && fach && preis;
+  var usageYears = [0, 1, 2, 3, 4, 5, 6];
+  var _React$useStateUsage = React.useState(function () {
+    var counts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+    (book.zustaende || []).forEach(function (bucket) {
+      if (bucket.zustand && bucket.zustand !== 'sehr_gut') return;
+      var nj = Math.max(0, Math.min(6, parseInt(bucket.nutzungsjahr, 10) || 0));
+      counts[nj] += parseInt(bucket.bestand_verfuegbar, 10) || 0;
+    });
+    if (!(book.zustaende || []).length) counts[0] = parseInt(book.bestand_frei, 10) || 0;
+    return counts;
+  }), usageCounts = _React$useStateUsage[0], setUsageCounts = _React$useStateUsage[1];
+  var issuedCount = Math.max(0, parseInt(book.bestand_ausgegeben, 10) || 0);
+  var totalCount = parseInt(bestand, 10) || 0;
+  var expectedFreeCount = Math.max(0, totalCount - issuedCount);
+  var assignedFreeCount = usageYears.reduce(function (sum, jahr) {
+    return sum + (parseInt(usageCounts[jahr], 10) || 0);
+  }, 0);
+  var unknownFreeCount = Math.max(0, expectedFreeCount - assignedFreeCount);
+  var usageOverflow = assignedFreeCount > expectedFreeCount;
+  var valid = titel.trim() && fach && preis && totalCount >= issuedCount && !usageOverflow;
 
   var fieldStyle = {
     width: '100%', padding: '8px 11px',
@@ -234,6 +253,11 @@ function InventoryEditBookDialog(props) {
     background: '#fff', outline: 'none',
   };
   var labelStyle = { fontSize: 11.5, color: '#475569', fontWeight: 500, marginBottom: 5, display: 'block' };
+  var usageLabel = function (jahr) { return jahr === 0 ? 'Neu' : jahr >= 6 ? 'Jahr 6+' : 'Jahr ' + jahr; };
+  var setUsageCount = function (jahr, value) {
+    var parsed = Math.max(0, parseInt(value, 10) || 0);
+    setUsageCounts({ ...usageCounts, [jahr]: parsed });
+  };
 
   return (
     <Modal onClose={onClose} width={520}>
@@ -289,10 +313,42 @@ function InventoryEditBookDialog(props) {
             <input type="number" value={bestand} onChange={function (event) { setBestand(event.target.value); }} placeholder="50" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
           </div>
         </div>
+        <div style={{ paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
+            <label style={{ ...labelStyle, marginBottom: 0 }}>Nutzungsjahre freier Bestand</label>
+            <span style={{ fontSize: 11.5, color: usageOverflow ? '#b91c1c' : '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>
+              {assignedFreeCount}/{expectedFreeCount}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: 8 }}>
+            {usageYears.map(function (jahr) {
+              var colors = njColor(jahr);
+              return (
+                <div key={jahr} style={{ border: '1px solid #e8ecef', borderRadius: 8, background: colors.bg, padding: 8, minWidth: 0 }}>
+                  <div style={{ fontSize: 10.5, color: colors.color, fontWeight: 600, marginBottom: 6 }}>{usageLabel(jahr)}</div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={usageCounts[jahr]}
+                    onChange={function (event) { setUsageCount(jahr, event.target.value); }}
+                    style={{ ...fieldStyle, width: '100%', minWidth: 0, padding: '7px 6px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, background: '#fff' }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          {totalCount < issuedCount ? (
+            <div style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 7 }}>Bestand gesamt darf nicht kleiner als ausgegeben ({issuedCount}) sein.</div>
+          ) : usageOverflow ? (
+            <div style={{ fontSize: 11.5, color: '#b91c1c', marginTop: 7 }}>Die Summe der Nutzungsjahre darf den freien Bestand nicht überschreiten.</div>
+          ) : unknownFreeCount > 0 ? (
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 7 }}>{unknownFreeCount} nicht zugeteilte Bücher werden als „Unbekannt“ geführt.</div>
+          ) : null}
+        </div>
       </div>
       <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
         <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>
-        <Btn kind="primary" accent={accent} icon="check" disabled={!valid} onClick={function () { onSave({ titel: titel, fach: fach, stufe: stufe, verlag: verlag, isbn: isbn, preis: preis, bestand: bestand, schutzgebuehr: schutzgebuehr }); }}>
+        <Btn kind="primary" accent={accent} icon="check" disabled={!valid} onClick={function () { onSave({ titel: titel, fach: fach, stufe: stufe, verlag: verlag, isbn: isbn, preis: preis, bestand: bestand, schutzgebuehr: schutzgebuehr, zustaende: usageYears.map(function (jahr) { return { zustand: 'sehr_gut', nutzungsjahr: jahr, bestand_verfuegbar: parseInt(usageCounts[jahr], 10) || 0 }; }).filter(function (bucket) { return bucket.bestand_verfuegbar > 0; }) }); }}>
           Speichern
         </Btn>
       </div>
@@ -372,7 +428,7 @@ window.Rueckgabe = function Rueckgabe(props) {
         schueler_id: selectedStudent.id,
         rueckgaben: rueckgaben,
       });
-      await window.openProtectedDocument(window.api.gutschriften.html(res.id), print);
+      await window.openProtectedDocument(window.api.gutschriften.pdf(res.id), print);
       onDone();
     } catch (error) {
       console.error(error);
@@ -608,7 +664,7 @@ function BooksCsvImportDialog({ accent, onClose, onImported }) {
           <div style={{ fontSize: 12.5, fontWeight: 600, color: '#0f172a', marginBottom: 8 }}>Erwartete Spalten</div>
           <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.7 }}>
             Pflicht: <strong>titel</strong>, <strong>fach</strong>, <strong>stufe</strong>, <strong>preis</strong><br />
-            Optional: untertitel, isbn, verlag, bestand, schutzgebuehr
+            Optional: untertitel, isbn, verlag, bestand, nutzungsjahr, nutzungsjahr_1 bis nutzungsjahr_6, schutzgebuehr
           </div>
         </div>
       </div>
@@ -737,6 +793,7 @@ window.BuecherListe = function BuecherListe(props) {
       preis_cents: Math.round(parseFloat(book.preis) * 100),
       bestand_gesamt: parseInt(book.bestand, 10) || 0,
       schutzgebuehr_cents: Math.max(0, Math.round(parseFloat(book.schutzgebuehr || '0') * 100) || 0),
+      zustaende: book.zustaende || [],
     }).then(function () {
       setEditingBook(null);
       fetchAll();
@@ -981,14 +1038,15 @@ window.BuecherListe = function BuecherListe(props) {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {(book.zustaende || []).map(function (bucket) {
                   var nj = bucket.nutzungsjahr != null ? bucket.nutzungsjahr : 0;
-                  var jahrLabel = nj === 0 ? 'Neu' : nj >= 6 ? 'Jahr 6+' : 'Nutzungsjahr ' + nj;
-                  var _bc = njColor(nj);
+                  var isUnknown = bucket.zustand && bucket.zustand !== 'sehr_gut';
+                  var jahrLabel = isUnknown ? 'Unbekannt' : nj === 0 ? 'Neu' : nj >= 6 ? 'Jahr 6+' : 'Jahr ' + nj;
+                  var _bc = isUnknown ? { bg: '#f1f5f9', color: '#64748b' } : njColor(nj);
                   var aufschlag = Number(settings.rueckgabe_aufschlag_prozent || 0);
-                  var verkaufspreis = nj === 0 ? bucket.preis_cents : Math.round(bucket.preis_cents * (1 + aufschlag / 100));
+                  var verkaufspreis = isUnknown ? null : nj === 0 ? bucket.preis_cents : Math.round(bucket.preis_cents * (1 + aufschlag / 100));
                   return (
-                    <div key={bucket.bestand_id} style={{ border: '1px solid #e8ecef', borderRadius: 999, padding: '5px 9px', background: _bc.bg, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div key={bucket.bestand_id} style={{ border: '1px solid #e8ecef', borderRadius: 999, padding: '5px 9px', background: _bc.bg, display: 'flex', gap: 7, alignItems: 'center', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                       <span style={{ fontSize: 11.5, color: _bc.color, fontWeight: 600 }}>{jahrLabel}</span>
-                      <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{invFormatEur(verkaufspreis)}</span>
+                      {verkaufspreis != null ? <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{invFormatEur(verkaufspreis)}</span> : null}
                       <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>x {bucket.bestand_verfuegbar}</span>
                     </div>
                   );

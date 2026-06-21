@@ -831,6 +831,30 @@ def storno_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
     return {"status": "storniert", "rechnung_id": rechnung_id}
 
 
+@router.post("/rechnungen/{rechnung_id}/archivieren", status_code=200)
+def archivieren_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
+    r = db.query(Rechnungen).filter(Rechnungen.id == rechnung_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    if r.status == "storniert":
+        raise HTTPException(status_code=422, detail="Stornierte Rechnungen können nicht archiviert werden")
+    r.status = "archiviert"
+    db.commit()
+    return {"status": "archiviert", "rechnung_id": rechnung_id}
+
+
+@router.post("/rechnungen/{rechnung_id}/unarchivieren", status_code=200)
+def unarchivieren_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
+    r = db.query(Rechnungen).filter(Rechnungen.id == rechnung_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+    if r.status != "archiviert":
+        raise HTTPException(status_code=422, detail="Rechnung ist nicht archiviert")
+    r.status = "offen"
+    db.commit()
+    return {"status": "offen", "rechnung_id": rechnung_id}
+
+
 @router.get("/rechnungen/{rechnung_id}/pdf")
 def get_rechnung_pdf(rechnung_id: str, db: Session = Depends(get_db)):
     html = render_rechnung_html(db, rechnung_id)

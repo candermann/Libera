@@ -42,7 +42,7 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
       const anzahl = posten_ids.length === 1 ? '1 Buch' : `${posten_ids.length} Bücher`;
       const gutschrift = `${(res.summe_cents / 100).toFixed(2).replace('.', ',')} €`;
       window.showToast('success', `${anzahl} zurückgegeben und Gutschrift ${res.id} (${gutschrift}) in der Schülerkartei hinterlegt.`);
-      await window.openProtectedDocument(window.api.gutschriften.html(res.id), print);
+      await window.openProtectedDocument(window.api.gutschriften.pdf(res.id), print);
       onDone();
     } catch (e) {
       console.error(e);
@@ -1530,6 +1530,7 @@ function Buchhaltung({ accent }) {
   const [unversandtLoading, setUnversandtLoading] = React.useState(false);
   const [versandt, setVersandt] = React.useState([]);
   const [versandtLoading, setVersandtLoading] = React.useState(false);
+  const [archivierend, setArchivierend] = React.useState(null);
 
   const loadSchuljahre = () => {
     window.api.buchhaltung.schuljahre().then(res => {
@@ -1551,6 +1552,20 @@ function Buchhaltung({ accent }) {
       .then(res => setVersandt(res.items || []))
       .catch(console.error)
       .finally(() => setVersandtLoading(false));
+  };
+
+  const archivierenRechnung = async (r) => {
+    setArchivierend(r.id);
+    try {
+      await window.api.rechnung.archivieren(r.id);
+      window.showToast('success', `Rechnung ${r.id} archiviert.`);
+      loadUnversandt();
+      loadVersandt();
+    } catch (err) {
+      window.showToast('error', err.message || 'Fehler beim Archivieren.');
+    } finally {
+      setArchivierend(null);
+    }
   };
 
   React.useEffect(() => { loadSchuljahre(); loadUnversandt(); loadVersandt(); }, []);
@@ -1645,10 +1660,10 @@ function Buchhaltung({ accent }) {
         </div>
 
         <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 120px 100px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 152px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             <div>Rechnungs-Nr.</div>
             <div>Schüler</div>
-            <div>Klasse</div>
+            <div style={{ textAlign: 'center' }}>Klasse</div>
             <div>Datum</div>
             <div style={{ textAlign: 'right' }}>Brutto</div>
             <div style={{ textAlign: 'right' }}>Zu zahlen</div>
@@ -1663,8 +1678,8 @@ function Buchhaltung({ accent }) {
               <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Alle erstellten Rechnungen wurden bereits versandt.</div>
             </div>
           ) : unversandt.map((r, i) => (
-            <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.html(r.id), false)} style={{
-              display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 120px 100px', gap: 12,
+            <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
+              display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 152px', gap: 8,
               padding: '11px 16px', alignItems: 'center',
               borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
               cursor: 'pointer',
@@ -1692,12 +1707,28 @@ function Buchhaltung({ accent }) {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button
                   title="Rechnung öffnen"
-                  onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.html(r.id), false); }}
+                  onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.pdf(r.id), false); }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="invoice" size={13} />
+                </button>
+                <button
+                  title="PDF herunterladen"
+                  onClick={async e => {
+                    e.stopPropagation();
+                    try {
+                      await window.downloadProtectedDocument(window.api.rechnung.pdf(r.id), `${r.id}.pdf`);
+                    } catch (err) {
+                      window.showToast('error', err.message || 'PDF konnte nicht heruntergeladen werden.');
+                    }
+                  }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="download" size={13} />
                 </button>
                 <button
                   title="Per E-Mail senden"
@@ -1707,6 +1738,16 @@ function Buchhaltung({ accent }) {
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="mail" size={13} />
+                </button>
+                <button
+                  title="Rechnung archivieren"
+                  disabled={archivierend === r.id}
+                  onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="archive" size={13} />
                 </button>
               </div>
             </div>
@@ -1720,10 +1761,10 @@ function Buchhaltung({ accent }) {
               Bereits versandt ({versandt.length})
             </div>
             <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 140px 60px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 72px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 <div>Rechnungs-Nr.</div>
                 <div>Schüler</div>
-                <div>Klasse</div>
+                <div style={{ textAlign: 'center' }}>Klasse</div>
                 <div>Datum</div>
                 <div style={{ textAlign: 'right' }}>Zu zahlen</div>
                 <div>Versandt am</div>
@@ -1732,8 +1773,8 @@ function Buchhaltung({ accent }) {
               {versandtLoading ? (
                 <div style={{ padding: '24px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade...</div>
               ) : versandt.map((r, i) => (
-                <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.html(r.id), false)} style={{
-                  display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 140px 60px', gap: 12,
+                <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
+                  display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 72px', gap: 8,
                   padding: '11px 16px', alignItems: 'center',
                   borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
                   opacity: 0.75, cursor: 'pointer',
@@ -1761,15 +1802,41 @@ function Buchhaltung({ accent }) {
                       {new Date(r.mail_versandt_am).toLocaleDateString('de-DE')}
                     </span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                     <button
                       title="Rechnung öffnen"
-                      onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.html(r.id), false); }}
+                      onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.pdf(r.id), false); }}
                       style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                     >
                       <Icon name="invoice" size={13} />
+                    </button>
+                    <button
+                      title="PDF herunterladen"
+                      onClick={async e => {
+                        e.stopPropagation();
+                        try {
+                          await window.downloadProtectedDocument(window.api.rechnung.pdf(r.id), `${r.id}.pdf`);
+                        } catch (err) {
+                          window.showToast('error', err.message || 'PDF konnte nicht heruntergeladen werden.');
+                        }
+                      }}
+                      style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                    >
+                      <Icon name="download" size={13} />
+                    </button>
+                    <button
+                      title="Rechnung archivieren"
+                      disabled={archivierend === r.id}
+                      onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
+                      style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                    >
+                      <Icon name="archive" size={13} />
                     </button>
                   </div>
                 </div>
@@ -1924,10 +1991,10 @@ function Buchhaltung({ accent }) {
 
       {/* Tabelle */}
       <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 120px 90px 92px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(220px, 1fr) 80px 110px 120px 120px 96px 176px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           <div>Rechnungs-Nr.</div>
           <div>Schüler</div>
-          <div>Klasse</div>
+          <div style={{ textAlign: 'center' }}>Klasse</div>
           <div>Datum</div>
           <div style={{ textAlign: 'right' }}>Brutto</div>
           <div style={{ textAlign: 'right' }}>Zu zahlen</div>
@@ -1941,8 +2008,8 @@ function Buchhaltung({ accent }) {
             {rechnungen.length === 0 ? 'Noch keine Rechnungen für dieses Schuljahr.' : 'Keine Rechnungen für die gewählte Klasse.'}
           </div>
         ) : rechnungenGefiltert.map((r, i) => (
-          <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.html(r.id), false)} style={{
-            display: 'grid', gridTemplateColumns: '160px 1fr 80px 110px 120px 120px 90px 92px', gap: 12,
+          <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
+            display: 'grid', gridTemplateColumns: '160px minmax(220px, 1fr) 80px 110px 120px 120px 96px 176px', gap: 12,
             padding: '11px 16px', alignItems: 'center',
             borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
             opacity: r.status === 'storniert' ? 0.4 : 1,
@@ -1969,6 +2036,8 @@ function Buchhaltung({ accent }) {
             <div>
               {r.status === 'storniert' ? (
                 <Badge tone="red">Storniert</Badge>
+              ) : r.status === 'archiviert' ? (
+                <Badge tone="slate">Archiviert</Badge>
               ) : r.mail_versandt_am ? (
                 <Badge tone="green">Versandt</Badge>
               ) : (
@@ -1987,21 +2056,21 @@ function Buchhaltung({ accent }) {
               </button>
               <button
                 title="Rechnung per E-Mail senden"
-                disabled={r.status === 'storniert'}
+                disabled={r.status === 'storniert' || r.status === 'archiviert'}
                 onClick={e => { e.stopPropagation(); setMailRechnung(r); }}
                 style={{
                   background: 'transparent',
                   border: '1px solid #e2e8f0',
                   borderRadius: 6,
                   padding: '4px 6px',
-                  cursor: r.status === 'storniert' ? 'not-allowed' : 'pointer',
+                  cursor: (r.status === 'storniert' || r.status === 'archiviert') ? 'not-allowed' : 'pointer',
                   color: '#64748b',
                   display: 'flex',
                   alignItems: 'center',
-                  opacity: r.status === 'storniert' ? 0.5 : 1,
+                  opacity: (r.status === 'storniert' || r.status === 'archiviert') ? 0.5 : 1,
                 }}
                 onMouseEnter={(e) => {
-                  if (r.status === 'storniert') return;
+                  if (r.status === 'storniert' || r.status === 'archiviert') return;
                   e.currentTarget.style.borderColor = '#94a3b8';
                   e.currentTarget.style.color = '#0f172a';
                 }}
@@ -2012,6 +2081,55 @@ function Buchhaltung({ accent }) {
               >
                 <Icon name="mail" size={13} />
               </button>
+              {r.status === 'archiviert' ? (
+                <button
+                  title="Archivierung aufheben"
+                  disabled={archivierend === r.id}
+                  onClick={async e => {
+                    e.stopPropagation();
+                    setArchivierend(r.id);
+                    try {
+                      await window.api.rechnung.unarchivieren(r.id);
+                      window.showToast('success', `Rechnung ${r.id} wieder aktiv.`);
+                      window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
+                    } catch (err) {
+                      window.showToast('error', err.message || 'Fehler.');
+                    } finally {
+                      setArchivierend(null);
+                    }
+                  }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="undo" size={13} />
+                </button>
+              ) : r.status !== 'storniert' ? (
+                <button
+                  title="Rechnung archivieren"
+                  disabled={archivierend === r.id}
+                  onClick={async e => {
+                    e.stopPropagation();
+                    setArchivierend(r.id);
+                    try {
+                      await window.api.rechnung.archivieren(r.id);
+                      window.showToast('success', `Rechnung ${r.id} archiviert.`);
+                      loadUnversandt();
+                      loadVersandt();
+                      window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
+                    } catch (err) {
+                      window.showToast('error', err.message || 'Fehler beim Archivieren.');
+                    } finally {
+                      setArchivierend(null);
+                    }
+                  }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="archive" size={13} />
+                </button>
+              ) : null}
             </div>
           </div>
         ))}

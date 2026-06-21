@@ -2,6 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
+  <meta name="pdf-download-url" content="/api/rechnungen/{{ rechnung.id }}/pdf">
+  <meta name="pdf-filename" content="{{ rechnung.id }}.pdf">
   <title>Rechnung {{ rechnung.id }}</title>
   <style>
     @page {
@@ -166,6 +168,8 @@
       border-top: 1px solid #ddd;
       break-inside: avoid;
       page-break-inside: avoid;
+      break-before: avoid;
+      page-break-before: avoid;
     }
     .signature-name { font-size: 10.5pt; font-weight: 600; color: #222; }
     .signature-role { font-size: 8.5pt; color: #777; margin-top: 1px; }
@@ -197,6 +201,20 @@
         left: auto !important; right: auto !important; bottom: auto !important;
         margin-top: auto !important;
         padding: 6px 0 5px !important;
+      }
+    }
+
+    /* ── Browser-Druck / Als PDF speichern ── */
+    @media print {
+      html, body {
+        height: auto !important;
+        min-height: 0 !important;
+        display: block !important;
+      }
+      .main-content {
+        display: block !important;
+        flex: none !important;
+        padding-bottom: 26mm;
       }
     }
   </style>
@@ -303,8 +321,35 @@
   </div>
   {% endif %}
 
-  <!-- VERRECHNETES GUTHABEN (nur wenn keine Rückgaben) -->
-  {% if not rueckgaben_posten and verrechnete_posten %}
+  <!-- ZURÜCKGEGEBENE BÜCHER -->
+  {% if rueckgaben_posten %}
+  <div class="section">
+    <div class="section-title">Zurückgegebene Bücher</div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:52px; text-align:center;">Menge</th>
+          <th>Titel</th>
+          <th>Nutzungsjahre</th>
+          <th class="right">Gutschrift</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in rueckgaben_posten %}
+        <tr>
+          <td style="text-align:center;">{{ p.menge }}</td>
+          <td>{{ p.titel }}<br><span style="font-size:8pt;color:#999;">{{ p.verlag }}</span>{% if p.isbn %}<br><span style="font-size:8pt;color:#bbb;">{{ p.isbn }}</span>{% endif %}</td>
+          <td>{{ p.nutzungsjahr_label }}</td>
+          <td class="right">{{ p.betrag_cents | eur }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <!-- VERRECHNETES GUTHABEN -->
+  {% if verrechnete_posten %}
   <div class="section">
     <div class="section-title">Verrechnetes Guthaben</div>
     <table>
@@ -330,7 +375,7 @@
   </div>
   {% endif %}
 
-  <!-- SUMMEN -->
+  <!-- SUMMEN — nach allen Auflistungen -->
   <div class="totals">
     <table>
       {% if rechnung.summe_buecher_cents > 0 %}
@@ -376,39 +421,12 @@
     </table>
   </div>
 
-  <!-- UNTERSCHRIFT -->
+  <!-- UNTERSCHRIFT — immer letzter Inhaltsblock -->
   <div class="signature-block">
     <div class="signature-name">gez. {{ schule.get('schulleiter_name', '') }}</div>
     <div class="signature-role">Schulleiter / Geschäftsführer</div>
     <div class="machine-note">Das Schreiben ist maschinell erstellt und ohne Unterschrift gültig.</div>
   </div>
-
-  <!-- ZURÜCKGEGEBENE BÜCHER (Rückseite) -->
-  {% if rueckgaben_posten %}
-  <div class="section" style="page-break-before: always;">
-    <div class="section-title">Zurückgegebene Bücher</div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:52px; text-align:center;">Menge</th>
-          <th>Titel</th>
-          <th>Nutzungsjahre</th>
-          <th class="right">Gutschrift</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in rueckgaben_posten %}
-        <tr>
-          <td style="text-align:center;">{{ p.menge }}</td>
-          <td>{{ p.titel }}<br><span style="font-size:8pt;color:#999;">{{ p.verlag }}</span>{% if p.isbn %}<br><span style="font-size:8pt;color:#bbb;">{{ p.isbn }}</span>{% endif %}</td>
-          <td>{{ p.nutzungsjahr_label }}</td>
-          <td class="right">{{ p.betrag_cents | eur }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
 
 </div><!-- end .main-content -->
 

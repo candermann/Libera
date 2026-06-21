@@ -210,6 +210,12 @@ class BuchZustandResponse(BaseModel):
     bestand_verfuegbar: int
 
 
+class BuchZustandUpdate(BaseModel):
+    zustand: str = "sehr_gut"
+    nutzungsjahr: int = Field(ge=0, le=6)
+    bestand_verfuegbar: int = Field(ge=0)
+
+
 class BuchCreate(BaseModel):
     titel: str
     untertitel: Optional[str] = None
@@ -233,6 +239,7 @@ class BuchUpdate(BaseModel):
     gutschrift_cents: Optional[int] = None
     bestand_gesamt: Optional[int] = None
     schutzgebuehr_cents: Optional[int] = None
+    zustaende: Optional[list[BuchZustandUpdate]] = None
 
 
 class BuchResponse(BaseModel):

@@ -160,6 +160,8 @@ const api = {
         mailVorschau: (id, data) => req(`/rechnungen/${id}/mail-vorschau`, { method: 'POST', body: data }),
         mailSenden: (id, data) => req(`/rechnungen/${id}/mail`, { method: 'POST', body: data }),
         storno: (id) => req(`/rechnungen/${id}/storno`, { method: 'POST' }),
+        archivieren: (id) => req(`/rechnungen/${id}/archivieren`, { method: 'POST' }),
+        unarchivieren: (id) => req(`/rechnungen/${id}/unarchivieren`, { method: 'POST' }),
     },
     gutschrift: (data) => req('/gutschrift', { method: 'POST', body: data }),
     gutschriften: {

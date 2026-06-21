@@ -224,8 +224,41 @@ function addProtectedPreviewChrome(w) {
     d.body.appendChild(page);
     const printBtn = toolbar.querySelector('[data-action="print"]');
     const closeBtn = toolbar.querySelector('[data-action="close"]');
-    if (printBtn)
-        printBtn.addEventListener('click', () => w.print());
+    if (printBtn) {
+        const pdfMeta = d.querySelector('meta[name="pdf-download-url"]');
+        const pdfUrl = pdfMeta ? pdfMeta.getAttribute('content') : null;
+        const filenameMeta = d.querySelector('meta[name="pdf-filename"]');
+        const pdfFilename = filenameMeta ? filenameMeta.getAttribute('content') : 'dokument.pdf';
+        if (pdfUrl) {
+            printBtn.textContent = 'Als PDF speichern';
+            printBtn.addEventListener('click', async () => {
+                printBtn.disabled = true;
+                printBtn.textContent = 'Wird geladen…';
+                try {
+                    const token = w.localStorage.getItem('token');
+                    const headers = token ? { Authorization: 'Bearer ' + token } : {};
+                    const res = await w.fetch(pdfUrl, { headers });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const blob = await res.blob();
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = d.createElement('a');
+                    a.href = blobUrl;
+                    a.download = pdfFilename;
+                    d.body.appendChild(a);
+                    a.click();
+                    d.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
+                } catch (e) {
+                    w.alert('PDF konnte nicht geladen werden: ' + e.message);
+                } finally {
+                    printBtn.disabled = false;
+                    printBtn.textContent = 'Als PDF speichern';
+                }
+            });
+        } else {
+            printBtn.addEventListener('click', () => w.print());
+        }
+    }
     if (closeBtn)
         closeBtn.addEventListener('click', () => w.close());
 }
@@ -280,6 +313,20 @@ async function openProtectedDocument(path, autoPrint = false, options = {}) {
             const blob = await res.blob();
             const blobUrl = URL.createObjectURL(blob);
             w.location.replace(blobUrl);
+            if (autoPrint) {
+                const triggerPrint = () => {
+                    try {
+                        w.focus();
+                        w.print();
+                    }
+                    catch (_error) { }
+                };
+                try {
+                    w.addEventListener('load', triggerPrint, { once: true });
+                }
+                catch (_error) { }
+                window.setTimeout(triggerPrint, 800);
+            }
             window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
             return;
         }
@@ -297,6 +344,30 @@ async function openProtectedDocument(path, autoPrint = false, options = {}) {
         throw error;
     }
 }
+async function downloadProtectedDocument(path, filename = 'dokument.pdf') {
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+    const res = await fetch(path, { headers });
+    if (!res.ok) {
+        throw new Error(`Dokument konnte nicht geladen werden (HTTP ${res.status})`);
+    }
+    const contentType = (res.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.includes('application/pdf')) {
+        throw new Error('Der Server hat kein PDF geliefert.');
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+}
 function downloadAsHTMLFile(html, filename) {
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -310,4 +381,5 @@ function downloadAsHTMLFile(html, filename) {
 window.buildDocumentHTML = buildDocumentHTML;
 window.openPrintWindow = openPrintWindow;
 window.openProtectedDocument = openProtectedDocument;
+window.downloadProtectedDocument = downloadProtectedDocument;
 window.downloadAsHTMLFile = downloadAsHTMLFile;

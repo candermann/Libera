@@ -24,6 +24,7 @@ declare global {
 
   interface BuchZustand {
     bestand_id: number;
+    zustand?: string;
     nutzungsjahr: number;
     preis_cents: number;
     bestand_verfuegbar: number;
@@ -243,6 +244,7 @@ declare global {
     buildDocumentHTML(data: PrintDocumentData): string;
     openPrintWindow(html: string, autoPrint?: boolean): void;
     openProtectedDocument(path: string, autoPrint?: boolean, options?: OpenProtectedDocumentOptions): Promise<void>;
+    downloadProtectedDocument(path: string, filename?: string): Promise<void>;
     downloadAsHTMLFile(html: string, filename: string): void;
     showToast(type: 'success' | 'error' | 'info' | 'warning', message: string): void;
   }

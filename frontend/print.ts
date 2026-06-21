@@ -291,6 +291,18 @@ async function openProtectedDocument(path: string, autoPrint = false, options: O
       const blob = await res.blob();
       const blobUrl = URL.createObjectURL(blob);
       w.location.replace(blobUrl);
+      if (autoPrint) {
+        const triggerPrint = () => {
+          try {
+            w.focus();
+            w.print();
+          } catch (_error) {}
+        };
+        try {
+          w.addEventListener('load', triggerPrint, { once: true });
+        } catch (_error) {}
+        window.setTimeout(triggerPrint, 800);
+      }
       window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
       return;
     }
@@ -308,6 +320,34 @@ async function openProtectedDocument(path: string, autoPrint = false, options: O
   }
 }
 
+async function downloadProtectedDocument(path: string, filename = 'dokument.pdf'): Promise<void> {
+  const token = localStorage.getItem('token');
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const res = await fetch(path, { headers });
+  if (!res.ok) {
+    throw new Error(`Dokument konnte nicht geladen werden (HTTP ${res.status})`);
+  }
+
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  if (!contentType.includes('application/pdf')) {
+    throw new Error('Der Server hat kein PDF geliefert.');
+  }
+
+  const blob = await res.blob();
+  const blobUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = blobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(blobUrl), 30_000);
+}
+
 function downloadAsHTMLFile(html: string, filename: string): void {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
@@ -320,4 +360,5 @@ function downloadAsHTMLFile(html: string, filename: string): void {
 window.buildDocumentHTML = buildDocumentHTML;
 window.openPrintWindow = openPrintWindow;
 window.openProtectedDocument = openProtectedDocument;
+window.downloadProtectedDocument = downloadProtectedDocument;
 window.downloadAsHTMLFile = downloadAsHTMLFile;

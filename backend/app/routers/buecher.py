@@ -16,6 +16,7 @@ from app.schemas import (
     BuchListResponse,
     BuchResponse,
     BuchUpdate,
+    BuchZustandUpdate,
     BuchZustandResponse,
 )
 
@@ -41,6 +42,30 @@ _CSV_HEADER_ALIASES = {
     "verlag": {"verlag", "publisher"},
     "preis_cents": {"preis", "preiscent", "preiscents", "preis_cents", "betrag", "basispreis"},
     "bestand_gesamt": {"bestand", "bestandgesamt", "bestand_gesamt", "anzahl", "menge"},
+    "nutzungsjahr": {
+        "nutzungsjahr",
+        "nutzungs_jahr",
+        "nutzungsjahre",
+        "jahr",
+        "usageyear",
+        "usage_year",
+    },
+    "nutzungsjahr_1": {"nutzungsjahr1", "nutzungsjahre1", "jahr1", "usageyear1", "usage_year_1"},
+    "nutzungsjahr_2": {"nutzungsjahr2", "nutzungsjahre2", "jahr2", "usageyear2", "usage_year_2"},
+    "nutzungsjahr_3": {"nutzungsjahr3", "nutzungsjahre3", "jahr3", "usageyear3", "usage_year_3"},
+    "nutzungsjahr_4": {"nutzungsjahr4", "nutzungsjahre4", "jahr4", "usageyear4", "usage_year_4"},
+    "nutzungsjahr_5": {"nutzungsjahr5", "nutzungsjahre5", "jahr5", "usageyear5", "usage_year_5"},
+    "nutzungsjahr_6": {
+        "nutzungsjahr6",
+        "nutzungsjahr6plus",
+        "nutzungsjahre6",
+        "nutzungsjahre6plus",
+        "jahr6",
+        "jahr6plus",
+        "usageyear6",
+        "usageyear6plus",
+        "usage_year_6",
+    },
     "schutzgebuehr_cents": {
         "schutzgebuehr",
         "schutzgebuhr",
@@ -329,6 +354,59 @@ def _reprice_bestand_buckets(
     db.flush()
 
 
+def _replace_bestand_buckets(
+    db: Session,
+    buch_id: str,
+    zustaende: list[BuchZustandUpdate],
+    basispreis_cents: int,
+    schutzgebuehr_cents: int,
+    abschlaege: dict[int, int],
+    unbekannt_bestand: int = 0,
+) -> int:
+    cur_sj = current_schuljahr_start()
+    aggregated: dict[tuple[str, int], int] = {}
+    for item in zustaende:
+        zustand = (item.zustand or "sehr_gut").strip() or "sehr_gut"
+        nutzungsjahr = max(0, min(6, int(item.nutzungsjahr)))
+        bestand = max(0, int(item.bestand_verfuegbar))
+        if bestand <= 0:
+            continue
+        key = (zustand, nutzungsjahr)
+        aggregated[key] = aggregated.get(key, 0) + bestand
+
+    if unbekannt_bestand > 0:
+        aggregated[("unbekannt", 0)] = aggregated.get(("unbekannt", 0), 0) + unbekannt_bestand
+
+    rows = (
+        db.query(BuchZustandBestand)
+        .filter(BuchZustandBestand.buch_id == buch_id)
+        .all()
+    )
+    for row in rows:
+        db.delete(row)
+    db.flush()
+
+    for (zustand, nutzungsjahr), bestand_verfuegbar in aggregated.items():
+        preis_cents = berechne_bucket_preis(
+            basispreis_cents,
+            nutzungsjahr,
+            abschlaege,
+            schutzgebuehr_cents,
+        )
+        db.add(
+            BuchZustandBestand(
+                buch_id=buch_id,
+                zustand=zustand,
+                verkaufspreis_cents=preis_cents,
+                bestand_verfuegbar=bestand_verfuegbar,
+                nutzungsjahr=nutzungsjahr,
+                schuljahr_eingestellt=cur_sj if nutzungsjahr > 0 else None,
+            )
+        )
+    db.flush()
+    return sum(aggregated.values())
+
+
 @router.get("", response_model=BuchListResponse)
 def list_buecher(
     q: str | None = None,
@@ -467,6 +545,7 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
         if row[0]
     }
     errors: list[dict] = []
+    abschlaege = get_nutzungsjahr_abschlaege(db)
 
     for row_number, source in enumerate(reader, start=2):
         row = {field: _clean_text(source.get(original)) for field, original in header_map.items()}
@@ -478,6 +557,16 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
         stufe = _parse_int(row.get("stufe"))
         preis_cents = _parse_money_cents(row.get("preis_cents"))
         bestand_gesamt = _parse_int(row.get("bestand_gesamt"), 0)
+        nutzungsjahr = _parse_int(row.get("nutzungsjahr"), 0)
+        nutzungsjahr_counts: dict[int, int] = {}
+        has_nutzungsjahr_counts = False
+        for jahr in range(1, 7):
+            raw_count = row.get(f"nutzungsjahr_{jahr}")
+            if raw_count is None:
+                continue
+            has_nutzungsjahr_counts = True
+            parsed_count = _parse_int(raw_count, 0)
+            nutzungsjahr_counts[jahr] = parsed_count if parsed_count is not None else -1
         schutzgebuehr_cents = _parse_money_cents(row.get("schutzgebuehr_cents")) if row.get("schutzgebuehr_cents") else 0
 
         row_errors = []
@@ -491,6 +580,16 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
             row_errors.append("Preis ungueltig")
         if bestand_gesamt is None or bestand_gesamt < 0:
             row_errors.append("Bestand ungueltig")
+        if nutzungsjahr is None or nutzungsjahr < 0:
+            row_errors.append("Nutzungsjahr ungueltig")
+        if any(count < 0 for count in nutzungsjahr_counts.values()):
+            row_errors.append("Nutzungsjahr-Bestand ungueltig")
+        if (
+            bestand_gesamt is not None
+            and bestand_gesamt >= 0
+            and sum(nutzungsjahr_counts.values()) > bestand_gesamt
+        ):
+            row_errors.append("Nutzungsjahr-Bestaende ueberschreiten Bestand")
         if schutzgebuehr_cents is None or schutzgebuehr_cents < 0:
             row_errors.append("Schutzgebuehr ungueltig")
 
@@ -516,16 +615,43 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
         )
         db.add(buch)
         db.flush()
-        db.add(
-            BuchZustandBestand(
-                buch_id=new_id,
-                zustand="sehr_gut",
-                verkaufspreis_cents=preis_cents,
-                bestand_verfuegbar=bestand_gesamt,
-                nutzungsjahr=0,
-                schuljahr_eingestellt=None,
+
+        bucket_counts: dict[tuple[str, int], int] = {}
+        if has_nutzungsjahr_counts:
+            assigned_count = 0
+            for jahr, count in nutzungsjahr_counts.items():
+                if count <= 0:
+                    continue
+                nutzungsjahr_key = min(6, jahr)
+                bucket_counts[("sehr_gut", nutzungsjahr_key)] = (
+                    bucket_counts.get(("sehr_gut", nutzungsjahr_key), 0) + count
+                )
+                assigned_count += count
+            unknown_count = bestand_gesamt - assigned_count
+            if unknown_count > 0:
+                bucket_counts[("unbekannt", 0)] = unknown_count
+        else:
+            nutzungsjahr = min(6, nutzungsjahr or 0)
+            bucket_counts[("sehr_gut", nutzungsjahr)] = bestand_gesamt
+
+        for (zustand, bucket_nutzungsjahr), bestand_verfuegbar in bucket_counts.items():
+            if bestand_verfuegbar <= 0:
+                continue
+            db.add(
+                BuchZustandBestand(
+                    buch_id=new_id,
+                    zustand=zustand,
+                    verkaufspreis_cents=berechne_bucket_preis(
+                        preis_cents,
+                        bucket_nutzungsjahr,
+                        abschlaege,
+                        schutzgebuehr_cents,
+                    ),
+                    bestand_verfuegbar=bestand_verfuegbar,
+                    nutzungsjahr=bucket_nutzungsjahr,
+                    schuljahr_eingestellt=current_schuljahr_start() if bucket_nutzungsjahr > 0 else None,
+                )
             )
-        )
 
         if fach not in existing_faecher:
             created_faecher.add(fach)
@@ -555,6 +681,7 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Buch nicht gefunden")
 
     update_data = data.model_dump(exclude_unset=True)
+    zustaende_update = update_data.pop("zustaende", None)
     old_preis = b.preis_cents
     old_bestand = b.bestand_gesamt
     old_schutzgebuehr = max(0, int(b.schutzgebuehr_cents or 0))
@@ -571,45 +698,70 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
             detail="Bestand gesamt darf nicht kleiner als Bestand ausgegeben sein",
         )
 
-    base_bucket = (
-        db.query(BuchZustandBestand)
-        .filter(
-            BuchZustandBestand.buch_id == buch_id,
-            BuchZustandBestand.zustand == "sehr_gut",
-            BuchZustandBestand.nutzungsjahr == 0,
-        )
-        .first()
-    )
-    if not base_bucket:
-        base_bucket = (
-            db.query(BuchZustandBestand)
-            .filter(BuchZustandBestand.buch_id == buch_id)
-            .order_by(BuchZustandBestand.nutzungsjahr.asc().nulls_last(), BuchZustandBestand.id)
-            .first()
-        )
-    if not base_bucket:
-        base_bucket = _get_or_create_bestand(db, buch_id, old_preis, nutzungsjahr=0)
+    abschlaege = get_nutzungsjahr_abschlaege(db)
+    if zustaende_update is not None:
+        parsed_zustaende = [BuchZustandUpdate(**item) for item in zustaende_update]
+        freier_bestand = sum(item.bestand_verfuegbar for item in parsed_zustaende)
+        expected_freier_bestand = new_bestand - b.bestand_ausgegeben
+        if freier_bestand > expected_freier_bestand:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Summe der Nutzungsjahr-Bestaende darf den freien Bestand "
+                    f"nicht ueberschreiten ({expected_freier_bestand})"
+                ),
+            )
+        unbekannt_bestand = expected_freier_bestand - freier_bestand
 
-    delta_bestand = new_bestand - old_bestand
-
-    neuer_freier_bestand = base_bucket.bestand_verfuegbar + delta_bestand
-    if neuer_freier_bestand < 0:
-        raise HTTPException(
-            status_code=422,
-            detail="Bestandsaenderung wuerde den freien Sehr-Gut-Bestand negativ machen",
-        )
-    base_bucket.bestand_verfuegbar = neuer_freier_bestand
-
-    if new_preis != old_preis or new_schutzgebuehr != old_schutzgebuehr:
-        _reprice_bestand_buckets(
+        _replace_bestand_buckets(
             db=db,
             buch_id=buch_id,
-            old_basispreis_cents=old_preis,
-            new_basispreis_cents=new_preis,
-            old_schutzgebuehr_cents=old_schutzgebuehr,
-            new_schutzgebuehr_cents=new_schutzgebuehr,
-            abschlaege=get_nutzungsjahr_abschlaege(db),
+            zustaende=parsed_zustaende,
+            basispreis_cents=new_preis,
+            schutzgebuehr_cents=new_schutzgebuehr,
+            abschlaege=abschlaege,
+            unbekannt_bestand=unbekannt_bestand,
         )
+    else:
+        base_bucket = (
+            db.query(BuchZustandBestand)
+            .filter(
+                BuchZustandBestand.buch_id == buch_id,
+                BuchZustandBestand.zustand == "sehr_gut",
+                BuchZustandBestand.nutzungsjahr == 0,
+            )
+            .first()
+        )
+        if not base_bucket:
+            base_bucket = (
+                db.query(BuchZustandBestand)
+                .filter(BuchZustandBestand.buch_id == buch_id)
+                .order_by(BuchZustandBestand.nutzungsjahr.asc().nulls_last(), BuchZustandBestand.id)
+                .first()
+            )
+        if not base_bucket:
+            base_bucket = _get_or_create_bestand(db, buch_id, old_preis, nutzungsjahr=0)
+
+        delta_bestand = new_bestand - old_bestand
+
+        neuer_freier_bestand = base_bucket.bestand_verfuegbar + delta_bestand
+        if neuer_freier_bestand < 0:
+            raise HTTPException(
+                status_code=422,
+                detail="Bestandsaenderung wuerde den freien Sehr-Gut-Bestand negativ machen",
+            )
+        base_bucket.bestand_verfuegbar = neuer_freier_bestand
+
+        if new_preis != old_preis or new_schutzgebuehr != old_schutzgebuehr:
+            _reprice_bestand_buckets(
+                db=db,
+                buch_id=buch_id,
+                old_basispreis_cents=old_preis,
+                new_basispreis_cents=new_preis,
+                old_schutzgebuehr_cents=old_schutzgebuehr,
+                new_schutzgebuehr_cents=new_schutzgebuehr,
+                abschlaege=abschlaege,
+            )
 
     if "preis_cents" in update_data and "gutschrift_cents" not in update_data:
         update_data["gutschrift_cents"] = update_data["preis_cents"]
@@ -620,7 +772,7 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(b)
 
-    return _buch_to_response(b, _load_zustaende(db, b.id), get_nutzungsjahr_abschlaege(db))
+    return _buch_to_response(b, _load_zustaende(db, b.id), abschlaege)
 
 
 @router.post("/fach/umbenennen", status_code=200)

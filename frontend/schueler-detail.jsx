@@ -573,14 +573,13 @@ function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung,
         const meta = typLabel[v.typ] || typLabel.rechnung;
         const betrag = v.betrag_cents / 100;
         const ist = betrag >= 0 ? '#047857' : '#0f172a';
-        const auszahlungHtmlFn = window.api?.auszahlungen?.html;
         const pdfUrl = v.typ === 'rechnung'
-          ? window.api.rechnung.html(v.id)
+          ? window.api.rechnung.pdf(v.id)
           : v.typ === 'gutschrift'
-            ? window.api.gutschriften.html(v.id)
-            : v.typ === 'auszahlung' && typeof auszahlungHtmlFn === 'function'
-              ? auszahlungHtmlFn(v.id)
-            : null;
+            ? window.api.gutschriften.pdf(v.id)
+            : v.typ === 'auszahlung' && typeof window.api?.auszahlungen?.pdf === 'function'
+              ? window.api.auszahlungen.pdf(v.id)
+              : null;
         return (
           <div key={`${v.typ}-${v.id}-${v.datum}-${i}`} style={{
             display: 'grid', gridTemplateColumns: '90px 130px 1fr 110px 90px 78px',

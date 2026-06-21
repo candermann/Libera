@@ -112,7 +112,7 @@ def list_unversandt(db: Session = Depends(get_db)):
         FROM rechnungen r
         JOIN schueler s ON s.id = r.schueler_id
         WHERE r.mail_versandt_am IS NULL
-          AND r.status != 'storniert'
+          AND r.status NOT IN ('storniert', 'archiviert')
         ORDER BY r.datum DESC, r.erstellt_am DESC
     """)).fetchall()
     return {"items": [
@@ -147,7 +147,7 @@ def list_versandt(db: Session = Depends(get_db)):
         FROM rechnungen r
         JOIN schueler s ON s.id = r.schueler_id
         WHERE r.mail_versandt_am IS NOT NULL
-          AND r.status != 'storniert'
+          AND r.status NOT IN ('storniert', 'archiviert')
         ORDER BY r.mail_versandt_am DESC, r.datum DESC
     """)).fetchall()
     return {"items": [
