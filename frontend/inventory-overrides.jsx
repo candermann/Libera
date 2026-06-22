@@ -702,8 +702,12 @@ window.BuecherListe = function BuecherListe(props) {
 
   var faecher = React.useMemo(function () {
     var bookFaecher = books.map(function (b) { return b.fach; }).filter(Boolean);
-    var merged = Array.from(new Set(constantFaecher.concat(extraFaecher).concat(bookFaecher)));
-    merged = merged.filter(function (f) { return !deletedFaecher.includes(f); });
+    var hiddenFaecher = new Set(deletedFaecher);
+    var merged = Array.from(new Set(
+      constantFaecher.filter(function (f) { return !hiddenFaecher.has(f); })
+        .concat(extraFaecher.filter(function (f) { return !hiddenFaecher.has(f); }))
+        .concat(bookFaecher)
+    ));
     merged.sort(function (a, b) { return a.localeCompare(b, 'de'); });
     return merged;
   }, [books, extraFaecher, deletedFaecher]);
@@ -719,7 +723,7 @@ window.BuecherListe = function BuecherListe(props) {
 
   function fetchAll() {
     Promise.all([
-      window.api.buecher.list({ q: query }),
+      window.api.buecher.list({ q: query, limit: 500 }),
       window.api.einstellungen.get(),
     ]).then(function (data) {
       var booksRes = data[0];

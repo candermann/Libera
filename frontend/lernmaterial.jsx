@@ -244,7 +244,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   const [showCsvImport, setShowCsvImport] = React.useState(false);
 
   function fetchAll() {
-    window.api.lernmaterial.list({}).then(res => {
+    window.api.lernmaterial.list({ limit: 500 }).then(res => {
       setItems(res.items || []);
       setTotal(res.total || 0);
     }).catch(err => { console.error(err); setItems([]); setTotal(0); });
@@ -254,8 +254,13 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
 
   const kategorien = React.useMemo(() => {
     const fromItems = items.map(i => i.kategorie).filter(Boolean);
-    const merged = Array.from(new Set(konstantKategorien.concat(extraKategorien).concat(fromItems)));
-    const filtered = merged.filter(k => !deletedKategorien.includes(k));
+    const hiddenKategorien = new Set(deletedKategorien);
+    const merged = Array.from(new Set(
+      konstantKategorien.filter(k => !hiddenKategorien.has(k))
+        .concat(extraKategorien.filter(k => !hiddenKategorien.has(k)))
+        .concat(fromItems)
+    ));
+    const filtered = merged;
     filtered.sort((a, b) => a.localeCompare(b, 'de'));
     return filtered;
   }, [items, extraKategorien, deletedKategorien]);
