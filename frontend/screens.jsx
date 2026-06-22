@@ -2506,6 +2506,11 @@ function Klassenversetzung({ accent }) {
     ? vorschau.gruppen.reduce((n, g) => n + g.schueler.length, 0)
     : 0;
 
+  const gruppenSortiert = React.useMemo(
+    () => (vorschau?.gruppen ? [...vorschau.gruppen].sort((a, b) => compareKlasseAsc(a.klasse_von, b.klasse_von)) : []),
+    [vorschau]
+  );
+
   const toggleAlleAuswaehlen = () => {
     const next = {};
     if (gesamtAusgewaehlt === gesamtSchueler) {
@@ -2677,7 +2682,7 @@ function Klassenversetzung({ accent }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {vorschau.gruppen.map(gruppe => {
+          {gruppenSortiert.map(gruppe => {
             const sel = ausgewaehlt[gruppe.klasse_von] || new Set();
             const allChecked = gruppe.schueler.length > 0 && gruppe.schueler.every(s => sel.has(s.id));
             const someChecked = gruppe.schueler.some(s => sel.has(s.id));
