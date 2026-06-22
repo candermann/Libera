@@ -1128,6 +1128,24 @@ function RechnungMailDialog({ rechnung, accent, onClose, onSent }) {
 }
 
 // ---- Klassenliste (eigenständige Komponente) ----
+function compareKlasseAsc(a, b) {
+  const normalize = (value) => String(value || '').trim().toUpperCase();
+  const parse = (value) => {
+    const normalized = normalize(value);
+    const match = normalized.match(/^(\d+)(.*)$/);
+    if (!match) return { number: Number.POSITIVE_INFINITY, suffix: normalized };
+    return {
+      number: parseInt(match[1], 10),
+      suffix: (match[2] || '').trim(),
+    };
+  };
+
+  const left = parse(a);
+  const right = parse(b);
+  if (left.number !== right.number) return left.number - right.number;
+  return left.suffix.localeCompare(right.suffix, 'de', { numeric: true });
+}
+
 function KlassenlisteTab({ accent, tabBar }) {
   const [alle, setAlle] = React.useState([]);
   const [settings, setSettings] = React.useState({});
@@ -1159,7 +1177,7 @@ function KlassenlisteTab({ accent, tabBar }) {
   const schuljahre = [...new Set(alle.map(r => r.schuljahr).filter(Boolean))].sort().reverse();
   const klassen = [...new Set(
     alle.filter(r => !filterSj || r.schuljahr === filterSj).map(r => r.klasse).filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+  )].sort(compareKlasseAsc);
 
   const gefiltert = React.useMemo(() => {
     const source = alle.filter(r => {
@@ -1622,7 +1640,7 @@ function Buchhaltung({ accent }) {
       .finally(() => setLoading(false));
   }, [selectedSj]);
 
-  const klassen = [...new Set(rechnungen.map(r => r.klasse).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de', { numeric: true }));
+  const klassen = [...new Set(rechnungen.map(r => r.klasse).filter(Boolean))].sort(compareKlasseAsc);
   const rechnungenGefiltert = filterKlasse ? rechnungen.filter(r => r.klasse === filterKlasse) : rechnungen;
   const aktive = rechnungenGefiltert.filter(r => r.status !== 'storniert');
   const gesamtCents = aktive.reduce((s, r) => s + r.zu_zahlen_cents, 0);
