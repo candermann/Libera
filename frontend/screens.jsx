@@ -2033,7 +2033,7 @@ function Buchhaltung({ accent }) {
 
       {/* Tabelle */}
       <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 162px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 196px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           <div>Rechnungs-Nr.</div>
           <div>Schüler</div>
           <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -2051,7 +2051,7 @@ function Buchhaltung({ accent }) {
           </div>
         ) : rechnungenGefiltert.map((r, i) => (
           <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 162px', gap: 6,
+            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 196px', gap: 6,
             padding: '11px 14px', alignItems: 'center',
             borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
             opacity: r.status === 'storniert' ? 0.4 : 1,
@@ -2089,12 +2089,31 @@ function Buchhaltung({ accent }) {
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
               <button
                 title="Rechnung öffnen"
-                onClick={e => e.stopPropagation()}
+                onClick={e => {
+                  e.stopPropagation();
+                  window.openProtectedDocument(window.api.rechnung.pdf(r.id), false);
+                }}
                 style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
               >
                 <Icon name="invoice" size={13} />
+              </button>
+              <button
+                title="PDF herunterladen"
+                onClick={async e => {
+                  e.stopPropagation();
+                  try {
+                    await window.downloadProtectedDocument(window.api.rechnung.pdf(r.id), `${r.id}.pdf`);
+                  } catch (err) {
+                    window.showToast('error', err.message || 'PDF konnte nicht heruntergeladen werden.');
+                  }
+                }}
+                style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+              >
+                <Icon name="download" size={13} />
               </button>
               <button
                 title="Rechnung per E-Mail senden"
