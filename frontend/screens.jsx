@@ -1206,8 +1206,31 @@ function KlassenlisteTab({ accent, tabBar }) {
     return teile.length > 0 ? teile.join(' · ') : 'Alle Schuljahre & Klassen';
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (ausgewaehlt.length === 0) return;
+    const loadPrintLogo = async () => {
+      const candidates = [
+        new URL('/logo.png', window.location.origin).toString(),
+        new URL('/logo.svg', window.location.origin).toString(),
+      ];
+      for (const src of candidates) {
+        try {
+          const res = await fetch(src, { cache: 'force-cache' });
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          const dataUrl = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result || '');
+            reader.onerror = () => reject(new Error('logo-read-failed'));
+            reader.readAsDataURL(blob);
+          });
+          if (typeof dataUrl === 'string' && dataUrl) return dataUrl;
+        } catch (err) {
+          // Fallback to the next asset candidate.
+        }
+      }
+      return '';
+    };
     const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
       '&': '&amp;',
       '<': '&lt;',
@@ -1225,6 +1248,7 @@ function KlassenlisteTab({ accent, tabBar }) {
     const schoolIban = settings.schule_iban || 'DE12 3704 0044 0532 0130 00';
     const schoolBic = settings.schule_bic || 'COBADEFFXXX';
     const heute = new Date().toLocaleDateString('de-DE');
+    const logoSrc = await loadPrintLogo();
     const rows = ausgewaehlt.map(r => `
         <tr>
           <td class="mono muted">${esc(r.schueler_id)}</td>
@@ -1263,7 +1287,25 @@ function KlassenlisteTab({ accent, tabBar }) {
       margin-bottom: 24px;
     }
     .header-left { display: flex; align-items: flex-start; gap: 14px; }
-    .header-logo { width: 90px; height: 90px; object-fit: contain; flex-shrink: 0; }
+    .header-logo-wrap {
+      width: 90px;
+      height: 90px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-start;
+      overflow: hidden;
+    }
+    .header-logo {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      object-position: left top;
+      flex-shrink: 0;
+    }
     .school-name { font-size: 15pt; font-weight: 700; color: ${docAccent}; line-height: 1.2; }
     .school-address { font-size: 8.5pt; color: #555; margin-top: 4px; }
     .doc-info { text-align: right; }
@@ -1353,7 +1395,7 @@ function KlassenlisteTab({ accent, tabBar }) {
 <div class="main-content">
   <div class="header">
     <div class="header-left">
-      <img class="header-logo" src="/logo.png" alt="Logo" onerror="this.style.display='none'" />
+      ${logoSrc ? `<div class="header-logo-wrap"><img class="header-logo" src="${logoSrc}" alt="Logo" /></div>` : ''}
       <div>
         <div class="school-name">${esc(schoolName)}</div>
         <div class="school-address">
