@@ -2033,7 +2033,7 @@ function Buchhaltung({ accent }) {
 
       {/* Tabelle */}
       <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '154px minmax(190px, 0.9fr) 72px 94px 108px 112px 88px 168px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 162px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           <div>Rechnungs-Nr.</div>
           <div>Schüler</div>
           <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -2051,8 +2051,8 @@ function Buchhaltung({ accent }) {
           </div>
         ) : rechnungenGefiltert.map((r, i) => (
           <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-            display: 'grid', gridTemplateColumns: '154px minmax(190px, 0.9fr) 72px 94px 108px 112px 88px 168px', gap: 8,
-            padding: '11px 16px', alignItems: 'center',
+            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 162px', gap: 6,
+            padding: '11px 14px', alignItems: 'center',
             borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
             opacity: r.status === 'storniert' ? 0.4 : 1,
             cursor: 'pointer',
