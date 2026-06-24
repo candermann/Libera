@@ -122,7 +122,7 @@ const api = {
         list: (params) => req(`/buecher${qs(params)}`),
         listFaecher: () => req('/buecher/faecher'),
         createFach: (name) => req('/buecher/faecher', { method: 'POST', body: { name } }),
-        deleteFach: (name) => req(`/buecher/faecher/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+        deleteFach: (name, force = false) => req(`/buecher/faecher/${encodeURIComponent(name)}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
         get: (id) => req(`/buecher/${id}`),
         create: (data) => req('/buecher', { method: 'POST', body: data }),
         update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),

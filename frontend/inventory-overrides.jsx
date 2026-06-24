@@ -858,17 +858,26 @@ window.BuecherListe = function BuecherListe(props) {
 
   function deleteFach(fach) {
     var count = books.filter(function (b) { return b.fach === fach; }).length;
+    var doDelete = function (force) {
+      window.api.buecher.deleteFach(fach, force).then(function () {
+        if (selectedFach === fach) setSelectedFach(null);
+        fetchAll();
+        window.showToast('success', 'Fach „' + fach + '” wurde entfernt.');
+      }).catch(function (err) {
+        window.showToast('error', err.message || 'Fehler beim Entfernen.');
+      });
+    };
     if (count > 0) {
-      window.showToast('error', 'Fach „' + fach + '” hat noch ' + count + ' Bücher. Bitte erst Bücher umhängen oder löschen.');
-      return;
+      window.showConfirm({
+        message: 'Fach „' + fach + '” löschen?',
+        detail: count + ' Buch' + (count === 1 ? '' : 'bücher') + ' in diesem Fach ' + (count === 1 ? 'wird' : 'werden') + ' ebenfalls aus dem Bestand entfernt.',
+        confirmLabel: 'Fach + Bücher löschen',
+        danger: true,
+        onConfirm: function () { doDelete(true); },
+      });
+    } else {
+      doDelete(false);
     }
-    window.api.buecher.deleteFach(fach).then(function () {
-      if (selectedFach === fach) setSelectedFach(null);
-      fetchAll();
-      window.showToast('success', 'Fach „' + fach + '” wurde entfernt.');
-    }).catch(function (err) {
-      window.showToast('error', err.message || 'Fehler beim Entfernen.');
-    });
   }
 
   return (

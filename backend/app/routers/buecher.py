@@ -4,6 +4,7 @@ Buecher CRUD endpoints.
 
 import csv
 import io
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy import text
@@ -834,17 +835,22 @@ def create_fach(data: NameCreateRequest, db: Session = Depends(get_db)):
 
 
 @router.delete("/faecher/{fach_name:path}", status_code=204)
-def delete_fach(fach_name: str, db: Session = Depends(get_db)):
+def delete_fach(fach_name: str, force: bool = False, db: Session = Depends(get_db)):
     name = (fach_name or "").strip()
     if not name:
         raise HTTPException(status_code=422, detail="Fachname fehlt.")
-    count = db.query(Buecher).filter(Buecher.fach == name, Buecher.geloescht_am.is_(None)).count()
-    if count > 0:
-        raise HTTPException(status_code=422, detail=f"Fach hat noch {count} Bücher.")
+    active_books = db.query(Buecher).filter(Buecher.fach == name, Buecher.geloescht_am.is_(None)).all()
+    if active_books and not force:
+        raise HTTPException(status_code=422, detail=f"Fach hat noch {len(active_books)} Bücher.")
+    if active_books:
+        now = datetime.now().isoformat()
+        for b in active_books:
+            b.geloescht_am = now
     fach = db.query(BuchFach).filter(BuchFach.name == name).first()
-    if not fach:
+    if fach:
+        db.delete(fach)
+    elif not active_books:
         raise HTTPException(status_code=404, detail="Fach nicht gefunden")
-    db.delete(fach)
     db.commit()
 
 
@@ -856,8 +862,6 @@ def delete_buch(buch_id: str, db: Session = Depends(get_db)):
 
     if not b:
         raise HTTPException(status_code=404, detail="Buch nicht gefunden")
-
-    from datetime import datetime
 
     b.geloescht_am = datetime.now().isoformat()
     db.commit()
