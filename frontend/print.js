@@ -235,9 +235,7 @@ function addProtectedPreviewChrome(w) {
                 printBtn.disabled = true;
                 printBtn.textContent = 'Wird geladen…';
                 try {
-                    const token = w.localStorage.getItem('token');
-                    const headers = token ? { Authorization: 'Bearer ' + token } : {};
-                    const res = await w.fetch(pdfUrl, { headers });
+                    const res = await w.fetch(pdfUrl, { credentials: 'include' });
                     if (!res.ok) throw new Error('HTTP ' + res.status);
                     const blob = await res.blob();
                     const blobUrl = URL.createObjectURL(blob);
@@ -294,16 +292,11 @@ async function openProtectedDocument(path, autoPrint = false, options = {}) {
         return;
     }
     w.document.write('<!doctype html><html><body style="font-family:system-ui;padding:16px;color:#334155">Dokument wird geladen...</body></html>');
-    const token = localStorage.getItem('token');
-    const headers = {};
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
     try {
-        let res = await fetch(path, { headers });
+        let res = await fetch(path, { credentials: 'include' });
         if (!res.ok && res.status === 501 && path.includes('/pdf')) {
             const htmlPath = path.replace(/\/pdf(\?|$)/, '/html$1');
-            res = await fetch(htmlPath, { headers });
+            res = await fetch(htmlPath, { credentials: 'include' });
         }
         if (!res.ok) {
             throw new Error(`Dokument konnte nicht geladen werden (HTTP ${res.status})`);
@@ -345,12 +338,7 @@ async function openProtectedDocument(path, autoPrint = false, options = {}) {
     }
 }
 async function downloadProtectedDocument(path, filename = 'dokument.pdf') {
-    const token = localStorage.getItem('token');
-    const headers = {};
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
-    const res = await fetch(path, { headers });
+    const res = await fetch(path, { credentials: 'include' });
     if (!res.ok) {
         throw new Error(`Dokument konnte nicht geladen werden (HTTP ${res.status})`);
     }

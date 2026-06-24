@@ -175,12 +175,10 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
     }
 
     let alive = true;
-    const token = localStorage.getItem('token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     setPreviewError('');
     setRechnungPreviewHtml('');
 
-    fetch(window.api.rechnung.html(saleResult.id), { headers })
+    fetch(window.api.rechnung.html(saleResult.id), { credentials: 'include' })
       .then(async (res) => {
         if (!res.ok) {
           throw new Error(`Vorschau konnte nicht geladen werden (HTTP ${res.status})`);
@@ -1074,10 +1072,8 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   React.useEffect(() => {
     if (!saleResult?.id || step !== 3) { setRechnungPreviewHtml(''); setPreviewError(''); return; }
     let alive = true;
-    const token = localStorage.getItem('token');
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
     setPreviewError(''); setRechnungPreviewHtml('');
-    fetch(window.api.rechnung.html(saleResult.id), { headers })
+    fetch(window.api.rechnung.html(saleResult.id), { credentials: 'include' })
       .then(async res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.text(); })
       .then(html => { if (alive) setRechnungPreviewHtml(asA4PreviewHtml(html)); })
       .catch(err => { if (alive) setPreviewError(err.message || 'Vorschau konnte nicht geladen werden.'); });

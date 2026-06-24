@@ -104,6 +104,17 @@ def health():
     return HealthResponse(status="ok", version="1.0.0")
 
 
+@app.middleware("http")
+async def add_cache_control_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path or ""
+    if path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 # ── Static Frontend (optional) ──────────────────────────────────────────
 # Mount frontend directory under "/" — API routes have priority because
 # they are registered before the catch-all static mount.

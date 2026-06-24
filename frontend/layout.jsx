@@ -40,6 +40,15 @@ function Sidebar({ current, onNav, accent }) {
   const fallbackYear = now.getMonth() < 7 ? y - 1 : y;
   const sjFallback = { label: fallbackYear + ' / ' + (fallbackYear + 1), short: fallbackYear + '/' + String(fallbackYear + 1).slice(-2), startDate: '01. Aug. ' + fallbackYear };
   const sj = sjFromApi || sjFallback;
+  const handleLogout = async () => {
+    try {
+      await window.api.auth.logout();
+    } catch (_error) {
+      // Keep the UI logout path working even if the network request fails.
+    } finally {
+      window.dispatchEvent(new Event('unauthorized'));
+    }
+  };
   return (
     <aside style={{
       width: 220, flexShrink: 0,
@@ -117,7 +126,7 @@ function Sidebar({ current, onNav, accent }) {
             fontSize: 10.5, fontWeight: 600,
           }}>AD</div>
           <div style={{ fontSize: 12, color: '#475569', flex: 1 }}>Admin</div>
-          <button onClick={() => window.dispatchEvent(new Event('unauthorized'))} style={{ display: 'flex', background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', padding: 0 }} title="Abmelden">
+          <button onClick={handleLogout} style={{ display: 'flex', background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', padding: 0 }} title="Abmelden">
             <Icon name="log-out" size={14} />
           </button>
         </div>
@@ -133,6 +142,15 @@ function Topbar({ current, onNav, accent }) {
   const fallbackYear = now.getMonth() < 7 ? y - 1 : y;
   const sjFallback = { label: fallbackYear + ' / ' + (fallbackYear + 1), short: fallbackYear + '/' + String(fallbackYear + 1).slice(-2), startDate: '01. Aug. ' + fallbackYear };
   const sj = sjFromApi || sjFallback;
+  const handleLogout = async () => {
+    try {
+      await window.api.auth.logout();
+    } catch (_error) {
+      // Keep the UI logout path working even if the network request fails.
+    } finally {
+      window.dispatchEvent(new Event('unauthorized'));
+    }
+  };
   return (
     <header style={{
       height: 52, flexShrink: 0,
@@ -187,7 +205,7 @@ function Topbar({ current, onNav, accent }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 600,
         }}>AD</div>
-        <button onClick={() => window.dispatchEvent(new Event('unauthorized'))} style={{ display: 'flex', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }} title="Abmelden">
+        <button onClick={handleLogout} style={{ display: 'flex', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }} title="Abmelden">
           <Icon name="log-out" size={14} />
         </button>
       </div>

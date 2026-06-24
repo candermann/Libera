@@ -166,18 +166,26 @@ declare global {
     };
     buecher: {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Buch>>;
+      listFaecher(): Promise<{ items: string[] }>;
+      createFach(name: string): Promise<{ items: string[] }>;
+      deleteFach(name: string): Promise<null>;
       get(id: ApiId): Promise<Buch>;
       create(data: Partial<Buch>): Promise<Buch>;
       update(id: ApiId, data: Partial<Buch>): Promise<Buch>;
       remove(id: ApiId): Promise<null>;
+      renameFach(alt: string, neu: string): Promise<unknown>;
       importCsv(file: File): Promise<unknown>;
     };
     lernmaterial: {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Lernmaterial>>;
+      listKategorien(): Promise<{ items: string[] }>;
+      createKategorie(name: string): Promise<{ items: string[] }>;
+      deleteKategorie(name: string): Promise<null>;
       get(id: ApiId): Promise<Lernmaterial>;
       create(data: Partial<Lernmaterial>): Promise<Lernmaterial>;
       update(id: ApiId, data: Partial<Lernmaterial>): Promise<Lernmaterial>;
       remove(id: ApiId): Promise<null>;
+      renameKategorie(alt: string, neu: string): Promise<unknown>;
       importCsv(file: File): Promise<unknown>;
     };
     freiposten: {

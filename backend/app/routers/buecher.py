@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import BuchZustandBestand, Buecher
+from app.models import BuchFach, BuchZustandBestand, Buecher
 from app.schemas import (
     BuchCreate,
     BuchListResponse,
@@ -18,6 +18,9 @@ from app.schemas import (
     BuchUpdate,
     BuchZustandUpdate,
     BuchZustandResponse,
+    NameCreateRequest,
+    NameListResponse,
+    RenameRequest,
 )
 
 from app.services.ids import generate_buch_id
@@ -217,6 +220,15 @@ def _buch_to_response(
         schutzgebuehr_cents=b.schutzgebuehr_cents or 0,
         zustaende=zustaende,
     )
+
+
+def _ensure_fach_exists(db: Session, fach: str | None):
+    fach_name = (fach or "").strip()
+    if not fach_name:
+        return
+    if not db.query(BuchFach).filter(BuchFach.name == fach_name).first():
+        db.add(BuchFach(name=fach_name))
+        db.flush()
 
 
 def _get_or_create_bestand(
@@ -441,6 +453,12 @@ def list_buecher(
     )
 
 
+@router.get("/faecher", response_model=NameListResponse)
+def list_faecher(db: Session = Depends(get_db)):
+    rows = db.query(BuchFach.name).order_by(BuchFach.name).all()
+    return NameListResponse(items=[row[0] for row in rows if row[0]])
+
+
 @router.get("/{buch_id}", response_model=BuchResponse)
 def get_buch(buch_id: str, db: Session = Depends(get_db)):
     b = db.query(Buecher).filter(
@@ -456,6 +474,7 @@ def get_buch(buch_id: str, db: Session = Depends(get_db)):
 @router.post("", response_model=BuchResponse, status_code=201)
 def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
     new_id = generate_buch_id(db)
+    _ensure_fach_exists(db, data.fach)
 
     buch = Buecher(
         id=new_id,
@@ -615,6 +634,7 @@ async def import_buecher_csv(file: UploadFile = File(...), db: Session = Depends
         )
         db.add(buch)
         db.flush()
+        _ensure_fach_exists(db, fach)
 
         bucket_counts: dict[tuple[str, int], int] = {}
         if has_nutzungsjahr_counts:
@@ -766,6 +786,9 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
     if "preis_cents" in update_data and "gutschrift_cents" not in update_data:
         update_data["gutschrift_cents"] = update_data["preis_cents"]
 
+    if "fach" in update_data:
+        _ensure_fach_exists(db, update_data.get("fach"))
+
     for field, value in update_data.items():
         setattr(b, field, value)
 
@@ -776,19 +799,53 @@ def update_buch(buch_id: str, data: BuchUpdate, db: Session = Depends(get_db)):
 
 
 @router.post("/fach/umbenennen", status_code=200)
-def fach_umbenennen(data: dict, db: Session = Depends(get_db)):
-    alt = (data.get("alt") or "").strip()
-    neu = (data.get("neu") or "").strip()
+def fach_umbenennen(data: RenameRequest, db: Session = Depends(get_db)):
+    alt = (data.alt or "").strip()
+    neu = (data.neu or "").strip()
     if not alt or not neu:
         raise HTTPException(status_code=422, detail="'alt' und 'neu' erforderlich.")
     if alt == neu:
         return {"aktualisiert": 0}
+    existing_target = db.query(BuchFach).filter(BuchFach.name == neu).first()
+    existing_source = db.query(BuchFach).filter(BuchFach.name == alt).first()
+    if existing_source and not existing_target:
+        existing_source.name = neu
+    elif existing_source and existing_target:
+        db.delete(existing_source)
+    elif not existing_target:
+        db.add(BuchFach(name=neu))
     result = db.execute(
         text("UPDATE buecher SET fach = :neu WHERE fach = :alt AND geloescht_am IS NULL"),
         {"neu": neu, "alt": alt},
     )
     db.commit()
     return {"aktualisiert": result.rowcount}
+
+
+@router.post("/faecher", response_model=NameListResponse, status_code=201)
+def create_fach(data: NameCreateRequest, db: Session = Depends(get_db)):
+    name = (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="'name' erforderlich.")
+    _ensure_fach_exists(db, name)
+    db.commit()
+    rows = db.query(BuchFach.name).order_by(BuchFach.name).all()
+    return NameListResponse(items=[row[0] for row in rows if row[0]])
+
+
+@router.delete("/faecher/{fach_name:path}", status_code=204)
+def delete_fach(fach_name: str, db: Session = Depends(get_db)):
+    name = (fach_name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Fachname fehlt.")
+    count = db.query(Buecher).filter(Buecher.fach == name, Buecher.geloescht_am.is_(None)).count()
+    if count > 0:
+        raise HTTPException(status_code=422, detail=f"Fach hat noch {count} Bücher.")
+    fach = db.query(BuchFach).filter(BuchFach.name == name).first()
+    if not fach:
+        raise HTTPException(status_code=404, detail="Fach nicht gefunden")
+    db.delete(fach)
+    db.commit()
 
 
 @router.delete("/{buch_id}", status_code=204)

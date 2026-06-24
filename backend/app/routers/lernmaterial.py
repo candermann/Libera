@@ -10,12 +10,15 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Lernmaterial
+from app.models import Lernmaterial, LernmaterialKategorie
 from app.schemas import (
     LernmaterialCreate,
     LernmaterialListResponse,
     LernmaterialResponse,
     LernmaterialUpdate,
+    NameCreateRequest,
+    NameListResponse,
+    RenameRequest,
 )
 from app.services.ids import generate_lernmaterial_id
 
@@ -90,6 +93,15 @@ def _to_response(m: Lernmaterial) -> LernmaterialResponse:
     )
 
 
+def _ensure_kategorie_exists(db: Session, kategorie: str | None):
+    category_name = (kategorie or "").strip()
+    if not category_name:
+        return
+    if not db.query(LernmaterialKategorie).filter(LernmaterialKategorie.name == category_name).first():
+        db.add(LernmaterialKategorie(name=category_name))
+        db.flush()
+
+
 @router.get("", response_model=LernmaterialListResponse)
 def list_lernmaterial(
     q: str | None = None,
@@ -112,6 +124,12 @@ def list_lernmaterial(
     return LernmaterialListResponse(items=[_to_response(m) for m in items], total=total)
 
 
+@router.get("/kategorien", response_model=NameListResponse)
+def list_kategorien(db: Session = Depends(get_db)):
+    rows = db.query(LernmaterialKategorie.name).order_by(LernmaterialKategorie.name).all()
+    return NameListResponse(items=[row[0] for row in rows if row[0]])
+
+
 @router.get("/{material_id}", response_model=LernmaterialResponse)
 def get_lernmaterial(material_id: str, db: Session = Depends(get_db)):
     m = db.query(Lernmaterial).filter(
@@ -125,6 +143,7 @@ def get_lernmaterial(material_id: str, db: Session = Depends(get_db)):
 @router.post("", response_model=LernmaterialResponse, status_code=201)
 def create_lernmaterial(data: LernmaterialCreate, db: Session = Depends(get_db)):
     new_id = generate_lernmaterial_id(db)
+    _ensure_kategorie_exists(db, data.kategorie)
     m = Lernmaterial(
         id=new_id,
         name=data.name,
@@ -155,6 +174,8 @@ def update_lernmaterial(
             status_code=422,
             detail="Bestand gesamt darf nicht kleiner als Bestand ausgegeben sein",
         )
+    if "kategorie" in update_data:
+        _ensure_kategorie_exists(db, update_data.get("kategorie"))
     for field, value in update_data.items():
         setattr(m, field, value)
     db.commit()
@@ -162,15 +183,52 @@ def update_lernmaterial(
     return _to_response(m)
 
 
+@router.post("/kategorien", response_model=NameListResponse, status_code=201)
+def create_kategorie(data: NameCreateRequest, db: Session = Depends(get_db)):
+    name = (data.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="'name' erforderlich.")
+    _ensure_kategorie_exists(db, name)
+    db.commit()
+    rows = db.query(LernmaterialKategorie.name).order_by(LernmaterialKategorie.name).all()
+    return NameListResponse(items=[row[0] for row in rows if row[0]])
+
+
+@router.delete("/kategorien/{kategorie_name:path}", status_code=204)
+def delete_kategorie(kategorie_name: str, db: Session = Depends(get_db)):
+    name = (kategorie_name or "").strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="Kategoriename fehlt.")
+    count = db.query(Lernmaterial).filter(
+        Lernmaterial.kategorie == name,
+        Lernmaterial.geloescht_am.is_(None),
+    ).count()
+    if count > 0:
+        raise HTTPException(status_code=422, detail=f"Kategorie hat noch {count} Artikel.")
+    category = db.query(LernmaterialKategorie).filter(LernmaterialKategorie.name == name).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Kategorie nicht gefunden")
+    db.delete(category)
+    db.commit()
+
+
 @router.post("/kategorie/umbenennen", status_code=200)
-def kategorie_umbenennen(data: dict, db: Session = Depends(get_db)):
+def kategorie_umbenennen(data: RenameRequest, db: Session = Depends(get_db)):
     from sqlalchemy import text
-    alt = (data.get("alt") or "").strip()
-    neu = (data.get("neu") or "").strip()
+    alt = (data.alt or "").strip()
+    neu = (data.neu or "").strip()
     if not alt or not neu:
         raise HTTPException(status_code=422, detail="'alt' und 'neu' erforderlich.")
     if alt == neu:
         return {"aktualisiert": 0}
+    existing_target = db.query(LernmaterialKategorie).filter(LernmaterialKategorie.name == neu).first()
+    existing_source = db.query(LernmaterialKategorie).filter(LernmaterialKategorie.name == alt).first()
+    if existing_source and not existing_target:
+        existing_source.name = neu
+    elif existing_source and existing_target:
+        db.delete(existing_source)
+    elif not existing_target:
+        db.add(LernmaterialKategorie(name=neu))
     result = db.execute(
         text("UPDATE lernmaterial SET kategorie = :neu WHERE kategorie = :alt AND geloescht_am IS NULL"),
         {"neu": neu, "alt": alt},
@@ -262,6 +320,7 @@ async def import_lernmaterial_csv(file: UploadFile = File(...), db: Session = De
         )
         db.add(m)
         db.flush()
+        _ensure_kategorie_exists(db, kategorie)
         imported += 1
 
     if imported == 0 and errors:

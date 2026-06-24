@@ -1,11 +1,5 @@
 function Profil({ accent }) {
-  const currentUser = React.useMemo(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    try {
-      return JSON.parse(atob(token.split('.')[1])).sub;
-    } catch { return null; }
-  }, []);
+  const [currentUser, setCurrentUser] = React.useState(null);
   const isAdmin = currentUser === 'admin';
 
   const [loading, setLoading] = React.useState(true);
@@ -76,6 +70,16 @@ function Profil({ accent }) {
       })
       .finally(() => {
         if (alive) setLoading(false);
+      });
+
+    window.api.auth.me()
+      .then((session) => {
+        if (!alive) return;
+        setCurrentUser(session?.username || null);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setCurrentUser(null);
       });
 
     return () => { alive = false; };
@@ -599,9 +603,8 @@ function Profil({ accent }) {
             <button
               onClick={async () => {
                 try {
-                  const token = localStorage.getItem('token');
                   const res = await fetch(window.api.admin.backup.url(), {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    credentials: 'include',
                   });
                   if (!res.ok) throw new Error('HTTP ' + res.status);
                   const blob = await res.blob();

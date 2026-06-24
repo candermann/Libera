@@ -7,13 +7,11 @@ from typing import Optional
 
 import bcrypt
 import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import HTTPException, Request, status
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours — reduced for DSGVO compliance
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+AUTH_COOKIE_NAME = "bibliomat_session"
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -47,12 +45,20 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_current_user(request: Request):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    token = None
+    auth_header = request.headers.get("Authorization", "").strip()
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = (request.cookies.get(AUTH_COOKIE_NAME) or "").strip()
+    if not token:
+        raise credentials_exception
     try:
         payload = jwt.decode(token, _load_secret_key(), algorithms=[ALGORITHM])
         username: str = payload.get("sub")

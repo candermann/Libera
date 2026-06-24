@@ -259,6 +259,19 @@ class BuchResponse(BaseModel):
     zustaende: list[BuchZustandResponse] = Field(default_factory=list)
 
 
+class NameCreateRequest(BaseModel):
+    name: str
+
+
+class RenameRequest(BaseModel):
+    alt: str
+    neu: str
+
+
+class NameListResponse(BaseModel):
+    items: list[str] = Field(default_factory=list)
+
+
 class BuchListResponse(BaseModel):
     items: list[BuchResponse]
     total: int

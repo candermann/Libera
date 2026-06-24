@@ -224,8 +224,8 @@ function LernmaterialEditDialog({ accent, item, kategorien, onClose, onSave }) {
 }
 
 window.LernmaterialListe = function LernmaterialListe({ accent }) {
-  const konstantKategorien = (window.CONSTANTS && window.CONSTANTS.LERNMATERIAL_KATEGORIEN) || [];
   const [items, setItems] = React.useState([]);
+  const [serverKategorien, setServerKategorien] = React.useState([]);
   const [total, setTotal] = React.useState(0);
   const [query, setQuery] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
@@ -233,37 +233,29 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [selectedKategorie, setSelectedKategorie] = React.useState(null);
 
-  const [extraKategorien, setExtraKategorien] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem('bibliomat_extra_lm_kategorien') || '[]'); } catch (e) { return []; }
-  });
-  const [deletedKategorien, setDeletedKategorien] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem('bibliomat_deleted_lm_kategorien') || '[]'); } catch (e) { return []; }
-  });
   const [showKategorieCreate, setShowKategorieCreate] = React.useState(false);
   const [editingKategorie, setEditingKategorie] = React.useState(null);
   const [showCsvImport, setShowCsvImport] = React.useState(false);
 
   function fetchAll() {
-    window.api.lernmaterial.list({ limit: 500 }).then(res => {
+    Promise.all([
+      window.api.lernmaterial.list({ limit: 500 }),
+      window.api.lernmaterial.listKategorien(),
+    ]).then(([res, kategorienRes]) => {
       setItems(res.items || []);
       setTotal(res.total || 0);
-    }).catch(err => { console.error(err); setItems([]); setTotal(0); });
+      setServerKategorien((kategorienRes && kategorienRes.items) || []);
+    }).catch(err => { console.error(err); setItems([]); setTotal(0); setServerKategorien([]); });
   }
 
   React.useEffect(() => { fetchAll(); }, []);
 
   const kategorien = React.useMemo(() => {
     const fromItems = items.map(i => i.kategorie).filter(Boolean);
-    const hiddenKategorien = new Set(deletedKategorien);
-    const merged = Array.from(new Set(
-      konstantKategorien.filter(k => !hiddenKategorien.has(k))
-        .concat(extraKategorien.filter(k => !hiddenKategorien.has(k)))
-        .concat(fromItems)
-    ));
-    const filtered = merged;
-    filtered.sort((a, b) => a.localeCompare(b, 'de'));
-    return filtered;
-  }, [items, extraKategorien, deletedKategorien]);
+    const merged = Array.from(new Set(serverKategorien.concat(fromItems)));
+    merged.sort((a, b) => a.localeCompare(b, 'de'));
+    return merged;
+  }, [items, serverKategorien]);
 
   const kategorieItems = React.useMemo(() => {
     if (!selectedKategorie) return [];
@@ -301,22 +293,18 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   }
 
   function addKategorie(name) {
-    const updated = extraKategorien.concat([name]);
-    setExtraKategorien(updated);
-    try { localStorage.setItem('bibliomat_extra_lm_kategorien', JSON.stringify(updated)); } catch (e) {}
-    const updatedDeleted = deletedKategorien.filter(k => k !== name);
-    setDeletedKategorien(updatedDeleted);
-    try { localStorage.setItem('bibliomat_deleted_lm_kategorien', JSON.stringify(updatedDeleted)); } catch (e) {}
-    setShowKategorieCreate(false);
-    window.showToast('success', `Kategorie „${name}" wurde angelegt.`);
+    window.api.lernmaterial.createKategorie(name)
+      .then(res => {
+        setServerKategorien((res && res.items) || []);
+        setShowKategorieCreate(false);
+        window.showToast('success', `Kategorie „${name}" wurde angelegt.`);
+      })
+      .catch(err => window.showToast('error', err.message || 'Fehler beim Anlegen.'));
   }
 
   async function renameKategorie(alt, neu) {
     try {
       const res = await window.api.lernmaterial.renameKategorie(alt, neu);
-      const updatedExtra = extraKategorien.map(k => k === alt ? neu : k);
-      setExtraKategorien(updatedExtra);
-      try { localStorage.setItem('bibliomat_extra_lm_kategorien', JSON.stringify(updatedExtra)); } catch (e) {}
       if (selectedKategorie === alt) setSelectedKategorie(neu);
       setEditingKategorie(null);
       fetchAll();
@@ -332,13 +320,13 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
       window.showToast('error', `Kategorie „${kat}" hat noch ${count} Artikel. Bitte erst Artikel umhängen oder entfernen.`);
       return;
     }
-    const updatedExtra = extraKategorien.filter(k => k !== kat);
-    setExtraKategorien(updatedExtra);
-    try { localStorage.setItem('bibliomat_extra_lm_kategorien', JSON.stringify(updatedExtra)); } catch (e) {}
-    const updatedDeleted = deletedKategorien.concat([kat]);
-    setDeletedKategorien(updatedDeleted);
-    try { localStorage.setItem('bibliomat_deleted_lm_kategorien', JSON.stringify(updatedDeleted)); } catch (e) {}
-    window.showToast('success', `Kategorie „${kat}" wurde entfernt.`);
+    window.api.lernmaterial.deleteKategorie(kat)
+      .then(() => {
+        if (selectedKategorie === kat) setSelectedKategorie(null);
+        fetchAll();
+        window.showToast('success', `Kategorie „${kat}" wurde entfernt.`);
+      })
+      .catch(err => window.showToast('error', err.message || 'Fehler beim Entfernen.'));
   }
 
   const ItemRow = ({ item, index }) => {

@@ -678,10 +678,7 @@ function BooksCsvImportDialog({ accent, onClose, onImported }) {
 
 window.BuecherListe = function BuecherListe(props) {
   var accent = props.accent;
-  var constantFaecher = (window.CONSTANTS && window.CONSTANTS.FAECHER) || [];
-  var _React$useStateExtra = React.useState(function () {
-    try { return JSON.parse(localStorage.getItem('bibliomat_extra_faecher') || '[]'); } catch (e) { return []; }
-  }), extraFaecher = _React$useStateExtra[0], setExtraFaecher = _React$useStateExtra[1];
+  var _React$useStateFaecher = React.useState([]), serverFaecher = _React$useStateFaecher[0], setServerFaecher = _React$useStateFaecher[1];
   var _React$useState22 = React.useState([]), books = _React$useState22[0], setBooks = _React$useState22[1];
   var _React$useState23 = React.useState(0), total = _React$useState23[0], setTotal = _React$useState23[1];
   var _React$useState24 = React.useState(''), query = _React$useState24[0], setQuery = _React$useState24[1];
@@ -696,21 +693,13 @@ window.BuecherListe = function BuecherListe(props) {
   var _React$useStateFach = React.useState(null), selectedFach = _React$useStateFach[0], setSelectedFach = _React$useStateFach[1];
   var _React$useStateShowFach = React.useState(false), showFachCreate = _React$useStateShowFach[0], setShowFachCreate = _React$useStateShowFach[1];
   var _React$useStateEditFach = React.useState(null), editingFach = _React$useStateEditFach[0], setEditingFach = _React$useStateEditFach[1];
-  var _React$useStateDeletedFaecher = React.useState(function () {
-    try { return JSON.parse(localStorage.getItem('bibliomat_deleted_faecher') || '[]'); } catch (e) { return []; }
-  }), deletedFaecher = _React$useStateDeletedFaecher[0], setDeletedFaecher = _React$useStateDeletedFaecher[1];
 
   var faecher = React.useMemo(function () {
     var bookFaecher = books.map(function (b) { return b.fach; }).filter(Boolean);
-    var hiddenFaecher = new Set(deletedFaecher);
-    var merged = Array.from(new Set(
-      constantFaecher.filter(function (f) { return !hiddenFaecher.has(f); })
-        .concat(extraFaecher.filter(function (f) { return !hiddenFaecher.has(f); }))
-        .concat(bookFaecher)
-    ));
+    var merged = Array.from(new Set(serverFaecher.concat(bookFaecher)));
     merged.sort(function (a, b) { return a.localeCompare(b, 'de'); });
     return merged;
-  }, [books, extraFaecher, deletedFaecher]);
+  }, [books, serverFaecher]);
 
   var fachBooks = React.useMemo(function () {
     if (!selectedFach) return books;
@@ -724,17 +713,21 @@ window.BuecherListe = function BuecherListe(props) {
   function fetchAll() {
     Promise.all([
       window.api.buecher.list({ q: query, limit: 500 }),
+      window.api.buecher.listFaecher(),
       window.api.einstellungen.get(),
     ]).then(function (data) {
       var booksRes = data[0];
-      var settingsRes = data[1];
+      var faecherRes = data[1];
+      var settingsRes = data[2];
       setBooks(booksRes.items || []);
       setTotal(booksRes.total || 0);
+      setServerFaecher((faecherRes && faecherRes.items) || []);
       setSettings(settingsRes || {});
     }).catch(function (error) {
       console.error(error);
       setBooks([]);
       setTotal(0);
+      setServerFaecher([]);
     });
   }
 
@@ -821,22 +814,18 @@ window.BuecherListe = function BuecherListe(props) {
   }
 
   function addFach(name) {
-    var updated = extraFaecher.concat([name]);
-    setExtraFaecher(updated);
-    try { localStorage.setItem('bibliomat_extra_faecher', JSON.stringify(updated)); } catch (e) {}
-    var updatedDeleted = deletedFaecher.filter(function (f) { return f !== name; });
-    setDeletedFaecher(updatedDeleted);
-    try { localStorage.setItem('bibliomat_deleted_faecher', JSON.stringify(updatedDeleted)); } catch (e) {}
-    setShowFachCreate(false);
-    window.showToast('success', 'Fach „' + name + '” wurde angelegt.');
+    window.api.buecher.createFach(name).then(function (res) {
+      setServerFaecher((res && res.items) || []);
+      setShowFachCreate(false);
+      window.showToast('success', 'Fach „' + name + '” wurde angelegt.');
+    }).catch(function (err) {
+      window.showToast('error', err.message || 'Fehler beim Anlegen.');
+    });
   }
 
   async function renameFach(alt, neu) {
     try {
       var res = await window.api.buecher.renameFach(alt, neu);
-      var updatedExtra = extraFaecher.map(function (f) { return f === alt ? neu : f; });
-      setExtraFaecher(updatedExtra);
-      try { localStorage.setItem('bibliomat_extra_faecher', JSON.stringify(updatedExtra)); } catch (e) {}
       if (selectedFach === alt) setSelectedFach(neu);
       setEditingFach(null);
       fetchAll();
@@ -852,13 +841,13 @@ window.BuecherListe = function BuecherListe(props) {
       window.showToast('error', 'Fach „' + fach + '” hat noch ' + count + ' Bücher. Bitte erst Bücher umhängen oder löschen.');
       return;
     }
-    var updatedExtra = extraFaecher.filter(function (f) { return f !== fach; });
-    setExtraFaecher(updatedExtra);
-    try { localStorage.setItem('bibliomat_extra_faecher', JSON.stringify(updatedExtra)); } catch (e) {}
-    var updatedDeleted = deletedFaecher.concat([fach]);
-    setDeletedFaecher(updatedDeleted);
-    try { localStorage.setItem('bibliomat_deleted_faecher', JSON.stringify(updatedDeleted)); } catch (e) {}
-    window.showToast('success', 'Fach „' + fach + '” wurde entfernt.');
+    window.api.buecher.deleteFach(fach).then(function () {
+      if (selectedFach === fach) setSelectedFach(null);
+      fetchAll();
+      window.showToast('success', 'Fach „' + fach + '” wurde entfernt.');
+    }).catch(function (err) {
+      window.showToast('error', err.message || 'Fehler beim Entfernen.');
+    });
   }
 
   return (
@@ -1075,11 +1064,6 @@ window.BuecherListe = function BuecherListe(props) {
       {editingFach ? <FachEditDialog accent={accent} fach={editingFach} faecher={faecher} onClose={function () { setEditingFach(null); }} onSave={function (neu) { renameFach(editingFach, neu); }} /> : null}
       {showCsvImport ? <BooksCsvImportDialog accent={accent} onClose={function () { setShowCsvImport(false); }} onImported={function (res) {
         setShowCsvImport(false);
-        if (res && res.created_faecher && res.created_faecher.length > 0) {
-          var mergedExtra = Array.from(new Set(extraFaecher.concat(res.created_faecher)));
-          setExtraFaecher(mergedExtra);
-          try { localStorage.setItem('bibliomat_extra_faecher', JSON.stringify(mergedExtra)); } catch (e) {}
-        }
         fetchAll();
       }} /> : null}
       {showCreate ? <InventoryCreateBookDialog accent={accent} faecher={faecher} initialFach={selectedFach} onClose={function () { setShowCreate(false); }} onSave={addBook} /> : null}

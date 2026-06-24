@@ -1,15 +1,17 @@
 import logging
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Benutzer, Einstellungen
 from app.security import (
+    AUTH_COOKIE_NAME,
     verify_password,
     create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_current_user,
 )
 from app.limiter import limiter
 
@@ -27,6 +29,7 @@ _INVALID = HTTPException(
 @limiter.limit("10/minute")
 def login(
     request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
@@ -60,4 +63,24 @@ def login(
         data={"sub": username},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=access_token,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        httponly=True,
+        samesite="lax",
+        # Keep this False for plain HTTP deployments; switch to True only behind HTTPS.
+        secure=False,
+        path="/",
+    )
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/logout", status_code=204)
+def logout(response: Response):
+    response.delete_cookie(AUTH_COOKIE_NAME, path="/")
+
+
+@router.get("/me")
+def me(current_user: str = Depends(get_current_user)):
+    return {"username": current_user}

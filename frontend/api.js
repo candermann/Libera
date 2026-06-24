@@ -1,18 +1,15 @@
 // api.ts - thin fetch() wrapper for the Schulbuch-Verwaltung backend
 const API_BASE = '/api';
 async function req(path, opts = {}) {
-    const token = localStorage.getItem('token');
     const { body, headers: optionHeaders, ...fetchOptions } = opts;
     const isFormData = body instanceof FormData;
     const headers = { ...(optionHeaders || {}) };
     if (!isFormData && !headers['Content-Type']) {
         headers['Content-Type'] = 'application/json';
     }
-    if (token) {
-        headers.Authorization = `Bearer ${token}`;
-    }
     const res = await fetch(API_BASE + path, {
         ...fetchOptions,
+        credentials: 'include',
         headers,
         body: body == null
             ? undefined
@@ -21,7 +18,6 @@ async function req(path, opts = {}) {
                 : JSON.stringify(body)),
     });
     if (res.status === 401) {
-        localStorage.removeItem('token');
         window.dispatchEvent(new Event('unauthorized'));
     }
     if (!res.ok) {
@@ -90,6 +86,7 @@ const api = {
             formData.append('password', password);
             const res = await fetch(API_BASE + '/auth/login', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: formData.toString(),
             });
@@ -99,6 +96,8 @@ const api = {
             }
             return res.json();
         },
+        me: () => req('/auth/me'),
+        logout: () => req('/auth/logout', { method: 'POST' }),
     },
     schueler: {
         list: (params) => req(`/schueler${qs(params)}`),
@@ -121,6 +120,9 @@ const api = {
     },
     buecher: {
         list: (params) => req(`/buecher${qs(params)}`),
+        listFaecher: () => req('/buecher/faecher'),
+        createFach: (name) => req('/buecher/faecher', { method: 'POST', body: { name } }),
+        deleteFach: (name) => req(`/buecher/faecher/${encodeURIComponent(name)}`, { method: 'DELETE' }),
         get: (id) => req(`/buecher/${id}`),
         create: (data) => req('/buecher', { method: 'POST', body: data }),
         update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),
@@ -134,6 +136,9 @@ const api = {
     },
     lernmaterial: {
         list: (params) => req(`/lernmaterial${qs(params)}`),
+        listKategorien: () => req('/lernmaterial/kategorien'),
+        createKategorie: (name) => req('/lernmaterial/kategorien', { method: 'POST', body: { name } }),
+        deleteKategorie: (name) => req(`/lernmaterial/kategorien/${encodeURIComponent(name)}`, { method: 'DELETE' }),
         get: (id) => req(`/lernmaterial/${id}`),
         create: (data) => req('/lernmaterial', { method: 'POST', body: data }),
         update: (id, data) => req(`/lernmaterial/${id}`, { method: 'PATCH', body: data }),

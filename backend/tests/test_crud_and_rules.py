@@ -258,6 +258,66 @@ class TestBuecherCrud:
         assert book["bestand_gesamt"] == 12
         assert book["schutzgebuehr_cents"] == 500
 
+    def test_faecher_are_persisted_server_side(self, client):
+        create_resp = client.post("/api/buecher/faecher", json={"name": "Biologie"})
+        assert create_resp.status_code == 201, create_resp.text
+        assert "Biologie" in create_resp.json()["items"]
+
+        rename_resp = client.post("/api/buecher/fach/umbenennen", json={"alt": "Biologie", "neu": "Bio"})
+        assert rename_resp.status_code == 200, rename_resp.text
+
+        list_resp = client.get("/api/buecher/faecher")
+        assert list_resp.status_code == 200, list_resp.text
+        assert "Bio" in list_resp.json()["items"]
+        assert "Biologie" not in list_resp.json()["items"]
+
+        delete_resp = client.delete("/api/buecher/faecher/Bio")
+        assert delete_resp.status_code == 204, delete_resp.text
+        assert "Bio" not in client.get("/api/buecher/faecher").json()["items"]
+
+    def test_import_buecher_csv_persists_created_faecher(self, client):
+        csv_text = (
+            "titel;fach;stufe;preis\n"
+            "Bio Heute;Biologie;8;19,95\n"
+        )
+        resp = client.post(
+            "/api/buecher/import/csv",
+            files={"file": ("buecher.csv", csv_text.encode("utf-8"), "text/csv")},
+        )
+        assert resp.status_code == 201, resp.text
+        assert "Biologie" in client.get("/api/buecher/faecher").json()["items"]
+
+
+class TestLernmaterialCrud:
+    def test_kategorien_are_persisted_server_side(self, client):
+        create_resp = client.post("/api/lernmaterial/kategorien", json={"name": "Hefte"})
+        assert create_resp.status_code == 201, create_resp.text
+        assert "Hefte" in create_resp.json()["items"]
+
+        rename_resp = client.post("/api/lernmaterial/kategorie/umbenennen", json={"alt": "Hefte", "neu": "Arbeitshefte"})
+        assert rename_resp.status_code == 200, rename_resp.text
+
+        list_resp = client.get("/api/lernmaterial/kategorien")
+        assert list_resp.status_code == 200, list_resp.text
+        assert "Arbeitshefte" in list_resp.json()["items"]
+        assert "Hefte" not in list_resp.json()["items"]
+
+        delete_resp = client.delete("/api/lernmaterial/kategorien/Arbeitshefte")
+        assert delete_resp.status_code == 204, delete_resp.text
+        assert "Arbeitshefte" not in client.get("/api/lernmaterial/kategorien").json()["items"]
+
+    def test_import_lernmaterial_csv_persists_created_kategorie(self, client):
+        csv_text = (
+            "name;kategorie;preis\n"
+            "Collegeblock;Papier;2,50\n"
+        )
+        resp = client.post(
+            "/api/lernmaterial/import/csv",
+            files={"file": ("lernmaterial.csv", csv_text.encode("utf-8"), "text/csv")},
+        )
+        assert resp.status_code == 201, resp.text
+        assert "Papier" in client.get("/api/lernmaterial/kategorien").json()["items"]
+
     def test_update_buch(self, client):
         """PATCH /api/buecher/:id should update fields."""
         b = create_test_buch(client, preis_cents=2400)

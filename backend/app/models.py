@@ -92,6 +92,15 @@ class Buecher(Base):
     )
 
 
+class BuchFach(Base):
+    __tablename__ = "buch_faecher"
+
+    name = Column(Text, primary_key=True)
+    angelegt_am = Column(
+        Text, nullable=False, server_default=sa_text("(datetime('now'))")
+    )
+
+
 class BuchZustandBestand(Base):
     __tablename__ = "buch_zustand_bestand"
 
@@ -280,6 +289,15 @@ class Lernmaterial(Base):
     __table_args__ = (
         Index("idx_lernmaterial_kategorie", "kategorie"),
         Index("idx_lernmaterial_name", "name"),
+    )
+
+
+class LernmaterialKategorie(Base):
+    __tablename__ = "lernmaterial_kategorien"
+
+    name = Column(Text, primary_key=True)
+    angelegt_am = Column(
+        Text, nullable=False, server_default=sa_text("(datetime('now'))")
     )
 
 

@@ -11,8 +11,7 @@ window.Login = function Login({ onLogin, accent = '#2563eb' }) {
     setError(null);
     setLoading(true);
     try {
-      const data = await window.api.auth.login(username, password);
-      localStorage.setItem('token', data.access_token);
+      await window.api.auth.login(username, password);
       onLogin();
     } catch (err) {
       setError(err.message);

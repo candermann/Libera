@@ -280,6 +280,12 @@ def _ensure_lernmaterial_tables(conn: Connection):
         ON lernmaterial (name)
     """))
     conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS lernmaterial_kategorien (
+            name TEXT PRIMARY KEY,
+            angelegt_am TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """))
+    conn.execute(text("""
         CREATE TABLE IF NOT EXISTS lernmaterial_posten (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             rechnung_id TEXT NOT NULL REFERENCES rechnungen(id),
@@ -294,6 +300,34 @@ def _ensure_lernmaterial_tables(conn: Connection):
     conn.execute(text("""
         CREATE INDEX IF NOT EXISTS idx_lm_posten_material
         ON lernmaterial_posten (lernmaterial_id)
+    """))
+
+
+def _ensure_buch_faecher_table(conn: Connection):
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS buch_faecher (
+            name TEXT PRIMARY KEY,
+            angelegt_am TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """))
+
+
+def _seed_inventory_metadata(conn: Connection):
+    conn.execute(text("""
+        INSERT OR IGNORE INTO buch_faecher (name)
+        SELECT DISTINCT TRIM(fach)
+        FROM buecher
+        WHERE geloescht_am IS NULL
+          AND fach IS NOT NULL
+          AND TRIM(fach) != ''
+    """))
+    conn.execute(text("""
+        INSERT OR IGNORE INTO lernmaterial_kategorien (name)
+        SELECT DISTINCT TRIM(kategorie)
+        FROM lernmaterial
+        WHERE geloescht_am IS NULL
+          AND kategorie IS NOT NULL
+          AND TRIM(kategorie) != ''
     """))
 
 
@@ -646,6 +680,7 @@ def prepare_schema(conn: Connection):
     _ensure_benutzer_table(conn)
     _seed_initial_benutzer(conn)
     _ensure_inventory_table(conn)
+    _ensure_buch_faecher_table(conn)
     _ensure_schueler_archiv_column(conn)
     _ensure_mail_versandt_column(conn)
     _ensure_additional_columns(conn)
@@ -659,6 +694,7 @@ def prepare_schema(conn: Connection):
     _seed_initial_admin_password(conn)
     _ensure_mail_template_defaults(conn)
     _seed_inventory_rows(conn)
+    _seed_inventory_metadata(conn)
     _create_or_update_views(conn)
     _ensure_performance_indexes(conn)
     _ensure_gutschrift_beschaedigt_column(conn)

@@ -6,7 +6,8 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 }/*EDITMODE-END*/;
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
   const initialRoute = (() => {
     const id = (window.location.hash || '').replace(/^#/, '');
     return window.NAV_ITEMS?.some(item => item.id === id) ? id : 'start';
@@ -21,6 +22,24 @@ function App() {
     const handleUnauthorized = () => setIsAuthenticated(false);
     window.addEventListener('unauthorized', handleUnauthorized);
     return () => window.removeEventListener('unauthorized', handleUnauthorized);
+  }, []);
+
+  React.useEffect(() => {
+    let alive = true;
+    window.api.auth.me()
+      .then(() => {
+        if (!alive) return;
+        setIsAuthenticated(true);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setIsAuthenticated(false);
+      })
+      .finally(() => {
+        if (!alive) return;
+        setAuthLoading(false);
+      });
+    return () => { alive = false; };
   }, []);
 
   React.useEffect(() => {
@@ -65,6 +84,10 @@ function App() {
     };
     document.title = `Bibliomat – ${labels[current] || current}`;
   }, [current]);
+
+  if (authLoading) {
+    return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#64748b', fontFamily: 'inherit' }}>Sitzung wird geladen…</div>;
+  }
 
   if (!isAuthenticated) {
     return <window.Login onLogin={() => setIsAuthenticated(true)} accent={t.accent} />;
