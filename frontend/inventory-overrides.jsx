@@ -725,7 +725,7 @@ window.BuecherListe = function BuecherListe(props) {
 
   function fetchAll() {
     Promise.all([
-      window.api.buecher.list({ q: query, limit: 500 }),
+      window.api.buecher.list({ q: query, limit: 50000 }),
       window.api.buecher.listFaecher(),
       window.api.einstellungen.get(),
     ]).then(function (data) {
@@ -857,27 +857,29 @@ window.BuecherListe = function BuecherListe(props) {
   }
 
   function deleteFach(fach) {
-    var count = books.filter(function (b) { return b.fach === fach; }).length;
     var doDelete = function (force) {
       window.api.buecher.deleteFach(fach, force).then(function () {
         if (selectedFach === fach) setSelectedFach(null);
         fetchAll();
         window.showToast('success', 'Fach „' + fach + '” wurde entfernt.');
       }).catch(function (err) {
-        window.showToast('error', err.message || 'Fehler beim Entfernen.');
+        var msg = err.message || '';
+        var match = msg.match(/(\d+)\s*B.cher/i);
+        if (!force && match) {
+          var n = parseInt(match[1], 10);
+          window.showConfirm({
+            message: 'Fach „' + fach + '” löschen?',
+            detail: n + ' Buch' + (n === 1 ? '' : 'bücher') + ' in diesem Fach ' + (n === 1 ? 'wird' : 'werden') + ' ebenfalls aus dem Bestand entfernt.',
+            confirmLabel: 'Fach + Bücher löschen',
+            danger: true,
+            onConfirm: function () { doDelete(true); },
+          });
+        } else {
+          window.showToast('error', msg || 'Fehler beim Entfernen.');
+        }
       });
     };
-    if (count > 0) {
-      window.showConfirm({
-        message: 'Fach „' + fach + '” löschen?',
-        detail: count + ' Buch' + (count === 1 ? '' : 'bücher') + ' in diesem Fach ' + (count === 1 ? 'wird' : 'werden') + ' ebenfalls aus dem Bestand entfernt.',
-        confirmLabel: 'Fach + Bücher löschen',
-        danger: true,
-        onConfirm: function () { doDelete(true); },
-      });
-    } else {
-      doDelete(false);
-    }
+    doDelete(false);
   }
 
   return (
@@ -998,7 +1000,7 @@ window.BuecherListe = function BuecherListe(props) {
                   </button>
                   <button onClick={function (e) { e.stopPropagation(); deleteFach(fach); }} title="Fach löschen" style={{
                     background: '#fff', border: '1px solid #e2e8f0', borderRadius: 6,
-                    color: count > 0 ? '#cbd5e1' : '#ef4444', cursor: count > 0 ? 'not-allowed' : 'pointer', padding: '3px 5px', display: 'flex',
+                    color: '#ef4444', cursor: 'pointer', padding: '3px 5px', display: 'flex',
                   }}>
                     <Icon name="trash" size={12} />
                   </button>
