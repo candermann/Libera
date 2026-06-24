@@ -425,7 +425,7 @@ def list_buecher(
     q: str | None = None,
     fach: str | None = None,
     stufe: int | None = None,
-    limit: int = Query(default=50, ge=1, le=500),
+    limit: int = Query(default=50, ge=1, le=50000),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):

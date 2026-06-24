@@ -708,11 +708,8 @@ window.BuecherListe = function BuecherListe(props) {
   var _React$useStateEditFach = React.useState(null), editingFach = _React$useStateEditFach[0], setEditingFach = _React$useStateEditFach[1];
 
   var faecher = React.useMemo(function () {
-    var bookFaecher = books.map(function (b) { return b.fach; }).filter(Boolean);
-    var merged = Array.from(new Set(serverFaecher.concat(bookFaecher)));
-    merged.sort(function (a, b) { return a.localeCompare(b, 'de'); });
-    return merged;
-  }, [books, serverFaecher]);
+    return serverFaecher.slice().sort(function (a, b) { return a.localeCompare(b, 'de'); });
+  }, [serverFaecher]);
 
   var fachBooks = React.useMemo(function () {
     if (!selectedFach) return books;
