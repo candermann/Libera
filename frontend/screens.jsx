@@ -1,4 +1,6 @@
 // Rückgabe-Flow + Listen-Screens (Schüler, Bücher, Mahnungen)
+// Explizite Abhängigkeiten aus vorher geladenen Dateien
+var FlowShell = window.FlowShell;
 
 function Rueckgabe({ accent, onDone, preselectedStudent }) {
   const [step, setStep] = React.useState(1);
@@ -195,6 +197,14 @@ function SchuelerListe({ accent, onOpenStudent }) {
     fetchStudents();
   }, [fetchStudents]);
 
+  const _fetchStudentsRef = React.useRef(fetchStudents);
+  React.useEffect(() => { _fetchStudentsRef.current = fetchStudents; }, [fetchStudents]);
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') _fetchStudentsRef.current(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const addStudent = (s) => {
     window.api.schueler.create(s).then(() => {
       setShowCreate(false);
@@ -384,7 +394,9 @@ function Modal({ children, onClose, width = 460 }) {
         background: '#fff', borderRadius: 12, width,
         boxShadow: '0 20px 60px rgba(15,23,42,0.25)',
         maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-      }}>{children}</div>
+      }}>
+        <window.ErrorBoundary onClose={onClose}>{children}</window.ErrorBoundary>
+      </div>
     </div>
   );
 }
@@ -1631,6 +1643,12 @@ function Buchhaltung({ accent }) {
   React.useEffect(() => { loadSchuljahre(); loadUnversandt(); loadVersandt(); }, []);
 
   React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') { loadUnversandt(); loadVersandt(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  React.useEffect(() => {
     if (!selectedSj) return;
     setFilterKlasse('');
     setLoading(true);
@@ -2262,6 +2280,12 @@ function Archiv({ accent, onOpenStudent }) {
 
   React.useEffect(() => { laden(); }, []);
 
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') laden(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   const schuljahre = [...new Set(archiviert.map(s => s.schuljahr).filter(Boolean))].sort().reverse();
   const klassenFuerSchuljahr = [...new Set(
     archiviert.filter(s => s.schuljahr === filterSchuljahr).map(s => s.klasse).filter(Boolean)
@@ -2469,6 +2493,12 @@ function Klassenversetzung({ accent }) {
   }, []);
 
   React.useEffect(() => { load(); }, [load]);
+
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [load]);
 
   const toggleSchueler = (klasse_von, schueler_id) => {
     setAusgewaehlt(prev => {
@@ -2773,4 +2803,4 @@ function Klassenversetzung({ accent }) {
   );
 }
 
-Object.assign(window, { Rueckgabe, SchuelerListe, Buchhaltung, Archiv, Klassenversetzung, RechnungMailDialog });
+Object.assign(window, { Rueckgabe, SchuelerListe, Buchhaltung, Archiv, Klassenversetzung, RechnungMailDialog, Modal, ConfirmDialog });

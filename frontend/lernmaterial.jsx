@@ -1,4 +1,6 @@
 // Lernmaterial-Verwaltung (Anlegen, Bearbeiten, Löschen, Kategorien verwalten)
+var Modal = window.Modal;
+var ConfirmDialog = window.ConfirmDialog;
 
 function KategorieCreateDialog({ accent, kategorien, onClose, onSave }) {
   const [name, setName] = React.useState('');
@@ -249,6 +251,12 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   }
 
   React.useEffect(() => { fetchAll(); }, []);
+
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
 
   const kategorien = React.useMemo(() => {
     const fromItems = items.map(i => i.kategorie).filter(Boolean);

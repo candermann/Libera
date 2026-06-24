@@ -1,6 +1,19 @@
 
+// Explizite Abhängigkeiten aus anderen Dateien — verhindert stille Scope-Fehler
+var Modal = window.Modal;
+
 function invFormatEur(cents) {
   return (Number(cents || 0) / 100).toFixed(2).replace('.', ',') + ' EUR';
+}
+
+function njColor(nj) {
+  if (nj == null || nj === 0) return { color: '#059669', bg: '#d1fae5' };
+  if (nj === 1) return { color: '#16a34a', bg: '#dcfce7' };
+  if (nj === 2) return { color: '#65a30d', bg: '#ecfccb' };
+  if (nj === 3) return { color: '#ca8a04', bg: '#fef9c3' };
+  if (nj === 4) return { color: '#ea580c', bg: '#ffedd5' };
+  if (nj === 5) return { color: '#dc2626', bg: '#fee2e2' };
+  return { color: '#991b1b', bg: '#fecaca' };
 }
 
 function invGetAbschlaege(settings) {
@@ -734,6 +747,14 @@ window.BuecherListe = function BuecherListe(props) {
   React.useEffect(function () {
     fetchAll();
   }, [query]);
+
+  React.useEffect(function () {
+    function onVisible() {
+      if (document.visibilityState === 'visible') fetchAll();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return function () { document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
 
   function updateRule(nutzungsjahr, value) {
     var key = 'nutzungsjahr_abschlag_' + nutzungsjahr + '_prozent';

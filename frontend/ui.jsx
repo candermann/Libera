@@ -273,4 +273,61 @@ function GlobalConfirmDialog() {
   );
 }
 
-Object.assign(window, { Icon, Avatar, Badge, Btn, Card, SearchInput, Money, ToastContainer, GlobalConfirmDialog });
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+    this.reset = this.reset.bind(this);
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  componentDidCatch(error, info) {
+    console.error('[Bibliomat] Render-Fehler:', error.message, info?.componentStack || '');
+  }
+  reset() {
+    this.setState({ error: null });
+  }
+  render() {
+    if (this.state.error) {
+      const { fallback, onClose } = this.props;
+      if (fallback) return fallback(this.state.error, this.reset);
+      return (
+        <div style={{ padding: '32px 24px', textAlign: 'center', color: '#64748b' }}>
+          <div style={{ fontSize: 28, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 6 }}>
+            Ein Fehler ist aufgetreten
+          </div>
+          <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 20, fontFamily: 'JetBrains Mono, monospace' }}>
+            {this.state.error.message}
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button onClick={this.reset} style={{ padding: '7px 16px', borderRadius: 7, border: '1px solid #e2e8f0', background: '#fff', color: '#0f172a', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+              Erneut versuchen
+            </button>
+            {onClose && (
+              <button onClick={onClose} style={{ padding: '7px 16px', borderRadius: 7, border: 'none', background: '#f1f5f9', color: '#475569', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Schließen
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Globale JS-Fehler (außerhalb React) als Toast anzeigen
+window.addEventListener('error', function (e) {
+  const msg = e.error?.message || e.message || 'Unbekannter Fehler';
+  console.error('[Bibliomat] Uncaught:', msg, e.error);
+  if (window.showToast) window.showToast('error', 'Fehler: ' + msg);
+});
+window.addEventListener('unhandledrejection', function (e) {
+  const msg = e.reason?.message || String(e.reason) || 'Anfrage fehlgeschlagen';
+  console.error('[Bibliomat] Unhandled rejection:', msg, e.reason);
+  if (window.showToast) window.showToast('error', 'Fehler: ' + msg);
+});
+
+Object.assign(window, { Icon, Avatar, Badge, Btn, Card, SearchInput, Money, ToastContainer, GlobalConfirmDialog, ErrorBoundary });

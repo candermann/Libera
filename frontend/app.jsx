@@ -142,7 +142,9 @@ function App() {
       <window.Sidebar current={selectedStudent ? null : current} onNav={handleNav} accent={t.accent} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div key={navKey} style={{ flex: 1, overflowY: 'auto' }}>
-          {content}
+          <window.ErrorBoundary key={current + '_' + navKey}>
+            {content}
+          </window.ErrorBoundary>
         </div>
       </div>
       

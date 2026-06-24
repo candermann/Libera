@@ -272,6 +272,12 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
     reload();
   }, [schueler.id]);
 
+  React.useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') reload(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   if (!detail) {
     return <div style={{ padding: 40, color: '#64748b' }}>Lade Schülerdetails...</div>;
   }
