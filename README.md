@@ -611,3 +611,8 @@ Die Logs erscheinen im Container-Output (`docker compose logs bibliomat`).
 - Lernmaterial: Kategorien-Gruppenansicht
 - Klassenversetzung: alle Schüler auswählbar
 - Dashboard: letzte Vorgänge, unversandte Rechnungen
+
+
+### Juli (patch )
+
+-broken admin panel
