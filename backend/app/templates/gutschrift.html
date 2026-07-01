@@ -6,7 +6,7 @@
   <style>
     @page {
       size: A4;
-      margin: 18mm 18mm 26mm 18mm;
+      margin: 18mm 18mm 30mm 18mm;
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -15,13 +15,10 @@
       font-size: 10pt;
       line-height: 1.5;
       color: #222;
-      display: flex;
-      flex-direction: column;
       min-height: 100%;
     }
     .main-content {
-      flex: 1;
-      padding-bottom: 24mm;
+      padding-bottom: 28mm;
     }
 
     /* ── Header ── */
@@ -137,24 +134,22 @@
       page-break-inside: avoid;
     }
     tbody tr:nth-child(even) { background: #fafcfa; }
-
-    /* ── Summen ── */
-    .totals {
-      width: 52%;
-      margin-left: auto;
-      margin-bottom: 28px;
-      break-inside: avoid;
-      page-break-inside: avoid;
+    tbody tr.non-returned-row { background: #fff7ed; }
+    tfoot {
+      display: table-row-group;
     }
-    .totals table { margin-bottom: 0; }
-    .totals td { padding: 5px 10px; border: none; font-size: 9.5pt; }
-    .totals .total-row td {
+    tfoot td {
+      padding: 7px 10px;
+      font-size: 9.5pt;
+      border: none;
+    }
+    tfoot .total-row td {
       font-weight: 700;
       font-size: 12pt;
       border-top: 2px solid #2e7d32;
       padding-top: 8px;
     }
-    .totals td.right { text-align: right; }
+    tfoot td.right { text-align: right; }
 
     /* ── Info-Box ── */
     .info-box {
@@ -262,24 +257,22 @@
       </thead>
       <tbody>
         {% for p in posten %}
-        <tr>
+        <tr{% if p.beschaedigt %} class="non-returned-row"{% endif %}>
           <td style="text-align:center;">{{ p.menge }}</td>
-          <td>{{ p.titel }}<br><span style="font-size:8pt;color:#999;">{{ p.verlag }}</span>{% if p.isbn %}<br><span style="font-size:8pt;color:#bbb;">{{ p.isbn }}</span>{% endif %}{% if p.beschaedigt %}<br><span style="font-size:8pt;color:#dc2626;font-weight:600;">⚠ Beschädigt – keine Gutschrift</span>{% endif %}</td>
+          <td>{{ p.titel }}<br><span style="font-size:8pt;color:#999;">{{ p.verlag }}</span>{% if p.isbn %}<br><span style="font-size:8pt;color:#bbb;">{{ p.isbn }}</span>{% endif %}{% if p.beschaedigt %}<br><span style="font-size:8pt;color:#c2410c;font-weight:600;">Nicht zurückgenommen – keine Gutschrift</span>{% endif %}</td>
           <td>{% if p.beschaedigt %}—{% else %}{{ p.nutzungsjahr_label }}{% endif %}</td>
-          <td class="right">{% if p.beschaedigt %}<span style="color:#dc2626;">0,00 €</span>{% else %}{{ p.betrag_cents | eur }}{% endif %}</td>
+          <td class="right">{% if p.beschaedigt %}<span style="color:#c2410c;">0,00 €</span>{% else %}{{ p.betrag_cents | eur }}{% endif %}</td>
         </tr>
         {% endfor %}
       </tbody>
-    </table>
-  </div>
-
-  <!-- SUMMEN -->
-  <div class="totals">
-    <table>
+      <tfoot>
       <tr class="total-row">
         <td>Gutschrift gesamt</td>
+        <td></td>
+        <td></td>
         <td class="right">{{ gutschrift.summe_cents | eur }}</td>
       </tr>
+      </tfoot>
     </table>
   </div>
 

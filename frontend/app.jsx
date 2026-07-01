@@ -7,6 +7,7 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const initialRoute = (() => {
     const id = (window.location.hash || '').replace(/^#/, '');
@@ -19,28 +20,38 @@ function App() {
   const [t, setTweak] = window.useTweaks ? window.useTweaks(TWEAK_DEFAULTS) : [TWEAK_DEFAULTS, () => {}];
 
   React.useEffect(() => {
-    const handleUnauthorized = () => setIsAuthenticated(false);
+    const handleUnauthorized = () => {
+      setIsAuthenticated(false);
+      setCurrentUser(null);
+    };
     window.addEventListener('unauthorized', handleUnauthorized);
     return () => window.removeEventListener('unauthorized', handleUnauthorized);
   }, []);
 
+  const refreshSession = React.useCallback(async () => {
+    const session = await window.api.auth.me();
+    setCurrentUser(session?.username || null);
+    setIsAuthenticated(true);
+    return session;
+  }, []);
+
   React.useEffect(() => {
     let alive = true;
-    window.api.auth.me()
+    refreshSession()
       .then(() => {
         if (!alive) return;
-        setIsAuthenticated(true);
       })
       .catch(() => {
         if (!alive) return;
         setIsAuthenticated(false);
+        setCurrentUser(null);
       })
       .finally(() => {
         if (!alive) return;
         setAuthLoading(false);
       });
     return () => { alive = false; };
-  }, []);
+  }, [refreshSession]);
 
   React.useEffect(() => {
     const initialState = history.state && history.state.app === 'bibliomat'
@@ -90,7 +101,7 @@ function App() {
   }
 
   if (!isAuthenticated) {
-    return <window.Login onLogin={() => setIsAuthenticated(true)} accent={t.accent} />;
+    return <window.Login onLogin={() => refreshSession()} accent={t.accent} />;
   }
 
   const commitRoute = (id, student = null, context = null, replace = false) => {
@@ -139,7 +150,7 @@ function App() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <window.Sidebar current={selectedStudent ? null : current} onNav={handleNav} accent={t.accent} />
+      <window.Sidebar current={selectedStudent ? null : current} onNav={handleNav} accent={t.accent} currentUser={currentUser} />
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         <div key={navKey} style={{ flex: 1, overflowY: 'auto' }}>
           <window.ErrorBoundary key={current + '_' + navKey}>

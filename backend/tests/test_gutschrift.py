@@ -171,3 +171,44 @@ class TestGutschrift:
 
         detail = client.get(f"/api/gutschriften/{gutschrift_id}")
         assert detail.json()["ausgezahlt"] is True
+
+    def test_gutschrift_html_uses_non_returned_label_and_renders_total_for_many_items(self, client):
+        """HTML preview should use the new label and keep the total visible for long credit notes."""
+        schueler = create_test_schueler(client)
+
+        buch_ids = []
+        for index in range(9):
+            buch = create_test_buch(
+                client,
+                titel=f"Buch {index + 1}",
+                preis_cents=2400,
+                bestand_gesamt=20,
+            )
+            buch_ids.append(buch["id"])
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": schueler["id"],
+            "buch_ids": buch_ids,
+        })
+        assert sale.status_code == 201
+        posten_ids = [p["rechnungs_posten_id"] for p in sale.json()["posten"]]
+
+        resp = client.post("/api/gutschrift", json={
+            "schueler_id": schueler["id"],
+            "rueckgaben": [
+                {"rechnungs_posten_id": posten_ids[0], "beschaedigt": True},
+                *[
+                    {"rechnungs_posten_id": posten_id}
+                    for posten_id in posten_ids[1:]
+                ],
+            ],
+        })
+        assert resp.status_code == 201
+
+        gutschrift_id = resp.json()["id"]
+        html = client.get(f"/api/gutschriften/{gutschrift_id}/html")
+        assert html.status_code == 200
+        assert "Nicht zurückgenommen – keine Gutschrift" in html.text
+        assert "Beschädigt" not in html.text
+        assert "Gutschrift gesamt" in html.text
+        assert "192,00 EUR" in html.text

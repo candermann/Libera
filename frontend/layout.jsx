@@ -33,13 +33,30 @@ function useSchuljahr() {
   return sj;
 }
 
-function Sidebar({ current, onNav, accent }) {
+function getUserLabel(username) {
+  const value = String(username || '').trim();
+  return value || 'Benutzer';
+}
+
+function getUserInitials(username) {
+  const parts = String(username || '')
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean);
+  if (parts.length === 0) return 'BE';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
+}
+
+function Sidebar({ current, onNav, accent, currentUser }) {
   const sjFromApi = useSchuljahr();
   const now = new Date();
   const y = now.getFullYear();
   const fallbackYear = now.getMonth() < 7 ? y - 1 : y;
   const sjFallback = { label: fallbackYear + ' / ' + (fallbackYear + 1), short: fallbackYear + '/' + String(fallbackYear + 1).slice(-2), startDate: '01. Aug. ' + fallbackYear };
   const sj = sjFromApi || sjFallback;
+  const userLabel = getUserLabel(currentUser);
+  const userInitials = getUserInitials(currentUser);
   const handleLogout = async () => {
     try {
       await window.api.auth.logout();
@@ -124,8 +141,8 @@ function Sidebar({ current, onNav, accent }) {
             background: '#f1f5f9', color: '#475569',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 10.5, fontWeight: 600,
-          }}>AD</div>
-          <div style={{ fontSize: 12, color: '#475569', flex: 1 }}>Admin</div>
+          }}>{userInitials}</div>
+          <div style={{ fontSize: 12, color: '#475569', flex: 1 }}>{userLabel}</div>
           <button onClick={handleLogout} style={{ display: 'flex', background: 'none', border: 'none', color: '#cbd5e1', cursor: 'pointer', padding: 0 }} title="Abmelden">
             <Icon name="log-out" size={14} />
           </button>
@@ -135,13 +152,14 @@ function Sidebar({ current, onNav, accent }) {
   );
 }
 
-function Topbar({ current, onNav, accent }) {
+function Topbar({ current, onNav, accent, currentUser }) {
   const sjFromApi = useSchuljahr();
   const now = new Date();
   const y = now.getFullYear();
   const fallbackYear = now.getMonth() < 7 ? y - 1 : y;
   const sjFallback = { label: fallbackYear + ' / ' + (fallbackYear + 1), short: fallbackYear + '/' + String(fallbackYear + 1).slice(-2), startDate: '01. Aug. ' + fallbackYear };
   const sj = sjFromApi || sjFallback;
+  const userInitials = getUserInitials(currentUser);
   const handleLogout = async () => {
     try {
       await window.api.auth.logout();
@@ -204,7 +222,7 @@ function Topbar({ current, onNav, accent }) {
           background: '#f1f5f9', color: '#475569',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 11, fontWeight: 600,
-        }}>AD</div>
+        }}>{userInitials}</div>
         <button onClick={handleLogout} style={{ display: 'flex', background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0 }} title="Abmelden">
           <Icon name="log-out" size={14} />
         </button>

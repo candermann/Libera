@@ -389,7 +389,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
             </div>
           ) : beschaedigteBuecher.length > 0 ? (
             <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 1, fontWeight: 500 }}>
-              {beschaedigteBuecher.length} beschädigt
+              {beschaedigteBuecher.length} nicht zurückgenommen
             </div>
           ) : (
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 1 }}>im Schuljahr 2025/26</div>
@@ -488,7 +488,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.005em' }}>Gekaufte Bücher</h2>
             <span style={{ fontSize: 11.5, color: '#94a3b8' }}>
-              {offeneBuecher.length} offen{beschaedigteBuecher.length > 0 ? ` · ${beschaedigteBuecher.length} beschädigt` : ''}
+              {offeneBuecher.length} offen{beschaedigteBuecher.length > 0 ? ` · ${beschaedigteBuecher.length} nicht zurückgenommen` : ''}
             </span>
           </div>
           <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
@@ -529,7 +529,7 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
                           padding: '1px 6px',
                           fontWeight: 600,
                         }}>
-                          Beschädigt
+                          Nicht zurückgenommen
                         </span>
                       )}
                     </div>

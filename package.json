@@ -1,7 +1,7 @@
 {
   "name": "bibliomat",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.0.4",
   "description": "Schulbuch-Verwaltung Bibliomat",
   "scripts": {
     "build:frontend": "tsc -p tsconfig.frontend-build.json",

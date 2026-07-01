@@ -46,7 +46,7 @@ def _zustand_to_label(zustand: str) -> str:
         "sehr_gut": "Sehr Gut",
         "gut": "Gut",
         "mangelhaft": "Mangelhaft",
-        "beschaedigt": "Beschaedigt",
+        "beschaedigt": "Nicht zurueckgenommen",
     }
     if not zustand:
         return ""

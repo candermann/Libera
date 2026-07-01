@@ -553,7 +553,7 @@ window.Rueckgabe = function Rueckgabe(props) {
                           onChange={function (e) { toggleBeschaedigt(book.rechnungs_posten_id, e.target.checked); }}
                           style={{ width: 13, height: 13, accentColor: '#dc2626', cursor: 'pointer' }}
                         />
-                        <span style={{ fontSize: 11.5, color: isBeschaedigt ? '#dc2626' : '#94a3b8', fontWeight: isBeschaedigt ? 600 : 400 }}>Beschädigt</span>
+                        <span style={{ fontSize: 11.5, color: isBeschaedigt ? '#dc2626' : '#94a3b8', fontWeight: isBeschaedigt ? 600 : 400 }}>Nicht zurückgenommen</span>
                       </label>
                     )}
                   </div>

@@ -1384,7 +1384,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
                                 onChange={e => setBeschaedigtKombi(prev => ({ ...prev, [b.rechnungs_posten_id]: e.target.checked }))}
                                 style={{ width: 13, height: 13, accentColor: '#dc2626', cursor: 'pointer' }}
                               />
-                              <span style={{ fontSize: 11.5, color: isBeschaedigt ? '#dc2626' : '#94a3b8', fontWeight: isBeschaedigt ? 600 : 400 }}>Beschädigt</span>
+                              <span style={{ fontSize: 11.5, color: isBeschaedigt ? '#dc2626' : '#94a3b8', fontWeight: isBeschaedigt ? 600 : 400 }}>Nicht zurückgenommen</span>
                             </label>
                           )}
                         </div>
@@ -1487,7 +1487,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
                           <div key={b.rechnungs_posten_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', borderTop: index === 0 ? 'none' : '1px solid #eff6ff', background: isBeschaedigtCart ? '#fef2f2' : '#f8fbff' }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 12.5, fontWeight: 500, color: isBeschaedigtCart ? '#991b1b' : '#1e40af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.titel}</div>
-                              {isBeschaedigtCart && <div style={{ fontSize: 10.5, color: '#dc2626', fontWeight: 600 }}>Beschädigt</div>}
+                              {isBeschaedigtCart && <div style={{ fontSize: 10.5, color: '#dc2626', fontWeight: 600 }}>Nicht zurückgenommen</div>}
                             </div>
                             <div style={{ fontSize: 12.5, fontFamily: 'JetBrains Mono, monospace', color: isBeschaedigtCart ? '#dc2626' : '#1d4ed8' }}>
                               {isBeschaedigtCart ? '0,00 €' : '−' + (b.gutschrift_cents / 100).toFixed(2).replace('.', ',') + ' €'}

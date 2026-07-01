@@ -12,7 +12,7 @@ window.Login = function Login({ onLogin, accent = '#2563eb' }) {
     setLoading(true);
     try {
       await window.api.auth.login(username, password);
-      onLogin();
+      await onLogin();
     } catch (err) {
       setError(err.message);
     } finally {
