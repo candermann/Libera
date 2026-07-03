@@ -612,7 +612,34 @@ Die Logs erscheinen im Container-Output (`docker compose logs bibliomat`).
 - Klassenversetzung: alle Schüler auswählbar
 - Dashboard: letzte Vorgänge, unversandte Rechnungen
 
+### Juni (patch )
+-es wurden überreste des initialen builds w. v. ki erstellt wurde beseitigt:
+*beinhaltete:: 
+-implementieren einer realen Löschfunktion
+-überführung von mockup approches zu industrie standard funktionalität
+-behebung von CSS und HTML problemen (color konnte nicht angezeigt werden und produzierte somit whitescreen)
+-implementierung echter PDF generierung bei rechnungen und gutschriften
+-das Schultool schien bis zu dem patch jede seite neu zu bauen 
+-das schultool hat dateien schüler accounts bücher uvm lokal gecached 
+-das schultool hatte ein schülerlimit von <=500 schülern , dadurch lief wurde das limit erreicht aber , da es keinen "broken" bzw "crash" state gab fiel es nicht auf.
+-die ki mit der das schultool erstellt wurde hat sich selber und anderen modellen anweisungen in codebase.md und handover.md hinterlassen womit spätere bug searchings bypassed wurden. 
+-die codebase wurde händisch durchgearbeitet um etwaige nicht produktionsreife stellen , mockups und bugs zu finden. 
+-es wurden Codebase.md und Handover.md überarbeitet und der ki im weiteren verboten erneut solche bypasses zu hinterlassen.
+-Dokumentation.html wurde erstellt um 
 
 ### Juli (patch )
 
--broken admin panel
+-broken admin panel: admin wurde in allen accounts unten links geprintet (hardcoding)
+-die hardcoded line wurde geändert und ein "GetAccountName" implementiert welches sich den namen des eingeloggten nutzers holt.
+-//! es fehlt weiterhin ein konkretes admin panel bei welchem nutzerrechte vergeben werden können . alle erzeugten user sind identische alternativ user. 
+-PDF print funktion wurde auf anfrage der schule angepasst. es kam bericht zufolge zu abgeschnittenen texten.
+-Beschädigt in nicht zurückgenommen umbenannt
+-versionierung wurde auf anfrage hochgezählt 
+
+
+### juli (anfrage:)
+: noch offen : 
+
+es wurde angefragt ein feature zu bekommen mit dem man generierte pdfs editieren kann ... 
+überlegung wäre einen light editor einzubauen etwaiige existierende api´s sind nicht bekannt werden aber bei bestellung des features unternommen werden müssen.
+definition dieses features ist unsauber und muss noch geklärt werden ..
