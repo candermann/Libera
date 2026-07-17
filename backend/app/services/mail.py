@@ -96,6 +96,7 @@ def _build_context(db: Session, rechnung_id: str, settings: dict[str, str]) -> t
             """
             SELECT
                 r.id,
+                r.anzeige_nr,
                 r.schueler_id,
                 r.datum,
                 r.schuljahr,
@@ -120,6 +121,7 @@ def _build_context(db: Session, rechnung_id: str, settings: dict[str, str]) -> t
     context = {
         "rechnung": {
             "id": row.id,
+            "anzeige_nr": row.anzeige_nr or row.id,
             "datum": row.datum,
             "schuljahr": row.schuljahr,
             "status": row.status,

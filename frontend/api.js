@@ -142,6 +142,7 @@ const api = {
         get: (id) => req(`/lernmaterial/${id}`),
         create: (data) => req('/lernmaterial', { method: 'POST', body: data }),
         update: (id, data) => req(`/lernmaterial/${id}`, { method: 'PATCH', body: data }),
+        restock: (id, bestand_gesamt) => req(`/lernmaterial/${id}/restock`, { method: 'POST', body: { bestand_gesamt } }),
         remove: (id) => req(`/lernmaterial/${id}`, { method: 'DELETE' }),
         renameKategorie: (alt, neu) => req('/lernmaterial/kategorie/umbenennen', { method: 'POST', body: { alt, neu } }),
         importCsv: (file) => {
@@ -167,6 +168,7 @@ const api = {
         storno: (id) => req(`/rechnungen/${id}/storno`, { method: 'POST' }),
         archivieren: (id) => req(`/rechnungen/${id}/archivieren`, { method: 'POST' }),
         unarchivieren: (id) => req(`/rechnungen/${id}/unarchivieren`, { method: 'POST' }),
+        updateAnzeigeNr: (id, data) => req(`/rechnungen/${id}/anzeige-nr`, { method: 'PATCH', body: data }),
     },
     gutschrift: (data) => req('/gutschrift', { method: 'POST', body: data }),
     gutschriften: {

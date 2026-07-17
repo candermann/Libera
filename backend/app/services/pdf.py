@@ -341,6 +341,7 @@ def _load_rechnung_data(db: Session, rechnung_id: str) -> dict:
     return {
         "rechnung": {
             "id": r.id,
+            "anzeige_nr": r.anzeige_nr or r.id,
             "datum": r.datum,
             "schuljahr": r.schuljahr,
             "summe_cents": r.summe_cents,

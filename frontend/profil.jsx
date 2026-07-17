@@ -806,7 +806,7 @@ function Profil({ accent }) {
             <div style={{ marginTop: 8, fontSize: 11.5, color: '#64748b', lineHeight: 1.6 }}>
               Verfügbare Platzhalter:{' '}
               <code>{'{{ schueler.name }}'}</code>, <code>{'{{ schueler.vorname }}'}</code>, <code>{'{{ schueler.nachname }}'}</code>,{' '}
-              <code>{'{{ schueler.klasse }}'}</code>, <code>{'{{ rechnung.id }}'}</code>, <code>{'{{ rechnung.datum }}'}</code>,{' '}
+              <code>{'{{ schueler.klasse }}'}</code>, <code>{'{{ rechnung.anzeige_nr }}'}</code>, <code>{'{{ rechnung.id }}'}</code>, <code>{'{{ rechnung.datum }}'}</code>,{' '}
               <code>{'{{ rechnung.summe_eur }}'}</code>, <code>{'{{ rechnung.zu_zahlen_eur }}'}</code>, <code>{'{{ schule.name }}'}</code>.
             </div>
           </Card>

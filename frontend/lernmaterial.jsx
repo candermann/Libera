@@ -225,6 +225,33 @@ function LernmaterialEditDialog({ accent, item, kategorien, onClose, onSave }) {
   );
 }
 
+function LernmaterialRestockDialog({ accent, item, onClose, onSave }) {
+  const [bestand, setBestand] = React.useState(String(item.bestand_gesamt || ''));
+  const parsed = parseInt(bestand, 10);
+  const valid = bestand.trim().length > 0 && Number.isInteger(parsed) && parsed >= 0;
+  const fieldStyle = { width: '100%', padding: '8px 11px', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 13.5, fontFamily: 'JetBrains Mono, monospace', color: '#0f172a', background: '#fff', outline: 'none' };
+  return (
+    <Modal onClose={onClose} width={400}>
+      <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.01em' }}>Bestand auffüllen</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>{item.name} · {item.id}</div>
+        </div>
+        <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex', padding: 4 }}><Icon name="x" size={18} /></button>
+      </div>
+      <div style={{ padding: '18px 22px' }}>
+        <label style={{ fontSize: 11.5, color: '#475569', fontWeight: 500, marginBottom: 5, display: 'block' }}>Neuer Bestand</label>
+        <input autoFocus type="number" min="0" value={bestand} onChange={e => setBestand(e.target.value)} onKeyDown={e => e.key === 'Enter' && valid && onSave(parsed)} placeholder="50" style={fieldStyle} />
+        <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 6 }}>Der ausgegebene Bestand wird dabei auf 0 zurückgesetzt.</div>
+      </div>
+      <div style={{ padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8, background: '#fbfcfd', borderRadius: '0 0 12px 12px' }}>
+        <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>
+        <Btn kind="primary" accent={accent} icon="refresh-cw" disabled={!valid} onClick={() => onSave(parsed)}>Auffüllen</Btn>
+      </div>
+    </Modal>
+  );
+}
+
 window.LernmaterialListe = function LernmaterialListe({ accent }) {
   const [items, setItems] = React.useState([]);
   const [serverKategorien, setServerKategorien] = React.useState([]);
@@ -232,6 +259,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
   const [query, setQuery] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
   const [editingItem, setEditingItem] = React.useState(null);
+  const [restockingItem, setRestockingItem] = React.useState(null);
   const [confirmDelete, setConfirmDelete] = React.useState(null);
   const [selectedKategorie, setSelectedKategorie] = React.useState(null);
 
@@ -294,6 +322,13 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
       .catch(err => window.showToast('error', err.message || 'Fehler beim Speichern.'));
   }
 
+  function restockItem(id, bestand_gesamt) {
+    const name = restockingItem ? restockingItem.name : 'Material';
+    window.api.lernmaterial.restock(id, bestand_gesamt)
+      .then(() => { setRestockingItem(null); fetchAll(); window.showToast('success', `„${name}" wurde auf ${bestand_gesamt} aufgefüllt.`); })
+      .catch(err => window.showToast('error', err.message || 'Fehler beim Auffüllen.'));
+  }
+
   function removeItem(id) {
     const name = confirmDelete ? confirmDelete.name : 'Material';
     window.api.lernmaterial.remove(id).then(() => { setConfirmDelete(null); fetchAll(); window.showToast('success', `„${name}" wurde entfernt.`); })
@@ -339,8 +374,9 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
 
   const ItemRow = ({ item, index }) => {
     const hue = kategorieHue(item.kategorie);
+    const isDepleted = item.bestand_frei <= 0;
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 100px 120px 64px', gap: 12, padding: '12px 16px', alignItems: 'center', borderTop: index === 0 ? 'none' : '1px solid #f8fafc' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 100px 120px 64px 110px', gap: 12, padding: '12px 16px', alignItems: 'center', borderTop: index === 0 ? 'none' : '1px solid #f8fafc' }}>
         <div style={{ width: 36, height: 36, borderRadius: 8, background: `oklch(0.94 0.04 ${hue})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: `oklch(0.40 0.10 ${hue})` }}>
           <Icon name={kategorieIcon(item.kategorie)} size={16} stroke={1.75} />
         </div>
@@ -351,7 +387,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
         <div style={{ textAlign: 'right', fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: '#0f172a' }}>
           {(item.preis_cents / 100).toFixed(2).replace('.', ',')} €
         </div>
-        <div style={{ textAlign: 'right', fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: '#0f172a' }}>
+        <div style={{ textAlign: 'right', fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: isDepleted ? '#ef4444' : '#0f172a' }}>
           {item.bestand_frei}<span style={{ color: '#94a3b8' }}>/{item.bestand_gesamt}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 4 }}>
@@ -361,6 +397,9 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
           <button onClick={() => setConfirmDelete(item)} title="Entfernen" style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', padding: 4 }}>
             <Icon name="trash" size={14} />
           </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Btn kind="primary" accent={accent} icon="refresh-cw" density="compact" disabled={!isDepleted} onClick={() => setRestockingItem(item)}>Auffüllen</Btn>
         </div>
       </div>
     );
@@ -448,8 +487,8 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
           </div>
 
           <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 100px 120px 64px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              <div></div><div>Bezeichnung</div><div style={{ textAlign: 'right' }}>Preis</div><div style={{ textAlign: 'right' }}>Bestand</div><div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 100px 120px 64px 110px', gap: 12, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <div></div><div>Bezeichnung</div><div style={{ textAlign: 'right' }}>Preis</div><div style={{ textAlign: 'right' }}>Bestand</div><div></div><div></div>
             </div>
             {kategorieItems.length === 0 ? (
               <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
@@ -463,6 +502,7 @@ window.LernmaterialListe = function LernmaterialListe({ accent }) {
       {showCsvImport && <LernmaterialCsvImportDialog accent={accent} onClose={() => setShowCsvImport(false)} onImported={() => { setShowCsvImport(false); fetchAll(); }} />}
       {showCreate && <LernmaterialCreateDialog accent={accent} kategorien={kategorien} onClose={() => setShowCreate(false)} onSave={addItem} />}
       {editingItem && <LernmaterialEditDialog accent={accent} item={editingItem} kategorien={kategorien} onClose={() => setEditingItem(null)} onSave={data => saveItem(editingItem.id, data)} />}
+      {restockingItem && <LernmaterialRestockDialog accent={accent} item={restockingItem} onClose={() => setRestockingItem(null)} onSave={bestand_gesamt => restockItem(restockingItem.id, bestand_gesamt)} />}
       {showKategorieCreate && <KategorieCreateDialog accent={accent} kategorien={kategorien} onClose={() => setShowKategorieCreate(false)} onSave={addKategorie} />}
       {editingKategorie && <KategorieEditDialog accent={accent} kategorie={editingKategorie} kategorien={kategorien} onClose={() => setEditingKategorie(null)} onSave={neu => renameKategorie(editingKategorie, neu)} />}
       {confirmDelete && (

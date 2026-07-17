@@ -994,7 +994,7 @@ function RechnungMailDialog({ rechnung, accent, onClose, onSent }) {
     setError('');
     try {
       const data = await window.api.rechnung.mailSenden(rechnung.id, form);
-      window.showToast('success', `Rechnung ${rechnung.id} wurde an ${data.to_email} versendet.`);
+      window.showToast('success', `Rechnung ${rechnung.anzeige_nr || rechnung.id} wurde an ${data.to_email} versendet.`);
       onSent?.();
     } catch (err) {
       setError(err.message || 'Versand fehlgeschlagen.');
@@ -1022,7 +1022,7 @@ function RechnungMailDialog({ rechnung, accent, onClose, onSent }) {
               Rechnung per E-Mail versenden
             </div>
             <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>
-              {rechnung.id} · {rechnung.schueler_name}
+              {rechnung.anzeige_nr || rechnung.id} · {rechnung.schueler_name}
             </div>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 4 }}>
@@ -1133,6 +1133,63 @@ function RechnungMailDialog({ rechnung, accent, onClose, onSent }) {
         <Btn kind="secondary" onClick={onClose}>Abbrechen</Btn>
         <Btn kind="primary" accent={accent} icon="mail" onClick={sendMail} disabled={loading || sending}>
           {sending ? 'Wird versendet...' : 'Mail senden'}
+        </Btn>
+      </div>
+    </Modal>
+  );
+}
+
+function RechnungsNrDialog({ rechnung, accent, onClose, onSaved }) {
+  const [value, setValue] = React.useState(rechnung.anzeige_nr || rechnung.id);
+  const [saving, setSaving] = React.useState(false);
+  const [error, setError] = React.useState('');
+
+  const save = async () => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      setError('Rechnungsnummer darf nicht leer sein.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const res = await window.api.rechnung.updateAnzeigeNr(rechnung.id, { anzeige_nr: trimmed });
+      onSaved(res.anzeige_nr);
+    } catch (err) {
+      setError(err.message || 'Speichern fehlgeschlagen.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal onClose={onClose} width={380}>
+      <div style={{ padding: '20px 22px 14px' }}>
+        <div style={{ fontSize: 14.5, fontWeight: 600, color: '#0f172a', letterSpacing: '-0.005em', marginBottom: 4 }}>
+          Rechnungsnummer bearbeiten
+        </div>
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 12 }}>{rechnung.schueler_name}</div>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') save(); }}
+          autoFocus
+          style={{
+            width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 8,
+            fontSize: 13, fontFamily: 'JetBrains Mono, monospace', color: '#0f172a', boxSizing: 'border-box',
+          }}
+        />
+        {error && (
+          <div style={{ marginTop: 8, fontSize: 12, color: '#b91c1c' }}>{error}</div>
+        )}
+      </div>
+      <div style={{
+        padding: '14px 22px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8,
+        background: '#fbfcfd', borderRadius: '0 0 12px 12px',
+      }}>
+        <Btn kind="secondary" onClick={onClose}>Abbrechen</Btn>
+        <Btn kind="primary" accent={accent} onClick={save} disabled={saving}>
+          {saving ? 'Speichern...' : 'Speichern'}
         </Btn>
       </div>
     </Modal>
@@ -1603,6 +1660,14 @@ function Buchhaltung({ accent }) {
   const [versandt, setVersandt] = React.useState([]);
   const [versandtLoading, setVersandtLoading] = React.useState(false);
   const [archivierend, setArchivierend] = React.useState(null);
+  const [editingRechnung, setEditingRechnung] = React.useState(null);
+
+  const updateAnzeigeNrLocal = (id, anzeigeNr) => {
+    const patch = (list) => list.map(item => item.id === id ? { ...item, anzeige_nr: anzeigeNr } : item);
+    setUnversandt(patch);
+    setVersandt(patch);
+    setRechnungen(patch);
+  };
 
   const loadSchuljahre = () => {
     window.api.buchhaltung.schuljahre().then(res => {
@@ -1630,7 +1695,7 @@ function Buchhaltung({ accent }) {
     setArchivierend(r.id);
     try {
       await window.api.rechnung.archivieren(r.id);
-      window.showToast('success', `Rechnung ${r.id} archiviert.`);
+      window.showToast('success', `Rechnung ${r.anzeige_nr || r.id} archiviert.`);
       loadUnversandt();
       loadVersandt();
     } catch (err) {
@@ -1738,7 +1803,7 @@ function Buchhaltung({ accent }) {
         </div>
 
         <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 152px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 176px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             <div>Rechnungs-Nr.</div>
             <div>Schüler</div>
             <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -1757,7 +1822,7 @@ function Buchhaltung({ accent }) {
             </div>
           ) : unversandt.map((r, i) => (
             <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-              display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 152px', gap: 8,
+              display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 176px', gap: 8,
               padding: '11px 16px', alignItems: 'center',
               borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
               cursor: 'pointer',
@@ -1765,7 +1830,7 @@ function Buchhaltung({ accent }) {
             onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.id}</div>
+              <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.anzeige_nr || r.id}</div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{r.schueler_name}</div>
                 <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>
@@ -1818,6 +1883,15 @@ function Buchhaltung({ accent }) {
                   <Icon name="mail" size={13} />
                 </button>
                 <button
+                  title="Rechnungsnummer bearbeiten"
+                  onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="edit" size={13} />
+                </button>
+                <button
                   title="Rechnung archivieren"
                   disabled={archivierend === r.id}
                   onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
@@ -1839,7 +1913,7 @@ function Buchhaltung({ accent }) {
               Bereits versandt ({versandt.length})
             </div>
             <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 72px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 100px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 <div>Rechnungs-Nr.</div>
                 <div>Schüler</div>
                 <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -1852,7 +1926,7 @@ function Buchhaltung({ accent }) {
                 <div style={{ padding: '24px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade...</div>
               ) : versandt.map((r, i) => (
                 <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-                  display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 72px', gap: 8,
+                  display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 100px', gap: 8,
                   padding: '11px 16px', alignItems: 'center',
                   borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
                   opacity: 0.75, cursor: 'pointer',
@@ -1860,7 +1934,7 @@ function Buchhaltung({ accent }) {
                 onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.opacity = '1'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = '0.75'; }}
                 >
-                  <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.id}</div>
+                  <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.anzeige_nr || r.id}</div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{r.schueler_name}</div>
                     <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>
@@ -1907,6 +1981,15 @@ function Buchhaltung({ accent }) {
                       <Icon name="download" size={13} />
                     </button>
                     <button
+                      title="Rechnungsnummer bearbeiten"
+                      onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
+                      style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                    >
+                      <Icon name="edit" size={13} />
+                    </button>
+                    <button
                       title="Rechnung archivieren"
                       disabled={archivierend === r.id}
                       onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
@@ -1929,6 +2012,14 @@ function Buchhaltung({ accent }) {
             accent={accent}
             onClose={() => setMailRechnung(null)}
             onSent={() => { setMailRechnung(null); loadUnversandt(); loadVersandt(); }}
+          />
+        )}
+        {editingRechnung && (
+          <RechnungsNrDialog
+            rechnung={editingRechnung}
+            accent={accent}
+            onClose={() => setEditingRechnung(null)}
+            onSaved={(anzeigeNr) => { updateAnzeigeNrLocal(editingRechnung.id, anzeigeNr); setEditingRechnung(null); }}
           />
         )}
       </div>
@@ -2069,7 +2160,7 @@ function Buchhaltung({ accent }) {
 
       {/* Tabelle */}
       <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 196px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 220px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           <div>Rechnungs-Nr.</div>
           <div>Schüler</div>
           <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -2087,7 +2178,7 @@ function Buchhaltung({ accent }) {
           </div>
         ) : rechnungenGefiltert.map((r, i) => (
           <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 196px', gap: 6,
+            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 220px', gap: 6,
             padding: '11px 14px', alignItems: 'center',
             borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
             opacity: r.status === 'storniert' ? 0.4 : 1,
@@ -2096,7 +2187,7 @@ function Buchhaltung({ accent }) {
           onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.id}</div>
+            <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.anzeige_nr || r.id}</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{r.schueler_name}</div>
               <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>{r.schueler_id}</div>
@@ -2178,6 +2269,15 @@ function Buchhaltung({ accent }) {
               >
                 <Icon name="mail" size={13} />
               </button>
+              <button
+                title="Rechnungsnummer bearbeiten"
+                onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
+                style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+              >
+                <Icon name="edit" size={13} />
+              </button>
               {r.status === 'archiviert' ? (
                 <button
                   title="Archivierung aufheben"
@@ -2187,7 +2287,7 @@ function Buchhaltung({ accent }) {
                     setArchivierend(r.id);
                     try {
                       await window.api.rechnung.unarchivieren(r.id);
-                      window.showToast('success', `Rechnung ${r.id} wieder aktiv.`);
+                      window.showToast('success', `Rechnung ${r.anzeige_nr || r.id} wieder aktiv.`);
                       window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
                     } catch (err) {
                       window.showToast('error', err.message || 'Fehler.');
@@ -2210,7 +2310,7 @@ function Buchhaltung({ accent }) {
                     setArchivierend(r.id);
                     try {
                       await window.api.rechnung.archivieren(r.id);
-                      window.showToast('success', `Rechnung ${r.id} archiviert.`);
+                      window.showToast('success', `Rechnung ${r.anzeige_nr || r.id} archiviert.`);
                       loadUnversandt();
                       loadVersandt();
                       window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
@@ -2243,6 +2343,14 @@ function Buchhaltung({ accent }) {
               .then(res => setRechnungen(res.items || []))
               .catch(console.error);
           }}
+        />
+      )}
+      {editingRechnung && (
+        <RechnungsNrDialog
+          rechnung={editingRechnung}
+          accent={accent}
+          onClose={() => setEditingRechnung(null)}
+          onSaved={(anzeigeNr) => { updateAnzeigeNrLocal(editingRechnung.id, anzeigeNr); setEditingRechnung(null); }}
         />
       )}
     </div>

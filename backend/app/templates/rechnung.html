@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="pdf-download-url" content="/api/rechnungen/{{ rechnung.id }}/pdf">
-  <meta name="pdf-filename" content="{{ rechnung.id }}.pdf">
-  <title>Rechnung {{ rechnung.id }}</title>
+  <meta name="pdf-filename" content="{{ rechnung.anzeige_nr }}.pdf">
+  <title>Rechnung {{ rechnung.anzeige_nr }}</title>
   <style>
     @page {
       size: A4;
@@ -239,6 +239,7 @@
     </div>
     <div class="doc-info">
       <div class="doc-title">Rechnung</div>
+      <div class="doc-date">Rechnung Nr. {{ rechnung.anzeige_nr }}</div>
       <div class="doc-date">Datum: {{ rechnung.datum }}</div>
       <div class="doc-date">Schuljahr: {{ rechnung.schuljahr }}</div>
     </div>

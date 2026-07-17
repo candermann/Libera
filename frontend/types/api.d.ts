@@ -55,6 +55,7 @@ declare global {
 
   interface Rechnung {
     id: ApiId;
+    anzeige_nr?: string;
     schueler_id: ApiId;
     datum: ISODateString;
     schuljahr: string;
@@ -184,6 +185,7 @@ declare global {
       get(id: ApiId): Promise<Lernmaterial>;
       create(data: Partial<Lernmaterial>): Promise<Lernmaterial>;
       update(id: ApiId, data: Partial<Lernmaterial>): Promise<Lernmaterial>;
+      restock(id: ApiId, bestand_gesamt: number): Promise<Lernmaterial>;
       remove(id: ApiId): Promise<null>;
       renameKategorie(alt: string, neu: string): Promise<unknown>;
       importCsv(file: File): Promise<unknown>;
@@ -203,6 +205,7 @@ declare global {
       mailVorschau(id: ApiId, data: unknown): Promise<RechnungMailPreview>;
       mailSenden(id: ApiId, data: unknown): Promise<unknown>;
       storno(id: ApiId): Promise<unknown>;
+      updateAnzeigeNr(id: ApiId, data: { anzeige_nr: string }): Promise<{ id: ApiId; anzeige_nr: string }>;
     };
     gutschrift(data: unknown): Promise<Gutschrift>;
     gutschriften: {

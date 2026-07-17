@@ -14,6 +14,7 @@ from app.models import Lernmaterial, LernmaterialKategorie
 from app.schemas import (
     LernmaterialCreate,
     LernmaterialListResponse,
+    LernmaterialRestockRequest,
     LernmaterialResponse,
     LernmaterialUpdate,
     NameCreateRequest,
@@ -178,6 +179,24 @@ def update_lernmaterial(
         _ensure_kategorie_exists(db, update_data.get("kategorie"))
     for field, value in update_data.items():
         setattr(m, field, value)
+    db.commit()
+    db.refresh(m)
+    return _to_response(m)
+
+
+@router.post("/{material_id}/restock", response_model=LernmaterialResponse)
+def restock_lernmaterial(
+    material_id: str, data: LernmaterialRestockRequest, db: Session = Depends(get_db)
+):
+    m = db.query(Lernmaterial).filter(
+        Lernmaterial.id == material_id, Lernmaterial.geloescht_am.is_(None)
+    ).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Lernmaterial nicht gefunden")
+    if data.bestand_gesamt < 0:
+        raise HTTPException(status_code=422, detail="Bestand darf nicht negativ sein")
+    m.bestand_gesamt = data.bestand_gesamt
+    m.bestand_ausgegeben = 0
     db.commit()
     db.refresh(m)
     return _to_response(m)

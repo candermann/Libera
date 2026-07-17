@@ -113,7 +113,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const [rechnungPreviewHtml, setRechnungPreviewHtml] = React.useState('');
   const [previewError, setPreviewError] = React.useState('');
   const [studentSaldo, setStudentSaldo] = React.useState(0);
-  const [guthabenVerrechnen, setGuthabenVerrechnen] = React.useState(false);
+  const [guthabenVerrechnen, setGuthabenVerrechnen] = React.useState(true);
   const [freiCart, setFreiCart] = React.useState([]);
   const [freiBezeichnung, setFreiBezeichnung] = React.useState('');
   const [freiBetrag, setFreiBetrag] = React.useState('');

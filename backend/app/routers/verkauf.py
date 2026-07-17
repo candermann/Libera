@@ -28,6 +28,7 @@ from app.schemas import (
     ErrorResponse,
     FreipostenResponse,
     LernmaterialPostenResponse,
+    RechnungAnzeigeNrUpdate,
     RechnungDetailResponse,
     RechnungMailPreviewRequest,
     RechnungMailPreviewResponse,
@@ -583,6 +584,7 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
 
     rechnung = Rechnungen(
         id=rechnung_id,
+        anzeige_nr=rechnung_id,
         schueler_id=data.schueler_id,
         schuljahr=schuljahr,
         datum=today,
@@ -772,6 +774,7 @@ def get_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
 
     return RechnungDetailResponse(
         id=r.id,
+        anzeige_nr=r.anzeige_nr or r.id,
         schueler_id=r.schueler_id,
         schuljahr=r.schuljahr,
         datum=r.datum,
@@ -853,6 +856,29 @@ def unarchivieren_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
     r.status = "offen"
     db.commit()
     return {"status": "offen", "rechnung_id": rechnung_id}
+
+
+@router.patch("/rechnungen/{rechnung_id}/anzeige-nr")
+def update_anzeige_nr(rechnung_id: str, data: RechnungAnzeigeNrUpdate, db: Session = Depends(get_db)):
+    r = db.query(Rechnungen).filter(Rechnungen.id == rechnung_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
+
+    value = data.anzeige_nr.strip()
+    if not value:
+        raise HTTPException(status_code=400, detail="Rechnungsnummer darf nicht leer sein")
+
+    konflikt = (
+        db.query(Rechnungen)
+        .filter(Rechnungen.anzeige_nr == value, Rechnungen.id != rechnung_id)
+        .first()
+    )
+    if konflikt:
+        raise HTTPException(status_code=409, detail="Diese Rechnungsnummer ist bereits vergeben")
+
+    r.anzeige_nr = value
+    db.commit()
+    return {"id": r.id, "anzeige_nr": r.anzeige_nr}
 
 
 @router.get("/rechnungen/{rechnung_id}/pdf")

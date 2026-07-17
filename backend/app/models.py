@@ -140,6 +140,7 @@ class Rechnungen(Base):
     mail_versandt_am = Column(Text, nullable=True)
     mail_versandt_an = Column(Text, nullable=True)
     notizen = Column(Text, nullable=True)
+    anzeige_nr = Column(Text, nullable=True)  # frei vergebbare, von id unabhängige Rechnungsnummer
     erstellt_am = Column(
         Text, nullable=False, server_default=sa_text("(datetime('now'))")
     )
@@ -155,6 +156,7 @@ class Rechnungen(Base):
         Index("idx_rechnungen_status", "status"),
         Index("idx_rechnungen_erstellt", "erstellt_am"),
         Index("idx_rechnungen_schuljahr", "schuljahr"),
+        Index("idx_rechnungen_anzeige_nr", "anzeige_nr", unique=True),
     )
 
 

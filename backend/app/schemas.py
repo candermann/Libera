@@ -360,6 +360,10 @@ class LernmaterialUpdate(BaseModel):
     bestand_gesamt: Optional[int] = None
 
 
+class LernmaterialRestockRequest(BaseModel):
+    bestand_gesamt: int
+
+
 class LernmaterialResponse(BaseModel):
     id: str
     name: str
@@ -407,6 +411,7 @@ class RechnungVerrechnungPostenResponse(BaseModel):
 
 class RechnungDetailResponse(BaseModel):
     id: str
+    anzeige_nr: str
     schueler_id: str
     schuljahr: str
     datum: str
@@ -419,6 +424,10 @@ class RechnungDetailResponse(BaseModel):
     lernmaterial_posten: list[LernmaterialPostenResponse] = Field(default_factory=list)
     freiposten: list[FreipostenResponse] = Field(default_factory=list)
     verrechnung_posten: list[RechnungVerrechnungPostenResponse] = Field(default_factory=list)
+
+
+class RechnungAnzeigeNrUpdate(BaseModel):
+    anzeige_nr: str
 
 
 class RechnungMailPreviewRequest(BaseModel):

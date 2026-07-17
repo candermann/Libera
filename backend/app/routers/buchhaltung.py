@@ -53,7 +53,7 @@ def list_rechnungen_buchhaltung(
 ):
     if schuljahr:
         rows = db.execute(text("""
-            SELECT r.id, r.schueler_id,
+            SELECT r.id, r.anzeige_nr, r.schueler_id,
                    s.nachname || ', ' || s.vorname AS schueler_name,
                    s.nachname, s.vorname,
                    s.klasse, s.email_eltern,
@@ -67,7 +67,7 @@ def list_rechnungen_buchhaltung(
         """), {"schuljahr": schuljahr}).fetchall()
     else:
         rows = db.execute(text("""
-            SELECT r.id, r.schueler_id,
+            SELECT r.id, r.anzeige_nr, r.schueler_id,
                    s.nachname || ', ' || s.vorname AS schueler_name,
                    s.nachname, s.vorname,
                    s.klasse, s.email_eltern,
@@ -82,6 +82,7 @@ def list_rechnungen_buchhaltung(
     return {"items": [
         {
             "id": r.id,
+            "anzeige_nr": r.anzeige_nr or r.id,
             "schueler_id": r.schueler_id,
             "schueler_name": r.schueler_name,
             "klasse": r.klasse,
@@ -103,7 +104,7 @@ def list_rechnungen_buchhaltung(
 @router.get("/unversandt")
 def list_unversandt(db: Session = Depends(get_db)):
     rows = db.execute(text("""
-        SELECT r.id, r.schueler_id,
+        SELECT r.id, r.anzeige_nr, r.schueler_id,
                s.nachname || ', ' || s.vorname AS schueler_name,
                s.klasse, s.email_eltern,
                r.datum, r.summe_cents, r.verrechnet_cents,
@@ -118,6 +119,7 @@ def list_unversandt(db: Session = Depends(get_db)):
     return {"items": [
         {
             "id": r.id,
+            "anzeige_nr": r.anzeige_nr or r.id,
             "schueler_id": r.schueler_id,
             "schueler_name": r.schueler_name,
             "klasse": r.klasse,
@@ -138,7 +140,7 @@ def list_unversandt(db: Session = Depends(get_db)):
 @router.get("/versandt")
 def list_versandt(db: Session = Depends(get_db)):
     rows = db.execute(text("""
-        SELECT r.id, r.schueler_id,
+        SELECT r.id, r.anzeige_nr, r.schueler_id,
                s.nachname || ', ' || s.vorname AS schueler_name,
                s.klasse, s.email_eltern,
                r.datum, r.summe_cents, r.verrechnet_cents,
@@ -153,6 +155,7 @@ def list_versandt(db: Session = Depends(get_db)):
     return {"items": [
         {
             "id": r.id,
+            "anzeige_nr": r.anzeige_nr or r.id,
             "schueler_id": r.schueler_id,
             "schueler_name": r.schueler_name,
             "klasse": r.klasse,

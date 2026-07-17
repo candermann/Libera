@@ -675,6 +675,16 @@ def _ensure_rechnungs_posten_behalten_column(conn: Connection):
         conn.execute(text("ALTER TABLE rechnungs_posten ADD COLUMN behalten INTEGER NOT NULL DEFAULT 0"))
 
 
+def _ensure_rechnungen_anzeige_nr_column(conn: Connection):
+    cols = _table_columns(conn, "rechnungen")
+    if "anzeige_nr" not in cols:
+        conn.execute(text("ALTER TABLE rechnungen ADD COLUMN anzeige_nr TEXT"))
+        conn.execute(text("UPDATE rechnungen SET anzeige_nr = id WHERE anzeige_nr IS NULL"))
+    conn.execute(text(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_rechnungen_anzeige_nr ON rechnungen(anzeige_nr)"
+    ))
+
+
 def prepare_schema(conn: Connection):
     """Create additive schema objects needed by the current app version."""
     _ensure_benutzer_table(conn)
@@ -701,6 +711,7 @@ def prepare_schema(conn: Connection):
     _ensure_bestand_schuljahr_eingestellt(conn)
     _ensure_archiviert_schuljahr_column(conn)
     _ensure_rechnungs_posten_behalten_column(conn)
+    _ensure_rechnungen_anzeige_nr_column(conn)
 
 
 def init_db():
