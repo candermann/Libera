@@ -808,7 +808,7 @@ def storno_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
         .all()
     )
     for p in posten:
-        if p.zurueckgegeben:
+        if p.zurueckgegeben or p.behalten:
             continue
         buch = db.query(Buecher).filter(Buecher.id == p.buch_id).first()
         if buch:
