@@ -1,5 +1,114 @@
 // Sidebar / Topbar layout shells
 
+// ── Offene Vorgänge (Buchausgabe/-rückgabe Entwürfe) ──────────────────────
+const VORGANG_DRAFT_KEY = 'bibliomat_vorgang_entwuerfe';
+const VORGANG_FLOW_LABELS = {
+  buchausgabe: 'Ausgabe',
+  buchruckgabe: 'Rückgabe',
+  'ausgabe-rueckgabe': 'Ausgabe/Rückgabe',
+};
+
+function _ladeVorgangEntwuerfe() {
+  try {
+    const raw = sessionStorage.getItem(VORGANG_DRAFT_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_e) {
+    return {};
+  }
+}
+
+function _schreibeVorgangEntwuerfe(all) {
+  try {
+    sessionStorage.setItem(VORGANG_DRAFT_KEY, JSON.stringify(all));
+  } catch (_e) {
+    // sessionStorage voll oder deaktiviert - Entwurf wird dann einfach nicht gesichert
+  }
+  window.dispatchEvent(new Event('vorgang-entwurf-updated'));
+}
+
+window.vorgangEntwuerfe = {
+  _key(flow, schuelerId) { return flow + ':' + schuelerId; },
+  list() {
+    return Object.values(_ladeVorgangEntwuerfe()).sort((a, b) => b.updated_at - a.updated_at);
+  },
+  get(flow, schuelerId) {
+    return _ladeVorgangEntwuerfe()[this._key(flow, schuelerId)] || null;
+  },
+  save(flow, schueler, state) {
+    const all = _ladeVorgangEntwuerfe();
+    all[this._key(flow, schueler.id)] = {
+      flow,
+      schueler: { id: schueler.id, vorname: schueler.vorname, nachname: schueler.nachname, klasse: schueler.klasse },
+      updated_at: Date.now(),
+      state,
+    };
+    _schreibeVorgangEntwuerfe(all);
+  },
+  remove(flow, schuelerId) {
+    const all = _ladeVorgangEntwuerfe();
+    const key = this._key(flow, schuelerId);
+    if (all[key]) {
+      delete all[key];
+      _schreibeVorgangEntwuerfe(all);
+    }
+  },
+};
+
+function vorgangZeitLabel(ts) {
+  const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (diffMin < 1) return 'gerade eben';
+  if (diffMin < 60) return `vor ${diffMin} Min.`;
+  const diffStd = Math.round(diffMin / 60);
+  if (diffStd < 24) return `vor ${diffStd} Std.`;
+  return `vor ${Math.round(diffStd / 24)} Tg.`;
+}
+
+function OffeneVorgaengeListe({ entwuerfe, onSelect }) {
+  if (!entwuerfe || entwuerfe.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b45309', marginBottom: 6 }}>
+        Offene Vorgänge
+      </div>
+      <div style={{ background: '#fff7ed', border: '1px solid #fde8c9', borderRadius: 10, overflow: 'hidden' }}>
+        {entwuerfe.map((entwurf, i) => (
+          <div key={entwurf.schueler.id} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            borderTop: i === 0 ? 'none' : '1px solid #fde8c9',
+          }}>
+            <button
+              onClick={() => onSelect(entwurf.schueler)}
+              style={{
+                flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', background: 'transparent', border: 'none',
+                cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit',
+              }}
+            >
+              <Avatar name={entwurf.schueler.vorname + ' ' + entwurf.schueler.nachname} size={30} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>
+                  {entwurf.schueler.nachname}, {entwurf.schueler.vorname}
+                </div>
+                <div style={{ fontSize: 11, color: '#b45309', marginTop: 1 }}>
+                  Fortsetzen · {vorgangZeitLabel(entwurf.updated_at)}
+                </div>
+              </div>
+              <Icon name="arrow-right" size={14} style={{ color: '#b45309', flexShrink: 0 }} />
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); window.vorgangEntwuerfe.remove(entwurf.flow, entwurf.schueler.id); }}
+              title="Entwurf verwerfen"
+              style={{ background: 'transparent', border: 'none', color: '#b45309', cursor: 'pointer', padding: '8px 10px', display: 'flex' }}
+            >
+              <Icon name="x" size={13} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const NAV_ITEMS = [
   { id: 'start', label: 'Start', icon: 'home' },
   { id: 'ausgabe-rueckgabe', label: 'Ausgabe & Rückgabe', icon: 'refresh-cw' },
@@ -46,6 +155,21 @@ function getUserInitials(username) {
   if (parts.length === 0) return 'BE';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
+}
+
+function useVorgangEntwuerfe() {
+  const [entwuerfe, setEntwuerfe] = React.useState([]);
+  React.useEffect(() => {
+    const refresh = () => setEntwuerfe(window.vorgangEntwuerfe.list());
+    refresh();
+    window.addEventListener('vorgang-entwurf-updated', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener('vorgang-entwurf-updated', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
+  return entwuerfe;
 }
 
 function Sidebar({ current, onNav, accent, currentUser }) {

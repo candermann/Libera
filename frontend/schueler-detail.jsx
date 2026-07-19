@@ -456,6 +456,15 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
                   schueler_name: `${detail.nachname}, ${detail.vorname}`,
                   status: 'offen',
                 })}
+                onStornoRechnung={async (v) => {
+                  try {
+                    await window.api.rechnung.storno(v.id);
+                    window.showToast('success', `Rechnung ${v.id} storniert.`);
+                    reload();
+                  } catch (err) {
+                    window.showToast('error', err.message || 'Rechnung konnte nicht storniert werden.');
+                  }
+                }}
                 onEditZahlung={isArchived ? null : (v) => {
                   const z = zahlungen.find(z => String(z.id) === String(v.id));
                   if (z) setEditZahlung(z);
@@ -544,8 +553,9 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
   );
 }
 
-function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung, onDeleteAuszahlung, onSendRechnungMail }) {
+function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung, onDeleteAuszahlung, onSendRechnungMail, onStornoRechnung }) {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
+  const [confirmStornoId, setConfirmStornoId] = React.useState(null);
   const formatDateSafe = (value) => {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value || '—');
@@ -694,6 +704,30 @@ function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung,
                 >
                   <Icon name="mail" size={13} />
                 </button>
+              )}
+              {v.typ === 'rechnung' && onStornoRechnung && (
+                confirmStornoId === v.id ? (
+                  <>
+                    <button
+                      onClick={() => { onStornoRechnung(v); setConfirmStornoId(null); }}
+                      style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#b91c1c', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit' }}
+                    >Ja</button>
+                    <button
+                      onClick={() => setConfirmStornoId(null)}
+                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#475569', fontSize: 11.5, fontFamily: 'inherit' }}
+                    >Nein</button>
+                  </>
+                ) : (
+                  <button
+                    title="Rechnung stornieren"
+                    onClick={() => setConfirmStornoId(v.id)}
+                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  >
+                    <Icon name="undo" size={13} />
+                  </button>
+                )
               )}
             </div>
           </div>

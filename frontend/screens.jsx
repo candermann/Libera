@@ -2,6 +2,8 @@
 // Explizite Abhängigkeiten aus vorher geladenen Dateien
 var FlowShell = window.FlowShell;
 
+const RUECKGABE_DRAFT_FLOW = 'buchruckgabe';
+
 function Rueckgabe({ accent, onDone, preselectedStudent }) {
   const [step, setStep] = React.useState(1);
   const [query, setQuery] = React.useState('');
@@ -9,12 +11,21 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
   const [selectedStudent, setSelectedStudent] = React.useState(null);
   const [studentBooks, setStudentBooks] = React.useState([]);
   const [returned, setReturned] = React.useState({});
+  const pendingRestoreRef = React.useRef(null);
+  const eigeneEntwuerfe = useVorgangEntwuerfe().filter(e => e.flow === RUECKGABE_DRAFT_FLOW);
+
+  const selectStudent = (student) => {
+    const draft = window.vorgangEntwuerfe.get(RUECKGABE_DRAFT_FLOW, student.id);
+    pendingRestoreRef.current = (draft && draft.state && draft.state.returned) || null;
+    setSelectedStudent(student);
+    setStep(3);
+  };
 
   React.useEffect(() => {
     if (preselectedStudent) {
-      setSelectedStudent(preselectedStudent);
-      setStep(3);
+      selectStudent(preselectedStudent);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedStudent]);
 
   React.useEffect(() => {
@@ -27,10 +38,27 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
     if (selectedStudent && step === 3) {
       window.api.schueler.aktiveBuecher(selectedStudent.id).then(res => {
         setStudentBooks(res.items || []);
-        setReturned({});
+        if (pendingRestoreRef.current) {
+          setReturned(pendingRestoreRef.current);
+          pendingRestoreRef.current = null;
+        } else {
+          setReturned({});
+        }
       }).catch(console.error);
     }
   }, [selectedStudent, step]);
+
+  React.useEffect(() => {
+    if (!selectedStudent) return;
+    const hatAuswahl = Object.values(returned).some(Boolean);
+    if (!hatAuswahl) return;
+    window.vorgangEntwuerfe.save(RUECKGABE_DRAFT_FLOW, selectedStudent, { returned });
+  }, [selectedStudent, returned]);
+
+  const handleCancel = () => {
+    if (selectedStudent) window.vorgangEntwuerfe.remove(RUECKGABE_DRAFT_FLOW, selectedStudent.id);
+    onDone();
+  };
 
   const totalCredit = studentBooks.filter(b => returned[b.rechnungs_posten_id]).reduce((s, b) => s + b.gutschrift_cents, 0) / 100;
   const returnedCount = Object.values(returned).filter(Boolean).length;
@@ -44,6 +72,7 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
       const anzahl = posten_ids.length === 1 ? '1 Buch' : `${posten_ids.length} Bücher`;
       const gutschrift = `${(res.summe_cents / 100).toFixed(2).replace('.', ',')} €`;
       window.showToast('success', `${anzahl} zurückgegeben und Gutschrift ${res.id} (${gutschrift}) in der Schülerkartei hinterlegt.`);
+      window.vorgangEntwuerfe.remove(RUECKGABE_DRAFT_FLOW, selectedStudent.id);
       await window.openProtectedDocument(window.api.gutschriften.pdf(res.id), print);
       onDone();
     } catch (e) {
@@ -54,12 +83,13 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
 
   if (step === 1) {
     return (
-      <FlowShell title="Buchrückgabe" subtitle="Schritt 1 von 2 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
+      <FlowShell title="Buchrückgabe" subtitle="Schritt 1 von 2 · Schüler auswählen" onCancel={handleCancel} step={1} accent={accent}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <OffeneVorgaengeListe entwuerfe={eigeneEntwuerfe} onSelect={selectStudent} />
           <SearchInput value={query} onChange={setQuery} placeholder="Schüler suchen — Name, Klasse oder ID…" autoFocus/>
           <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
             {students.map((s, i) => (
-              <button key={s.id} onClick={() => { setSelectedStudent(s); setStep(3); }} style={{
+              <button key={s.id} onClick={() => selectStudent(s)} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 14px',
                 background: 'transparent', border: 'none',
@@ -84,7 +114,7 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
   }
 
   return (
-    <FlowShell title="Buchrückgabe" subtitle="Schritt 2 von 2 · Bücher zurücknehmen" onCancel={onDone} onBack={() => setStep(1)} step={3} accent={accent}>
+    <FlowShell title="Buchrückgabe" subtitle="Schritt 2 von 2 · Bücher zurücknehmen" onCancel={handleCancel} onBack={() => setStep(1)} step={3} accent={accent}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
@@ -1661,6 +1691,8 @@ function Buchhaltung({ accent }) {
   const [versandtLoading, setVersandtLoading] = React.useState(false);
   const [archivierend, setArchivierend] = React.useState(null);
   const [editingRechnung, setEditingRechnung] = React.useState(null);
+  const [stornierend, setStornierend] = React.useState(null);
+  const [confirmStornoId, setConfirmStornoId] = React.useState(null);
 
   const updateAnzeigeNrLocal = (id, anzeigeNr) => {
     const patch = (list) => list.map(item => item.id === id ? { ...item, anzeige_nr: anzeigeNr } : item);
@@ -1702,6 +1734,21 @@ function Buchhaltung({ accent }) {
       window.showToast('error', err.message || 'Fehler beim Archivieren.');
     } finally {
       setArchivierend(null);
+    }
+  };
+
+  const stornoRechnung = async (r) => {
+    setStornierend(r.id);
+    try {
+      await window.api.rechnung.storno(r.id);
+      window.showToast('success', `Rechnung ${r.anzeige_nr || r.id} storniert.`);
+      setRechnungen(list => list.map(item => item.id === r.id ? { ...item, status: 'storniert' } : item));
+      loadUnversandt();
+      loadVersandt();
+    } catch (err) {
+      window.showToast('error', err.message || 'Fehler beim Stornieren.');
+    } finally {
+      setStornierend(null);
     }
   };
 
@@ -2160,7 +2207,7 @@ function Buchhaltung({ accent }) {
 
       {/* Tabelle */}
       <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 220px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 260px', gap: 6, padding: '10px 14px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
           <div>Rechnungs-Nr.</div>
           <div>Schüler</div>
           <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -2178,7 +2225,7 @@ function Buchhaltung({ accent }) {
           </div>
         ) : rechnungenGefiltert.map((r, i) => (
           <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 220px', gap: 6,
+            display: 'grid', gridTemplateColumns: '148px minmax(170px, 0.82fr) 64px 86px 98px 104px 82px 260px', gap: 6,
             padding: '11px 14px', alignItems: 'center',
             borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
             opacity: r.status === 'storniert' ? 0.4 : 1,
@@ -2278,6 +2325,31 @@ function Buchhaltung({ accent }) {
               >
                 <Icon name="edit" size={13} />
               </button>
+              {r.status !== 'storniert' && (
+                confirmStornoId === r.id ? (
+                  <>
+                    <button
+                      onClick={e => { e.stopPropagation(); stornoRechnung(r); setConfirmStornoId(null); }}
+                      style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#b91c1c', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit' }}
+                    >Ja</button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setConfirmStornoId(null); }}
+                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#475569', fontSize: 11.5, fontFamily: 'inherit' }}
+                    >Nein</button>
+                  </>
+                ) : (
+                  <button
+                    title="Rechnung stornieren"
+                    disabled={stornierend === r.id}
+                    onClick={e => { e.stopPropagation(); setConfirmStornoId(r.id); }}
+                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: stornierend === r.id ? 0.5 : 1 }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
+                )
+              )}
               {r.status === 'archiviert' ? (
                 <button
                   title="Archivierung aufheben"

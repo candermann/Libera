@@ -92,6 +92,8 @@ function asA4PreviewHtml(html) {
   return `${previewStyle}${html}`;
 }
 
+const VERKAUF_DRAFT_FLOW = 'buchausgabe';
+
 function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const { KLASSEN } = window.CONSTANTS;
   const [step, setStep] = React.useState(preselectedStudent ? 2 : 1);
@@ -121,6 +123,36 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const [freiAlsVorlage, setFreiAlsVorlage] = React.useState(false);
   const [vorlagen, setVorlagen] = React.useState([]);
   const [oberstufeShowBooks, setOberstufeShowBooks] = React.useState(false);
+  const eigeneEntwuerfe = useVorgangEntwuerfe().filter(e => e.flow === VERKAUF_DRAFT_FLOW);
+
+  const selectStudent = (student) => {
+    setSelectedStudent(student);
+    const draft = window.vorgangEntwuerfe.get(VERKAUF_DRAFT_FLOW, student.id);
+    if (draft && draft.state) {
+      setCart(draft.state.cart || []);
+      setLmCart(draft.state.lmCart || []);
+      setFreiCart(draft.state.freiCart || []);
+      if (typeof draft.state.guthabenVerrechnen === 'boolean') setGuthabenVerrechnen(draft.state.guthabenVerrechnen);
+    }
+    setStep(2);
+  };
+
+  const handleCancel = () => {
+    if (selectedStudent) window.vorgangEntwuerfe.remove(VERKAUF_DRAFT_FLOW, selectedStudent.id);
+    onDone();
+  };
+
+  React.useEffect(() => {
+    if (preselectedStudent) selectStudent(preselectedStudent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    if (!selectedStudent || step !== 2) return;
+    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0;
+    if (!hatInhalt) return;
+    window.vorgangEntwuerfe.save(VERKAUF_DRAFT_FLOW, selectedStudent, { cart, lmCart, freiCart, guthabenVerrechnen });
+  }, [selectedStudent, cart, lmCart, freiCart, guthabenVerrechnen, step]);
 
   React.useEffect(() => {
     if (step === 1) {
@@ -286,6 +318,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
         freiposten: freiCart.map(item => ({ bezeichnung: item.bezeichnung, betrag_cents: item.betrag_cents, typ: item.typ })),
         guthaben_verrechnen: guthabenVerrechnen,
       });
+      window.vorgangEntwuerfe.remove(VERKAUF_DRAFT_FLOW, selectedStudent.id);
       setSaleResult(res);
       setStep(3);
       const anzahlBuecher = cart.length;
@@ -308,14 +341,15 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 1) {
     return (
-      <FlowShell title="Buchausgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
+      <FlowShell title="Buchausgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={handleCancel} step={1} accent={accent}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <OffeneVorgaengeListe entwuerfe={eigeneEntwuerfe} onSelect={selectStudent} />
           <SearchInput value={query} onChange={setQuery} placeholder="Schüler suchen - Name, Klasse oder ID..." autoFocus />
           <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
             {students.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Keine Schüler gefunden.</div>
             ) : students.map((student, index) => (
-              <button key={student.id} onClick={() => { setSelectedStudent(student); setStep(2); }} style={{
+              <button key={student.id} onClick={() => selectStudent(student)} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 14px',
                 background: 'transparent', border: 'none',
@@ -346,7 +380,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 2) {
     return (
-      <FlowShell title="Buchausgabe" subtitle="Schritt 2 von 3 · Buchqualität auswählen" onCancel={onDone} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
+      <FlowShell title="Buchausgabe" subtitle="Schritt 2 von 3 · Buchqualität auswählen" onCancel={handleCancel} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
@@ -793,7 +827,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   }
 
   return (
-    <FlowShell title="Buchausgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={onDone} step={3} accent={accent}>
+    <FlowShell title="Buchausgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={handleCancel} step={3} accent={accent}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
         <div>
           <div style={{ fontSize: 11.5, color: '#94a3b8', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Vorschau</div>
@@ -991,6 +1025,8 @@ function FlowShell({ title, subtitle, onCancel, onBack, step, accent, children }
   );
 }
 
+const KOMBINIERT_DRAFT_FLOW = 'ausgabe-rueckgabe';
+
 function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   const { KLASSEN } = window.CONSTANTS;
   const [step, setStep] = React.useState(preselectedStudent ? 2 : 1);
@@ -1023,6 +1059,41 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   const [mailRechnung, setMailRechnung] = React.useState(null);
   const [rechnungPreviewHtml, setRechnungPreviewHtml] = React.useState('');
   const [previewError, setPreviewError] = React.useState('');
+  const pendingRestoreRef = React.useRef(null);
+  const eigeneEntwuerfe = useVorgangEntwuerfe().filter(e => e.flow === KOMBINIERT_DRAFT_FLOW);
+
+  const selectStudent = (student) => {
+    setSelectedStudent(student);
+    const draft = window.vorgangEntwuerfe.get(KOMBINIERT_DRAFT_FLOW, student.id);
+    if (draft && draft.state) {
+      setCart(draft.state.cart || []);
+      setLmCart(draft.state.lmCart || []);
+      setFreiCart(draft.state.freiCart || []);
+      pendingRestoreRef.current = {
+        returned: draft.state.returned || {},
+        beschaedigtKombi: draft.state.beschaedigtKombi || {},
+      };
+    }
+    setStep(2);
+  };
+
+  const handleCancel = () => {
+    if (selectedStudent) window.vorgangEntwuerfe.remove(KOMBINIERT_DRAFT_FLOW, selectedStudent.id);
+    onDone();
+  };
+
+  React.useEffect(() => {
+    if (preselectedStudent) selectStudent(preselectedStudent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    if (!selectedStudent || step !== 2) return;
+    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0
+      || Object.values(returned).some(Boolean);
+    if (!hatInhalt) return;
+    window.vorgangEntwuerfe.save(KOMBINIERT_DRAFT_FLOW, selectedStudent, { cart, lmCart, freiCart, returned, beschaedigtKombi });
+  }, [selectedStudent, cart, lmCart, freiCart, returned, beschaedigtKombi, step]);
 
   React.useEffect(() => {
     if (step === 1) {
@@ -1057,8 +1128,14 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
     if (step === 2 && selectedStudent) {
       window.api.schueler.aktiveBuecher(selectedStudent.id).then(res => {
         setStudentBooks(res.items || []);
-        setReturned({});
-        setBeschaedigtKombi({});
+        if (pendingRestoreRef.current) {
+          setReturned(pendingRestoreRef.current.returned || {});
+          setBeschaedigtKombi(pendingRestoreRef.current.beschaedigtKombi || {});
+          pendingRestoreRef.current = null;
+        } else {
+          setReturned({});
+          setBeschaedigtKombi({});
+        }
       }).catch(console.error);
     }
   }, [step, selectedStudent?.id]);
@@ -1138,6 +1215,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
         guthaben_verrechnen: false,
         rueckgaben: rueckgaben_kombi,
       });
+      window.vorgangEntwuerfe.remove(KOMBINIERT_DRAFT_FLOW, selectedStudent.id);
       setSaleResult(res);
       setStep(3);
       const rueckgabeInfo = rueckgaben_kombi.length > 0 ? ` · ${rueckgaben_kombi.length} ${rueckgaben_kombi.length === 1 ? 'Buch' : 'Bücher'} zurückgenommen` : '';
@@ -1150,14 +1228,15 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 1) {
     return (
-      <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
+      <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={handleCancel} step={1} accent={accent}>
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
+          <OffeneVorgaengeListe entwuerfe={eigeneEntwuerfe} onSelect={selectStudent} />
           <SearchInput value={query} onChange={setQuery} placeholder="Schüler suchen — Name, Klasse oder ID…" autoFocus />
           <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
             {students.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Keine Schüler gefunden.</div>
             ) : students.map((student, index) => (
-              <button key={student.id} onClick={() => { setSelectedStudent(student); setStep(2); }} style={{
+              <button key={student.id} onClick={() => selectStudent(student)} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 12,
                 padding: '12px 14px', background: 'transparent', border: 'none',
                 borderTop: index === 0 ? 'none' : '1px solid #f8fafc',
@@ -1187,7 +1266,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
 
   if (step === 2) {
     return (
-      <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 2 von 3 · Auswahl" onCancel={onDone} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
+      <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 2 von 3 · Auswahl" onCancel={handleCancel} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
           <div>
             {/* Schüler-Info */}
@@ -1536,7 +1615,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   }
 
   return (
-    <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={onDone} step={3} accent={accent}>
+    <FlowShell title="Ausgabe & Rückgabe" subtitle="Schritt 3 von 3 · Rechnung und Druck" onCancel={handleCancel} step={3} accent={accent}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, maxWidth: 1100, margin: '0 auto' }}>
         <div>
           <div style={{ fontSize: 11.5, color: '#94a3b8', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>Vorschau</div>
