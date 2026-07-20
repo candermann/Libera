@@ -200,7 +200,7 @@ function InventoryCreateBookDialog(props) {
             <input value={isbn} onChange={function (event) { setIsbn(event.target.value); }} placeholder="978-3-..." style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
           </div>
         </div>
-        <div style={{ paddingTop: 6, borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        <div style={{ paddingTop: 6, borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <div>
             <label style={labelStyle}>Basispreis (EUR)</label>
             <input type="number" step="0.01" value={preis} onChange={function (event) { setPreis(event.target.value); }} placeholder="29.90" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
@@ -209,22 +209,24 @@ function InventoryCreateBookDialog(props) {
             <label style={labelStyle}>Gebühr Jahr 6+ (EUR)</label>
             <input type="number" step="0.01" min="0" value={schutzgebuehr} onChange={function (event) { setSchutzgebuehr(event.target.value); }} placeholder="5.00" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
           </div>
-          <div>
-            <label style={labelStyle}>Bestand NJ 0 (Neu)</label>
-            <input type="number" value={bestand} onChange={function (event) { setBestand(event.target.value); }} placeholder="50" style={{ ...fieldStyle, fontFamily: 'JetBrains Mono, monospace' }} />
-          </div>
         </div>
         <div style={{ paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
-          <label style={{ ...labelStyle, marginBottom: 8 }}>Bestand nach Nutzungsjahr (optional)</label>
+          <label style={{ ...labelStyle, marginBottom: 8 }}>Bestand nach Nutzungsjahr</label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))', gap: 8 }}>
-            {[1, 2, 3, 4, 5, 6].map(function (nj) {
+            {[0, 1, 2, 3, 4, 5, 6].map(function (nj) {
               var colors = njColor(nj);
+              var label = nj === 0 ? 'Neu' : nj >= 6 ? 'Jahr 6+' : 'Jahr ' + nj;
+              var isNj0 = nj === 0;
               return (
                 <div key={nj} style={{ border: '1px solid #e8ecef', borderRadius: 8, background: colors.bg, padding: 8, minWidth: 0 }}>
-                  <div style={{ fontSize: 10.5, color: colors.color, fontWeight: 600, marginBottom: 6 }}>{usageLabel(nj)}</div>
+                  <div style={{ fontSize: 10.5, color: colors.color, fontWeight: 600, marginBottom: 6 }}>{label}</div>
                   <input
-                    type="number" min="0" value={njBestand[nj]}
-                    onChange={function (event) { setNjBestand(function (prev) { var next = Object.assign({}, prev); next[nj] = event.target.value; return next; }); }}
+                    type="number" min="0"
+                    value={isNj0 ? bestand : njBestand[nj]}
+                    onChange={function (event) {
+                      if (isNj0) { setBestand(event.target.value); }
+                      else { setNjBestand(function (prev) { var next = Object.assign({}, prev); next[nj] = event.target.value; return next; }); }
+                    }}
                     placeholder="0"
                     style={{ ...fieldStyle, width: '100%', minWidth: 0, padding: '7px 6px', fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, background: '#fff' }}
                   />
