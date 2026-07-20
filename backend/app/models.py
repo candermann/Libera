@@ -345,6 +345,55 @@ class RechnungVerrechnung(Base):
     )
 
 
+class RechnungEntwurf(Base):
+    __tablename__ = "rechnung_entwuerfe"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    vorgang_typ = Column(Text, nullable=False, server_default=sa_text("'buchausgabe'"))
+    schueler_id = Column(Text, ForeignKey("schueler.id"), nullable=True)
+    form_state_json = Column(Text, nullable=False)
+    bearbeiter = Column(Text, nullable=False)
+    freigegeben_an_json = Column(Text, nullable=False, server_default=sa_text("'[]'"))
+    status = Column(Text, nullable=False, server_default=sa_text("'in_bearbeitung'"))
+    erinnert_am = Column(Text, nullable=True)
+    erstellt_am = Column(Text, nullable=False, server_default=sa_text("(datetime('now'))"))
+    geaendert_am = Column(Text, nullable=False, server_default=sa_text("(datetime('now'))"))
+    abgeschlossen_am = Column(Text, nullable=True)
+
+    schueler = relationship("Schueler")
+
+    __table_args__ = (
+        Index("idx_rechnung_entwuerfe_status", "status"),
+        Index("idx_rechnung_entwuerfe_bearbeiter", "bearbeiter"),
+        Index("idx_rechnung_entwuerfe_geaendert", "geaendert_am"),
+        Index("idx_rechnung_entwuerfe_schueler", "schueler_id"),
+    )
+
+
+class RechnungStornoAudit(Base):
+    __tablename__ = "rechnung_storno_audit"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    rechnung_id = Column(Text, ForeignKey("rechnungen.id"), nullable=False)
+    rechnungs_posten_id = Column(Integer, ForeignKey("rechnungs_posten.id"), nullable=True)
+    aktion = Column(Text, nullable=False)
+    grund = Column(Text, nullable=False)
+    benutzer = Column(Text, nullable=False)
+    betrag_cents = Column(Integer, nullable=False, server_default=sa_text("0"))
+    gutschrift_id = Column(Text, ForeignKey("gutschriften.id"), nullable=True)
+    erstellt_am = Column(Text, nullable=False, server_default=sa_text("(datetime('now'))"))
+
+    rechnung = relationship("Rechnungen")
+    rechnungs_posten = relationship("RechnungsPosten")
+    gutschrift = relationship("Gutschriften")
+
+    __table_args__ = (
+        Index("idx_storno_audit_rechnung", "rechnung_id"),
+        Index("idx_storno_audit_posten", "rechnungs_posten_id"),
+        Index("idx_storno_audit_erstellt", "erstellt_am"),
+    )
+
+
 class Einstellungen(Base):
     __tablename__ = "einstellungen"
 

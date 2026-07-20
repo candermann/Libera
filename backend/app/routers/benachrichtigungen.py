@@ -5,7 +5,7 @@ GET  /api/benachrichtigungen        — Aktive Benachrichtigungen abrufen
 POST /api/benachrichtigungen/archiv/loeschen — Archivierte Schüler endgültig löschen
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -81,6 +81,36 @@ def get_benachrichtigungen(db: Session = Depends(get_db)):
             "anzahl": 0,
             "schueler": [],
             "aktion": "einstellungen",
+        })
+
+    entwurf_cutoff = (datetime.now() - timedelta(days=45)).replace(microsecond=0).isoformat()
+    alte_entwuerfe = db.execute(text("""
+        SELECT e.id, e.schueler_id, e.bearbeiter, e.geaendert_am, s.vorname, s.nachname
+        FROM rechnung_entwuerfe e
+        LEFT JOIN schueler s ON s.id = e.schueler_id
+        WHERE e.status = 'in_bearbeitung'
+          AND e.geaendert_am < :cutoff
+        ORDER BY e.geaendert_am
+    """), {"cutoff": entwurf_cutoff}).fetchall()
+    if alte_entwuerfe:
+        items.append({
+            "typ": "rechnung_entwuerfe_alt",
+            "titel": "Alte Rechnungsentwürfe",
+            "beschreibung": (
+                f"{len(alte_entwuerfe)} {'Entwurf ist' if len(alte_entwuerfe) == 1 else 'Entwürfe sind'} "
+                "seit über 45 Tagen unverändert. Nach 60 Tagen werden offene Entwürfe automatisch gelöscht."
+            ),
+            "anzahl": len(alte_entwuerfe),
+            "schueler": [
+                {
+                    "id": str(row.id),
+                    "name": f"{row.nachname}, {row.vorname}" if row.nachname else "Ohne Schüler",
+                    "klasse": row.bearbeiter,
+                    "archiviert_schuljahr": row.geaendert_am,
+                }
+                for row in alte_entwuerfe
+            ],
+            "aktion": "buchausgabe",
         })
 
     return {"items": items}

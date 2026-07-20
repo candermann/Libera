@@ -193,7 +193,12 @@ declare global {
       mailVorlage(id: ApiId): Promise<RechnungMailPreview>;
       mailVorschau(id: ApiId, data: unknown): Promise<RechnungMailPreview>;
       mailSenden(id: ApiId, data: unknown): Promise<unknown>;
-      storno(id: ApiId): Promise<unknown>;
+      storno(id: ApiId, data: unknown): Promise<unknown>;
+      entwuerfe(): Promise<ApiListResponse<unknown>>;
+      entwurf(id: ApiId): Promise<unknown>;
+      createEntwurf(data: unknown): Promise<unknown>;
+      updateEntwurf(id: ApiId, data: unknown): Promise<unknown>;
+      deleteEntwurf(id: ApiId): Promise<null>;
     };
     gutschrift(data: unknown): Promise<Gutschrift>;
     gutschriften: {

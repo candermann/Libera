@@ -2,11 +2,12 @@
 Verkauf and invoice endpoints.
 """
 
-from datetime import date, datetime
+import json
+from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -18,26 +19,35 @@ from app.models import (
     GutschriftPosten,
     Lernmaterial,
     LernmaterialPosten,
+    RechnungEntwurf,
+    RechnungStornoAudit,
     RechnungVerrechnung,
     Rechnungen,
     RechnungsPosten,
     RechnungFreiposten,
     Schueler,
+    Zahlungen,
 )
 from app.schemas import (
     ErrorResponse,
     FreipostenResponse,
     LernmaterialPostenResponse,
     RechnungDetailResponse,
+    RechnungEntwurfListResponse,
+    RechnungEntwurfResponse,
+    RechnungEntwurfSaveRequest,
     RechnungMailPreviewRequest,
     RechnungMailPreviewResponse,
     RechnungMailSendRequest,
     RechnungMailSendResponse,
+    RechnungStornoRequest,
+    RechnungStornoResponse,
     RechnungVerrechnungPostenResponse,
     RechnungsPostenResponse,
     VerkaufRequest,
     VerkaufResponse,
 )
+from app.security import get_current_user
 from app.services.ids import generate_rechnungs_id, generate_gutschrift_id
 from app.services.saldo import get_saldo
 from app.services.mail import (
@@ -278,13 +288,99 @@ def _lade_verrechnungsposten(db: Session, rechnung_id: str) -> list[RechnungVerr
     return result
 
 
+def _now_iso() -> str:
+    return datetime.now().replace(microsecond=0).isoformat()
+
+
+def _parse_json_list(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(value, list):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _parse_json_dict(raw: str | None) -> dict:
+    if not raw:
+        return {}
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _can_access_entwurf(entwurf: RechnungEntwurf, username: str) -> bool:
+    return (
+        username == "admin"
+        or entwurf.bearbeiter == username
+        or username in _parse_json_list(entwurf.freigegeben_an_json)
+    )
+
+
+def _cleanup_old_entwuerfe(db: Session) -> None:
+    cutoff = datetime.now() - timedelta(days=60)
+    cutoff_iso = cutoff.replace(microsecond=0).isoformat()
+    db.query(RechnungEntwurf).filter(
+        RechnungEntwurf.status == "in_bearbeitung",
+        RechnungEntwurf.geaendert_am < cutoff_iso,
+    ).delete(synchronize_session=False)
+
+
+def _entwurf_to_response(db: Session, entwurf: RechnungEntwurf) -> RechnungEntwurfResponse:
+    schueler_name = None
+    if entwurf.schueler_id:
+        schueler = db.query(Schueler).filter(Schueler.id == entwurf.schueler_id).first()
+        if schueler:
+            schueler_name = f"{schueler.nachname}, {schueler.vorname}"
+    return RechnungEntwurfResponse(
+        id=entwurf.id,
+        vorgang_typ=entwurf.vorgang_typ,
+        schueler_id=entwurf.schueler_id,
+        schueler_name=schueler_name,
+        form_state=_parse_json_dict(entwurf.form_state_json),
+        bearbeiter=entwurf.bearbeiter,
+        freigegeben_an=_parse_json_list(entwurf.freigegeben_an_json),
+        status=entwurf.status,
+        erstellt_am=entwurf.erstellt_am or "",
+        geaendert_am=entwurf.geaendert_am or "",
+        erinnert_am=entwurf.erinnert_am,
+    )
+
+
+def _mark_entwurf_abgeschlossen(db: Session, entwurf_id: int | None, username: str) -> None:
+    if not entwurf_id:
+        return
+    entwurf = db.query(RechnungEntwurf).filter(RechnungEntwurf.id == entwurf_id).first()
+    if not entwurf or not _can_access_entwurf(entwurf, username):
+        return
+    now = _now_iso()
+    entwurf.status = "abgeschlossen"
+    entwurf.abgeschlossen_am = now
+    entwurf.geaendert_am = now
+
+
+def _rechnung_paid_cents(db: Session, rechnung_id: str) -> int:
+    return db.query(func.coalesce(func.sum(Zahlungen.betrag_cents), 0)).filter(
+        Zahlungen.rechnung_id == rechnung_id
+    ).scalar() or 0
+
+
 @router.post(
     "/verkauf",
     response_model=VerkaufResponse,
     status_code=201,
     responses={422: {"model": ErrorResponse}},
 )
-def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
+def create_verkauf(
+    data: VerkaufRequest,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
     schueler = db.query(Schueler).filter(
         Schueler.id == data.schueler_id, Schueler.geloescht_am.is_(None)
     ).first()
@@ -645,6 +741,7 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
         )
         db.add(rv)
 
+    _mark_entwurf_abgeschlossen(db, data.entwurf_id, current_user)
     db.commit()
 
     return VerkaufResponse(
@@ -695,6 +792,105 @@ def create_verkauf(data: VerkaufRequest, db: Session = Depends(get_db)):
             for v in verrechnung_zuordnung
         ],
     )
+
+
+@router.get("/rechnungen/entwuerfe", response_model=RechnungEntwurfListResponse)
+def list_rechnung_entwuerfe(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    _cleanup_old_entwuerfe(db)
+    rows = (
+        db.query(RechnungEntwurf)
+        .filter(RechnungEntwurf.status == "in_bearbeitung")
+        .order_by(RechnungEntwurf.geaendert_am.desc())
+        .all()
+    )
+    visible = [row for row in rows if _can_access_entwurf(row, current_user)]
+    db.commit()
+    return RechnungEntwurfListResponse(
+        items=[_entwurf_to_response(db, row) for row in visible]
+    )
+
+
+@router.post("/rechnungen/entwuerfe", response_model=RechnungEntwurfResponse, status_code=201)
+def create_rechnung_entwurf(
+    data: RechnungEntwurfSaveRequest,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    _cleanup_old_entwuerfe(db)
+    now = _now_iso()
+    entwurf = RechnungEntwurf(
+        vorgang_typ=data.vorgang_typ,
+        schueler_id=data.schueler_id,
+        form_state_json=json.dumps(data.form_state, ensure_ascii=False),
+        bearbeiter=current_user,
+        freigegeben_an_json=json.dumps(data.freigegeben_an, ensure_ascii=False),
+        status="in_bearbeitung",
+        erstellt_am=now,
+        geaendert_am=now,
+    )
+    db.add(entwurf)
+    db.commit()
+    db.refresh(entwurf)
+    return _entwurf_to_response(db, entwurf)
+
+
+@router.get("/rechnungen/entwuerfe/{entwurf_id}", response_model=RechnungEntwurfResponse)
+def get_rechnung_entwurf(
+    entwurf_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    entwurf = db.query(RechnungEntwurf).filter(RechnungEntwurf.id == entwurf_id).first()
+    if not entwurf or entwurf.status != "in_bearbeitung":
+        raise HTTPException(status_code=404, detail="Entwurf nicht gefunden")
+    if not _can_access_entwurf(entwurf, current_user):
+        raise HTTPException(status_code=403, detail="Keine Berechtigung fuer diesen Entwurf")
+    return _entwurf_to_response(db, entwurf)
+
+
+@router.patch("/rechnungen/entwuerfe/{entwurf_id}", response_model=RechnungEntwurfResponse)
+def update_rechnung_entwurf(
+    entwurf_id: int,
+    data: RechnungEntwurfSaveRequest,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    _cleanup_old_entwuerfe(db)
+    entwurf = db.query(RechnungEntwurf).filter(RechnungEntwurf.id == entwurf_id).first()
+    if not entwurf or entwurf.status != "in_bearbeitung":
+        raise HTTPException(status_code=404, detail="Entwurf nicht gefunden")
+    if not _can_access_entwurf(entwurf, current_user):
+        raise HTTPException(status_code=403, detail="Keine Berechtigung fuer diesen Entwurf")
+    if data.geaendert_am and entwurf.geaendert_am and data.geaendert_am < entwurf.geaendert_am:
+        raise HTTPException(status_code=409, detail="Entwurf wurde zwischenzeitlich geaendert")
+
+    entwurf.vorgang_typ = data.vorgang_typ
+    entwurf.schueler_id = data.schueler_id
+    entwurf.form_state_json = json.dumps(data.form_state, ensure_ascii=False)
+    entwurf.freigegeben_an_json = json.dumps(data.freigegeben_an, ensure_ascii=False)
+    entwurf.geaendert_am = _now_iso()
+    db.commit()
+    db.refresh(entwurf)
+    return _entwurf_to_response(db, entwurf)
+
+
+@router.delete("/rechnungen/entwuerfe/{entwurf_id}", status_code=204)
+def delete_rechnung_entwurf(
+    entwurf_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    entwurf = db.query(RechnungEntwurf).filter(RechnungEntwurf.id == entwurf_id).first()
+    if not entwurf or entwurf.status != "in_bearbeitung":
+        raise HTTPException(status_code=404, detail="Entwurf nicht gefunden")
+    if not _can_access_entwurf(entwurf, current_user):
+        raise HTTPException(status_code=403, detail="Keine Berechtigung fuer diesen Entwurf")
+    db.delete(entwurf)
+    db.commit()
+    return Response(status_code=204)
 
 
 @router.get("/rechnungen")
@@ -790,8 +986,23 @@ def get_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/rechnungen/{rechnung_id}/storno", status_code=200)
-def storno_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
+@router.post(
+    "/rechnungen/{rechnung_id}/storno",
+    status_code=200,
+    response_model=RechnungStornoResponse,
+)
+def storno_rechnung(
+    rechnung_id: str,
+    data: RechnungStornoRequest | None = Body(default=None),
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user),
+):
+    if data is None:
+        raise HTTPException(status_code=422, detail="Storno-Grund ist erforderlich")
+    grund = data.grund.strip()
+    if len(grund) < 3:
+        raise HTTPException(status_code=422, detail="Storno-Grund ist erforderlich")
+
     r = db.query(Rechnungen).filter(Rechnungen.id == rechnung_id).first()
     if not r:
         raise HTTPException(status_code=404, detail="Rechnung nicht gefunden")
@@ -799,36 +1010,134 @@ def storno_rechnung(rechnung_id: str, db: Session = Depends(get_db)):
     if r.status == "storniert":
         raise HTTPException(status_code=422, detail="Rechnung ist bereits storniert")
 
-    posten = (
+    alle_buch_posten = (
         db.query(RechnungsPosten)
         .filter(RechnungsPosten.rechnung_id == rechnung_id)
         .all()
     )
+    requested_ids = set(data.rechnungs_posten_ids or [])
+    if requested_ids:
+        posten = [p for p in alle_buch_posten if p.id in requested_ids]
+        found_ids = {p.id for p in posten}
+        missing_ids = requested_ids - found_ids
+        if missing_ids:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Rechnungsposten nicht gefunden: {', '.join(map(str, sorted(missing_ids)))}",
+            )
+    else:
+        posten = [p for p in alle_buch_posten if not p.zurueckgegeben]
+
+    if not posten:
+        raise HTTPException(status_code=422, detail="Keine stornierbaren Buchpositionen gefunden")
+    if any(p.zurueckgegeben for p in posten):
+        raise HTTPException(status_code=422, detail="Mindestens eine Position ist bereits zurueckgegeben/storniert")
+
+    today = date.today().isoformat()
+    stornierte_ids = []
+    stornierter_betrag = 0
     for p in posten:
-        if p.zurueckgegeben:
-            continue
         buch = db.query(Buecher).filter(Buecher.id == p.buch_id).first()
         if buch:
             buch.bestand_ausgegeben = max(0, buch.bestand_ausgegeben - 1)
         nj = p.nutzungsjahr_beim_kauf if p.nutzungsjahr_beim_kauf is not None else 0
-        bestand = _get_or_create_bestand(db, p.buch_id, p.preis_cents, nj)
+        bestand = _get_or_create_bestand(db, p.buch_id, p.preis_cents, nj, p.zustand)
         bestand.bestand_verfuegbar += 1
+        p.zurueckgegeben = 1
+        p.zurueckgegeben_am = today
+        stornierte_ids.append(p.id)
+        stornierter_betrag += p.preis_cents
 
-    lm_posten = (
-        db.query(LernmaterialPosten)
-        .filter(LernmaterialPosten.rechnung_id == rechnung_id)
-        .all()
-    )
-    for lmp in lm_posten:
-        material = db.query(Lernmaterial).filter(Lernmaterial.id == lmp.lernmaterial_id).first()
-        if material:
-            material.bestand_ausgegeben = max(0, material.bestand_ausgegeben - 1)
+    full_invoice_storno = not requested_ids
+    if full_invoice_storno:
+        lm_posten = (
+            db.query(LernmaterialPosten)
+            .filter(LernmaterialPosten.rechnung_id == rechnung_id)
+            .all()
+        )
+        for lmp in lm_posten:
+            material = db.query(Lernmaterial).filter(Lernmaterial.id == lmp.lernmaterial_id).first()
+            if material:
+                material.bestand_ausgegeben = max(0, material.bestand_ausgegeben - lmp.menge)
+            stornierter_betrag += lmp.preis_cents * lmp.menge
 
-    r.status = "storniert"
-    r.storniert_am = datetime.now().isoformat()
+        freiposten_summe = db.query(
+            func.coalesce(func.sum(RechnungFreiposten.betrag_cents), 0)
+        ).filter(RechnungFreiposten.rechnung_id == rechnung_id).scalar() or 0
+        stornierter_betrag += freiposten_summe
+
+    paid_cents = _rechnung_paid_cents(db, rechnung_id)
+    zu_zahlen_vor_storno = max(0, r.summe_cents - r.verrechnet_cents)
+    bezahlter_storno_anteil = min(paid_cents, stornierter_betrag, zu_zahlen_vor_storno)
+    gutschrift_id = None
+    if bezahlter_storno_anteil > 0:
+        schuljahr = r.schuljahr
+        gutschrift_id = generate_gutschrift_id(db, schuljahr)
+        gutschrift = Gutschriften(
+            id=gutschrift_id,
+            schueler_id=r.schueler_id,
+            schuljahr=schuljahr,
+            datum=today,
+            summe_cents=bezahlter_storno_anteil,
+            ausgezahlt=0,
+            notizen=f"Storno Rechnung {rechnung_id}: {grund}",
+        )
+        db.add(gutschrift)
+        db.flush()
+        remaining_credit = bezahlter_storno_anteil
+        for p in posten:
+            if remaining_credit <= 0:
+                break
+            anteil = min(p.preis_cents, remaining_credit)
+            db.add(GutschriftPosten(
+                gutschrift_id=gutschrift_id,
+                rechnungs_posten_id=p.id,
+                betrag_cents=anteil,
+                zustand=p.zustand,
+                abschreibung_prozent=0,
+                ursprungs_preis_cents=p.preis_cents,
+                nutzungsjahr=p.nutzungsjahr_beim_kauf,
+                beschaedigt=0,
+            ))
+            remaining_credit -= anteil
+
+    if full_invoice_storno:
+        r.status = "storniert"
+        r.storniert_am = _now_iso()
+    else:
+        r.summe_cents = max(0, r.summe_cents - stornierter_betrag)
+        if r.verrechnet_cents > r.summe_cents:
+            r.verrechnet_cents = r.summe_cents
+        offen = max(0, r.summe_cents - r.verrechnet_cents)
+        r.status = "bezahlt" if offen == 0 or paid_cents >= offen else "offen"
+        r.notizen = (
+            ((r.notizen + "\n") if r.notizen else "")
+            + f"Teilstorno am {today}: {grund}"
+        )
+
+    aktion = "rechnung_storno" if full_invoice_storno else "position_storno"
+    for p_id in stornierte_ids:
+        db.add(RechnungStornoAudit(
+            rechnung_id=rechnung_id,
+            rechnungs_posten_id=p_id,
+            aktion=aktion,
+            grund=grund,
+            benutzer=current_user,
+            betrag_cents=stornierter_betrag if full_invoice_storno else next(
+                p.preis_cents for p in posten if p.id == p_id
+            ),
+            gutschrift_id=gutschrift_id,
+        ))
+
     db.commit()
 
-    return {"status": "storniert", "rechnung_id": rechnung_id}
+    return RechnungStornoResponse(
+        status=r.status,
+        rechnung_id=rechnung_id,
+        stornierte_posten_ids=stornierte_ids,
+        gutschrift_id=gutschrift_id,
+        betrag_cents=stornierter_betrag,
+    )
 
 
 @router.get("/rechnungen/{rechnung_id}/pdf")

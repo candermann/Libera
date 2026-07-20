@@ -94,7 +94,14 @@ function asA4PreviewHtml(html) {
 
 function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const { KLASSEN } = window.CONSTANTS;
+  const [activeTab, setActiveTab] = React.useState('erstellen');
   const [step, setStep] = React.useState(preselectedStudent ? 2 : 1);
+  const [draftId, setDraftId] = React.useState(null);
+  const [draftSavedAt, setDraftSavedAt] = React.useState(null);
+  const [draftSaving, setDraftSaving] = React.useState(false);
+  const [drafts, setDrafts] = React.useState([]);
+  const [draftsLoading, setDraftsLoading] = React.useState(false);
+  const [draftFilter, setDraftFilter] = React.useState('');
   const [students, setStudents] = React.useState([]);
   const [query, setQuery] = React.useState('');
   const [selectedStudent, setSelectedStudent] = React.useState(preselectedStudent || null);
@@ -121,6 +128,18 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const [freiAlsVorlage, setFreiAlsVorlage] = React.useState(false);
   const [vorlagen, setVorlagen] = React.useState([]);
   const [oberstufeShowBooks, setOberstufeShowBooks] = React.useState(false);
+
+  const loadDrafts = React.useCallback(() => {
+    setDraftsLoading(true);
+    window.api.rechnung.entwuerfe()
+      .then(res => setDrafts(res.items || []))
+      .catch(error => window.showToast('error', error.message || 'Entwürfe konnten nicht geladen werden.'))
+      .finally(() => setDraftsLoading(false));
+  }, []);
+
+  React.useEffect(() => {
+    if (activeTab === 'entwuerfe') loadDrafts();
+  }, [activeTab, loadDrafts]);
 
   React.useEffect(() => {
     if (step === 1) {
@@ -163,6 +182,102 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
       }).catch(() => setStudentSaldo(0));
     }
   }, [step, selectedStudent?.id]);
+
+  const buildDraftPayload = React.useCallback(() => ({
+    vorgang_typ: 'buchausgabe',
+    schueler_id: selectedStudent?.id || null,
+    freigegeben_an: [],
+    geaendert_am: draftSavedAt,
+    form_state: {
+      step: Math.min(step, 2),
+      selectedStudent,
+      query,
+      bookQuery,
+      expandedBookId,
+      cart,
+      lmQuery,
+      lmCart,
+      freiCart,
+      freiBezeichnung,
+      freiBetrag,
+      freiTyp,
+      freiAlsVorlage,
+      guthabenVerrechnen,
+      oberstufeShowBooks,
+    },
+  }), [
+    selectedStudent, draftSavedAt, step, query, bookQuery, expandedBookId,
+    cart, lmQuery, lmCart, freiCart, freiBezeichnung, freiBetrag, freiTyp,
+    freiAlsVorlage, guthabenVerrechnen, oberstufeShowBooks,
+  ]);
+
+  const hasDraftContent = !!selectedStudent || cart.length > 0 || lmCart.length > 0
+    || freiCart.length > 0 || !!freiBezeichnung || !!freiBetrag;
+
+  const saveDraft = React.useCallback(async (manual = false) => {
+    if (!hasDraftContent || step === 3) return null;
+    setDraftSaving(true);
+    try {
+      const payload = buildDraftPayload();
+      const saved = draftId
+        ? await window.api.rechnung.updateEntwurf(draftId, payload)
+        : await window.api.rechnung.createEntwurf(payload);
+      setDraftId(saved.id);
+      setDraftSavedAt(saved.geaendert_am);
+      if (manual) window.showToast('success', 'Entwurf gespeichert.');
+      return saved;
+    } catch (error) {
+      if (manual) window.showToast('error', error.message || 'Entwurf konnte nicht gespeichert werden.');
+      return null;
+    } finally {
+      setDraftSaving(false);
+    }
+  }, [hasDraftContent, step, buildDraftPayload, draftId]);
+
+  React.useEffect(() => {
+    if (!hasDraftContent || step === 3 || activeTab !== 'erstellen') return;
+    const timer = window.setTimeout(() => { saveDraft(false); }, 20000);
+    return () => window.clearTimeout(timer);
+  }, [hasDraftContent, step, activeTab, saveDraft]);
+
+  const restoreDraft = (draft) => {
+    const state = draft.form_state || {};
+    setDraftId(draft.id);
+    setDraftSavedAt(draft.geaendert_am);
+    setSelectedStudent(state.selectedStudent || null);
+    setQuery(state.query || '');
+    setBookQuery(state.bookQuery || '');
+    setExpandedBookId(state.expandedBookId || null);
+    setCart(state.cart || []);
+    setLmQuery(state.lmQuery || '');
+    setLmCart(state.lmCart || []);
+    setFreiCart(state.freiCart || []);
+    setFreiBezeichnung(state.freiBezeichnung || '');
+    setFreiBetrag(state.freiBetrag || '');
+    setFreiTyp(state.freiTyp || 'Pauschal');
+    setFreiAlsVorlage(!!state.freiAlsVorlage);
+    setGuthabenVerrechnen(!!state.guthabenVerrechnen);
+    setOberstufeShowBooks(!!state.oberstufeShowBooks);
+    setSaleResult(null);
+    setErrorMsg(null);
+    setStep(state.selectedStudent ? Math.max(2, Math.min(state.step || 2, 2)) : 1);
+    setActiveTab('erstellen');
+  };
+
+  const deleteDraft = async (id) => {
+    if (!window.confirm('Entwurf wirklich löschen?')) return;
+    try {
+      await window.api.rechnung.deleteEntwurf(id);
+      setDrafts(prev => prev.filter(d => d.id !== id));
+      if (draftId === id) {
+        setDraftId(null);
+        setDraftSavedAt(null);
+      }
+      window.showToast('success', 'Entwurf gelöscht.');
+    } catch (error) {
+      window.showToast('error', error.message || 'Entwurf konnte nicht gelöscht werden.');
+    }
+  };
 
   React.useEffect(() => {
     if (!saleResult?.id || step !== 3) {
@@ -284,8 +399,11 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
         lernmaterial_positionen: lmCart.map(item => ({ id: item.id, menge: item.menge })),
         freiposten: freiCart.map(item => ({ bezeichnung: item.bezeichnung, betrag_cents: item.betrag_cents, typ: item.typ })),
         guthaben_verrechnen: guthabenVerrechnen,
+        entwurf_id: draftId,
       });
       setSaleResult(res);
+      setDraftId(null);
+      setDraftSavedAt(null);
       setStep(3);
       const anzahlBuecher = cart.length;
       const anzahlLm = lmCart.length;
@@ -305,9 +423,94 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
     }
   };
 
+  const flowTabs = (
+    <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid #e2e8f0', marginBottom: 22 }}>
+      {[
+        { id: 'erstellen', label: 'Rechnung erstellen' },
+        { id: 'entwuerfe', label: 'Entwürfe', badge: drafts.length || null },
+      ].map(tab => {
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '8px 16px',
+              fontSize: 13.5,
+              fontWeight: active ? 600 : 400,
+              color: active ? accent : '#64748b',
+              background: 'none',
+              border: 'none',
+              borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
+              marginBottom: -2,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+            }}
+          >
+            {tab.label}
+            {tab.badge ? <span style={{ background: accent, color: '#fff', borderRadius: 99, padding: '1px 6px', fontSize: 10.5 }}>{tab.badge}</span> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  if (activeTab === 'entwuerfe') {
+    const filteredDrafts = drafts.filter(d => {
+      const hay = [
+        d.schueler_name, d.schueler_id, d.bearbeiter,
+        ...(d.form_state?.cart || []).map(i => i.titel || i.buch_id),
+      ].join(' ').toLowerCase();
+      return hay.includes(draftFilter.toLowerCase());
+    });
+    return (
+      <FlowShell title="Buchausgabe" subtitle="Entwürfe · offene Vorgänge" onCancel={onDone} step={1} accent={accent}>
+        {flowTabs}
+        <div style={{ maxWidth: 980, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+            <SearchInput value={draftFilter} onChange={setDraftFilter} placeholder="Entwürfe filtern - Schüler, Buch oder Benutzer..." autoFocus />
+            <Btn kind="secondary" icon="refresh-cw" onClick={loadDrafts}>Aktualisieren</Btn>
+          </div>
+          <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
+            {draftsLoading ? (
+              <div style={{ padding: 28, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade Entwürfe...</div>
+            ) : filteredDrafts.length === 0 ? (
+              <div style={{ padding: 34, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Keine offenen Entwürfe.</div>
+            ) : filteredDrafts.map((draft, index) => {
+              const state = draft.form_state || {};
+              const count = (state.cart || []).length + (state.lmCart || []).length + (state.freiCart || []).length;
+              const bookTitles = (state.cart || []).map(item => item.titel).filter(Boolean).slice(0, 2).join(', ');
+              return (
+                <div key={draft.id} style={{ display: 'grid', gridTemplateColumns: '1fr 140px 150px 110px', gap: 12, alignItems: 'center', padding: '12px 14px', borderTop: index === 0 ? 'none' : '1px solid #f8fafc' }}>
+                  <button onClick={() => restoreDraft(draft)} style={{ border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, color: '#0f172a' }}>{draft.schueler_name || 'Ohne Schüler'}</div>
+                    <div style={{ fontSize: 11.5, color: '#94a3b8', marginTop: 2 }}>{count} Artikel{bookTitles ? ` · ${bookTitles}` : ''}</div>
+                  </button>
+                  <div style={{ fontSize: 12, color: '#475569' }}>{draft.bearbeiter}</div>
+                  <div style={{ fontSize: 11.5, color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{new Date(draft.geaendert_am).toLocaleString('de-DE')}</div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                    <Btn kind="secondary" icon="arrow-right" onClick={() => restoreDraft(draft)}>Öffnen</Btn>
+                    <button title="Entwurf löschen" onClick={() => deleteDraft(draft.id)} style={{ background: 'transparent', border: '1px solid #fee2e2', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#b91c1c', display: 'flex' }}>
+                      <Icon name="trash" size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: 10, fontSize: 11.5, color: '#94a3b8' }}>Entwürfe werden nach 60 Tagen Inaktivität automatisch entfernt.</div>
+        </div>
+      </FlowShell>
+    );
+  }
+
   if (step === 1) {
     return (
       <FlowShell title="Buchausgabe" subtitle="Schritt 1 von 3 · Schüler auswählen" onCancel={onDone} step={1} accent={accent}>
+        {flowTabs}
         <div style={{ maxWidth: 640, margin: '0 auto' }}>
           <SearchInput value={query} onChange={setQuery} placeholder="Schüler suchen - Name, Klasse oder ID..." autoFocus />
           <div style={{ marginTop: 14, background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
@@ -346,6 +549,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   if (step === 2) {
     return (
       <FlowShell title="Buchausgabe" subtitle="Schritt 2 von 3 · Buchqualität auswählen" onCancel={onDone} onBack={() => { setStep(1); setErrorMsg(null); }} step={2} accent={accent}>
+        {flowTabs}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, maxWidth: 1100, margin: '0 auto' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px', background: '#fff', border: '1px solid #e8ecef', borderRadius: 10 }}>
@@ -783,6 +987,16 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
                 <Btn kind="primary" full accent={accent} icon="arrow-right" onClick={handleCheckout} disabled={cart.length === 0 && lmCart.length === 0 && freiCart.length === 0}>
                   Rechnung erstellen
                 </Btn>
+                <div style={{ marginTop: 7 }}>
+                  <Btn kind="secondary" full icon="folder" onClick={() => saveDraft(true)} disabled={!hasDraftContent || draftSaving}>
+                    {draftSaving ? 'Speichert...' : 'Als Entwurf speichern'}
+                  </Btn>
+                  {draftSavedAt && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#94a3b8', textAlign: 'center' }}>
+                      Zuletzt gespeichert: {new Date(draftSavedAt).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

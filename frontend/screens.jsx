@@ -1530,6 +1530,7 @@ function Buchhaltung({ accent }) {
   const [unversandtLoading, setUnversandtLoading] = React.useState(false);
   const [versandt, setVersandt] = React.useState([]);
   const [versandtLoading, setVersandtLoading] = React.useState(false);
+  const [stornoDialog, setStornoDialog] = React.useState(null);
 
   const loadSchuljahre = () => {
     window.api.buchhaltung.schuljahre().then(res => {
@@ -2012,6 +2013,24 @@ function Buchhaltung({ accent }) {
               >
                 <Icon name="mail" size={13} />
               </button>
+              <button
+                title="Storno"
+                disabled={r.status === 'storniert'}
+                onClick={e => { e.stopPropagation(); setStornoDialog(r); }}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #fee2e2',
+                  borderRadius: 6,
+                  padding: '4px 6px',
+                  cursor: r.status === 'storniert' ? 'not-allowed' : 'pointer',
+                  color: '#b91c1c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  opacity: r.status === 'storniert' ? 0.5 : 1,
+                }}
+              >
+                <Icon name="trash" size={13} />
+              </button>
             </div>
           </div>
         ))}
@@ -2030,6 +2049,112 @@ function Buchhaltung({ accent }) {
           }}
         />
       )}
+      {stornoDialog && (
+        <StornoDialog
+          rechnung={stornoDialog}
+          accent={accent}
+          onClose={() => setStornoDialog(null)}
+          onDone={() => {
+            setStornoDialog(null);
+            loadSchuljahre();
+            loadUnversandt();
+            if (selectedSj) {
+              window.api.buchhaltung.rechnungen(selectedSj)
+                .then(res => setRechnungen(res.items || []))
+                .catch(console.error);
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function StornoDialog({ rechnung, accent, onClose, onDone }) {
+  const [detail, setDetail] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [grund, setGrund] = React.useState('');
+  const [selected, setSelected] = React.useState({});
+  const [mode, setMode] = React.useState('rechnung');
+  const [saving, setSaving] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.api.rechnung.get(rechnung.id)
+      .then(res => setDetail(res))
+      .catch(error => window.showToast('error', error.message || 'Rechnung konnte nicht geladen werden.'))
+      .finally(() => setLoading(false));
+  }, [rechnung.id]);
+
+  const posten = (detail?.posten || []);
+  const selectedIds = mode === 'positionen'
+    ? Object.entries(selected).filter(([, value]) => value).map(([id]) => Number(id))
+    : [];
+  const canSubmit = grund.trim().length >= 3 && !saving && (mode === 'rechnung' || selectedIds.length > 0);
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSaving(true);
+    try {
+      const result = await window.api.rechnung.storno(rechnung.id, {
+        grund: grund.trim(),
+        rechnungs_posten_ids: selectedIds,
+      });
+      const credit = result?.gutschrift_id ? ` Guthaben ${result.gutschrift_id} wurde angelegt.` : '';
+      window.showToast('success', `Storno gebucht.${credit}`);
+      onDone();
+    } catch (error) {
+      window.showToast('error', error.message || 'Storno fehlgeschlagen.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.28)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: 560, maxWidth: '100%', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0', boxShadow: '0 18px 50px rgba(15,23,42,0.18)', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>Rechnung stornieren</div>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{rechnung.id} · {rechnung.schueler_name}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}><Icon name="x" size={16} /></button>
+        </div>
+        <div style={{ padding: 18 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setMode('rechnung')} style={{ flex: 1, padding: '8px 10px', borderRadius: 7, border: `1px solid ${mode === 'rechnung' ? accent : '#e2e8f0'}`, background: mode === 'rechnung' ? '#eff6ff' : '#fff', color: mode === 'rechnung' ? accent : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Gesamte Rechnung</button>
+            <button onClick={() => setMode('positionen')} style={{ flex: 1, padding: '8px 10px', borderRadius: 7, border: `1px solid ${mode === 'positionen' ? accent : '#e2e8f0'}`, background: mode === 'positionen' ? '#eff6ff' : '#fff', color: mode === 'positionen' ? accent : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Einzelne Bücher</button>
+          </div>
+          {mode === 'positionen' && (
+            <div style={{ border: '1px solid #e8ecef', borderRadius: 8, overflow: 'hidden', marginBottom: 14 }}>
+              {loading ? (
+                <div style={{ padding: 14, color: '#94a3b8', fontSize: 12.5 }}>Lade Positionen...</div>
+              ) : posten.length === 0 ? (
+                <div style={{ padding: 14, color: '#94a3b8', fontSize: 12.5 }}>Keine Buchpositionen vorhanden.</div>
+              ) : posten.map((p, index) => (
+                <label key={p.rechnungs_posten_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderTop: index === 0 ? 'none' : '1px solid #f8fafc', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!selected[p.rechnungs_posten_id]} onChange={e => setSelected(prev => ({ ...prev, [p.rechnungs_posten_id]: e.target.checked }))} style={{ accentColor: accent }} />
+                  <span style={{ flex: 1, fontSize: 12.5, color: '#0f172a' }}>{p.titel}</span>
+                  <span style={{ fontSize: 12, color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>{(p.preis_cents / 100).toFixed(2).replace('.', ',')} €</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 5 }}>Grund für Storno</div>
+          <textarea
+            value={grund}
+            onChange={e => setGrund(e.target.value)}
+            autoFocus
+            rows={3}
+            placeholder="z.B. falsche Ausgabe, Rechnung korrigiert..."
+            style={{ width: '100%', resize: 'vertical', border: '1px solid #e2e8f0', borderRadius: 7, padding: 10, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+        <div style={{ padding: '12px 18px', background: '#fbfcfd', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>
+          <Btn kind="danger" icon="trash" onClick={submit} disabled={!canSubmit}>{saving ? 'Storniert...' : 'Storno buchen'}</Btn>
+        </div>
+      </div>
     </div>
   );
 }

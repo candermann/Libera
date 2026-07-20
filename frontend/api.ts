@@ -181,8 +181,13 @@ const api: BibliomatApi = {
     mailVorlage: (id) => req(`/rechnungen/${id}/mail-vorlage`),
     mailVorschau: (id, data) => req(`/rechnungen/${id}/mail-vorschau`, { method: 'POST', body: data }),
     mailSenden: (id, data) => req(`/rechnungen/${id}/mail`, { method: 'POST', body: data }),
-    storno: (id) => req(`/rechnungen/${id}/storno`, { method: 'POST' }),
-  },
+        storno: (id, data) => req(`/rechnungen/${id}/storno`, { method: 'POST', body: data }),
+        entwuerfe: () => req('/rechnungen/entwuerfe'),
+        entwurf: (id) => req(`/rechnungen/entwuerfe/${id}`),
+        createEntwurf: (data) => req('/rechnungen/entwuerfe', { method: 'POST', body: data }),
+        updateEntwurf: (id, data) => req(`/rechnungen/entwuerfe/${id}`, { method: 'PATCH', body: data }),
+        deleteEntwurf: (id) => req(`/rechnungen/entwuerfe/${id}`, { method: 'DELETE' }),
+    },
 
   gutschrift: (data) => req('/gutschrift', { method: 'POST', body: data }),
   gutschriften: {
