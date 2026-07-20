@@ -1,5 +1,29 @@
 # Patchnotes
 
+## 2026-07-20 - Rechnungs-Storno und Vorgangs-Entwürfe
+
+### Rechnungen
+- **Storno-Button** für Rechnungen in der Buchhaltung und im Schülerprofil (Kontoauszug) — Bestätigung per Ja/Nein direkt am Button
+- Storno bucht **Bücher- und Lernmaterial-Bestand automatisch zurück**
+- Bereits bei der Klassenversetzung abgeschriebene Posten (behalten-Flag) werden beim Rückbuchen übersprungen
+- Stornierte Rechnungen erscheinen in der Buchhaltungsliste ausgegraut mit Status „storniert"
+
+### Offene Vorgänge
+- Buchausgabe, Buchrückgabe und Ausgabe & Rückgabe (kombiniert) speichern den laufenden Vorgang (Warenkorb bzw. markierte Rücknahmen) automatisch als **Entwurf pro Schüler**
+- Auf der Schüler-auswählen-Seite erscheint bei einem unterbrochenen Vorgang der Abschnitt **„Offene Vorgänge"** — Klick darauf setzt genau an der Stelle fort, an der zuletzt gearbeitet wurde
+- Entwürfe lassen sich einzeln verwerfen (X-Button) und werden nach Abschluss oder Abbruch des Vorgangs automatisch entfernt
+- Entwürfe werden nur für die aktuelle Browser-Session gespeichert (sessionStorage)
+
+### Technische Änderungen
+- `backend/app/routers/verkauf.py` — `storno_rechnung`: Rückbuchung überspringt jetzt Posten mit `zurueckgegeben` **oder** `behalten` (vorher nur `zurueckgegeben`)
+- `frontend/layout.jsx` — neues globales `window.vorgangEntwuerfe`-API (`get`/`save`/`remove`/`list`) mit Persistenz in `sessionStorage` unter dem Key `bibliomat_vorgang_entwuerfe`; neue Komponente `OffeneVorgaengeListe`; neuer Hook `useVorgangEntwuerfe` (lauscht auf `vorgang-entwurf-updated`- und `focus`-Events)
+- `frontend/screens.jsx` — `Rueckgabe`: eigener Draft-Flow `buchruckgabe`, speichert `returned`-State per `useEffect`, stellt ihn beim Fortsetzen über einen `pendingRestoreRef` wieder her, entfernt den Entwurf bei Abschluss (`handleSubmit`) und Abbruch (`handleCancel`); `Buchhaltung`: neuer Handler `stornoRechnung` inkl. Ja/Nein-Bestätigungsstate (`confirmStornoId`), ruft `window.api.rechnung.storno` auf; Tabellenspalte für Aktionen von `220px` auf `260px` verbreitert
+- `frontend/verkauf.jsx` — `Verkauf` und `KombiniertFlow`: eigene Draft-Flows `buchausgabe` bzw. `ausgabe-rueckgabe`, Warenkorb-/Rückgabe-States (`cart`, `lmCart`, `freiCart`, `guthabenVerrechnen` bzw. `returned`, `beschaedigtKombi`) werden per `useEffect` bei Änderung als Entwurf gesichert und beim Fortsetzen wiederhergestellt
+- `frontend/schueler-detail.jsx` — `KontoauszugTabelle`: neue Prop `onStornoRechnung` mit Ja/Nein-Bestätigungsstate (`confirmStornoId`), ruft `window.api.rechnung.storno(v.id)` auf und lädt den Kontoauszug per `reload()` neu
+- `frontend/index.html` — Versionsnummern erhöht: `layout.jsx` v22→v24, `verkauf.jsx` v42→v44, `schueler-detail.jsx` v38→v39, `screens.jsx` v47→v49
+
+---
+
 ## 2026-05-29 - Lernmaterial CSV-Import
 
 ### Lernmaterial
