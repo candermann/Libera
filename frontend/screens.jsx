@@ -1678,7 +1678,13 @@ function KlassenlisteTab({ accent, tabBar }) {
 }
 
 // ---- Buchhaltung ----
-function Buchhaltung({ accent }) {
+const BUCHHALTUNG_DRAFT_FLOW_LABELS = {
+  buchausgabe: 'Buchausgabe',
+  buchruckgabe: 'Buchrückgabe',
+  'ausgabe-rueckgabe': 'Ausgabe & Rückgabe',
+};
+
+function Buchhaltung({ accent, onNav }) {
   const [activeTab, setActiveTab] = React.useState('versand');
   const [schuljahre, setSchuljahre] = React.useState([]);
   const [selectedSj, setSelectedSj] = React.useState(null);
@@ -1694,6 +1700,11 @@ function Buchhaltung({ accent }) {
   const [editingRechnung, setEditingRechnung] = React.useState(null);
   const [stornierend, setStornierend] = React.useState(null);
   const [stornoDialog, setStornoDialog] = React.useState(null);
+  const [draftFilter, setDraftFilter] = React.useState('');
+  const [draftSort, setDraftSort] = React.useState('geaendert');
+  const [draftRefreshing, setDraftRefreshing] = React.useState(false);
+  const [draftDeleting, setDraftDeleting] = React.useState(null);
+  const entwuerfe = useVorgangEntwuerfe();
 
   const updateAnzeigeNrLocal = (id, anzeigeNr) => {
     const patch = (list) => list.map(item => item.id === id ? { ...item, anzeige_nr: anzeigeNr } : item);
@@ -1776,15 +1787,88 @@ function Buchhaltung({ accent }) {
       .finally(() => setLoading(false));
   }, [selectedSj]);
 
+  React.useEffect(() => {
+    if (activeTab !== 'entwuerfe') return;
+    setDraftRefreshing(true);
+    window.vorgangEntwuerfe.refresh()
+      .catch(error => window.showToast?.('error', error.message || 'Entwürfe konnten nicht geladen werden.'))
+      .finally(() => setDraftRefreshing(false));
+  }, [activeTab]);
+
   const klassen = [...new Set(rechnungen.map(r => r.klasse).filter(Boolean))].sort(compareKlasseAsc);
   const rechnungenGefiltert = filterKlasse ? rechnungen.filter(r => r.klasse === filterKlasse) : rechnungen;
   const aktive = rechnungenGefiltert.filter(r => r.status !== 'storniert');
   const gesamtCents = aktive.reduce((s, r) => s + r.zu_zahlen_cents, 0);
   const storniertAnzahl = rechnungenGefiltert.length - aktive.length;
+  const draftSearch = draftFilter.trim().toLowerCase();
+  const entwuerfeGefiltert = React.useMemo(() => {
+    const filtered = draftSearch
+      ? entwuerfe.filter(entwurf => {
+          const schueler = entwurf.schueler || {};
+          const haystack = [
+            entwurf.flow,
+            BUCHHALTUNG_DRAFT_FLOW_LABELS[entwurf.flow],
+            entwurf.bearbeiter,
+            schueler.id,
+            schueler.vorname,
+            schueler.nachname,
+            schueler.klasse,
+            JSON.stringify(entwurf.state || {}),
+          ].filter(Boolean).join(' ').toLowerCase();
+          return haystack.includes(draftSearch);
+        })
+      : [...entwuerfe];
+    return filtered.sort((a, b) => {
+      if (draftSort === 'schueler') {
+        return `${a.schueler?.nachname || ''} ${a.schueler?.vorname || ''}`.localeCompare(`${b.schueler?.nachname || ''} ${b.schueler?.vorname || ''}`, 'de')
+          || (b.updated_at - a.updated_at);
+      }
+      if (draftSort === 'vorgang') {
+        return `${BUCHHALTUNG_DRAFT_FLOW_LABELS[a.flow] || a.flow}`.localeCompare(`${BUCHHALTUNG_DRAFT_FLOW_LABELS[b.flow] || b.flow}`, 'de')
+          || (b.updated_at - a.updated_at);
+      }
+      return b.updated_at - a.updated_at;
+    });
+  }, [entwuerfe, draftSearch, draftSort]);
+
+  const refreshEntwuerfe = async () => {
+    setDraftRefreshing(true);
+    try {
+      await window.vorgangEntwuerfe.refresh();
+    } catch (error) {
+      window.showToast('error', error.message || 'Entwürfe konnten nicht geladen werden.');
+    } finally {
+      setDraftRefreshing(false);
+    }
+  };
+
+  const openEntwurf = (entwurf) => {
+    if (!entwurf?.flow || !entwurf?.schueler) return;
+    if (onNav) {
+      onNav(entwurf.flow, entwurf.schueler);
+      return;
+    }
+    window.location.hash = `#${entwurf.flow}`;
+  };
+
+  const deleteEntwurf = async (entwurf) => {
+    if (!entwurf?.flow || !entwurf?.schueler?.id) return;
+    const key = `${entwurf.flow}:${entwurf.schueler.id}`;
+    setDraftDeleting(key);
+    try {
+      await window.vorgangEntwuerfe.remove(entwurf.flow, entwurf.schueler.id);
+      window.showToast('success', 'Entwurf verworfen.');
+    } catch (error) {
+      window.showToast('error', error.message || 'Entwurf konnte nicht verworfen werden.');
+    } finally {
+      setDraftDeleting(null);
+    }
+  };
 
   const TABS = [
     { id: 'versand', label: 'Rechnungsversand', badge: unversandt.length > 0 ? unversandt.length : null },
     { id: 'buchhaltung', label: 'Buchhaltung' },
+    { id: 'entwuerfe', label: 'Entwürfe', badge: entwuerfe.length > 0 ? entwuerfe.length : null },
     { id: 'klassenliste', label: 'Klassenliste' },
   ];
 
@@ -2104,6 +2188,130 @@ function Buchhaltung({ accent }) {
             onConfirm={(payload) => stornoRechnung(stornoDialog, payload)}
           />
         )}
+      </div>
+    );
+  }
+
+  // ── Tab: Entwürfe ────────────────────────────────────────────────────
+  if (activeTab === 'entwuerfe') {
+    return (
+      <div style={{ padding: '24px 40px', maxWidth: 1180, margin: '0 auto' }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', fontFamily: "'Playfair Display', Georgia, serif" }}>Buchhaltung</h1>
+          <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 3 }}>Offene Rechnungsvorgänge prüfen und fortsetzen.</div>
+        </div>
+        {tabBar}
+
+        <div style={{ marginBottom: 14, display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 170px auto', gap: 8, alignItems: 'center' }}>
+          <input
+            value={draftFilter}
+            onChange={e => setDraftFilter(e.target.value)}
+            placeholder="Entwürfe filtern - Schüler, Klasse, Vorgang..."
+            aria-label="Entwürfe filtern"
+            style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 10px', fontSize: 12.5, color: '#0f172a', background: '#fff', fontFamily: 'inherit' }}
+          />
+          <select
+            value={draftSort}
+            onChange={e => setDraftSort(e.target.value)}
+            aria-label="Entwürfe sortieren"
+            style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 8px', fontSize: 12.5, color: '#475569', background: '#fff', fontFamily: 'inherit' }}
+          >
+            <option value="geaendert">Zuletzt geändert</option>
+            <option value="schueler">Schüler</option>
+            <option value="vorgang">Vorgang</option>
+          </select>
+          <button
+            onClick={refreshEntwuerfe}
+            disabled={draftRefreshing}
+            style={{ height: 34, background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 12px', fontSize: 12, color: '#64748b', cursor: draftRefreshing ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: draftRefreshing ? 0.6 : 1 }}
+          >
+            <Icon name="refresh-cw" size={12} />
+            Aktualisieren
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 12, fontSize: 13, color: '#475569' }}>
+          {entwuerfe.length === 0
+            ? 'Es gibt aktuell keine offenen Entwürfe.'
+            : `${entwuerfe.length} ${entwuerfe.length === 1 ? 'Entwurf ist' : 'Entwürfe sind'} offen.`}
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(220px, 1fr) 84px 132px 140px 128px', gap: 10, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            <div>Vorgang</div>
+            <div>Schüler</div>
+            <div>Klasse</div>
+            <div>Bearbeiter</div>
+            <div>Geändert</div>
+            <div />
+          </div>
+          {draftRefreshing && entwuerfe.length === 0 ? (
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade Entwürfe...</div>
+          ) : entwuerfeGefiltert.length === 0 ? (
+            <div style={{ padding: '44px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{entwuerfe.length === 0 ? 'Keine offenen Entwürfe' : 'Keine passenden Entwürfe'}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                {entwuerfe.length === 0 ? 'Angefangene Vorgänge erscheinen hier automatisch.' : 'Passe den Filter an oder aktualisiere die Liste.'}
+              </div>
+            </div>
+          ) : entwuerfeGefiltert.map((entwurf, i) => {
+            const schueler = entwurf.schueler || {};
+            const deletingKey = `${entwurf.flow}:${schueler.id}`;
+            return (
+              <div key={`${entwurf.flow}:${schueler.id}`} style={{
+                display: 'grid',
+                gridTemplateColumns: '160px minmax(220px, 1fr) 84px 132px 140px 128px',
+                gap: 10,
+                padding: '12px 16px',
+                alignItems: 'center',
+                borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
+              }}>
+                <div>
+                  <Badge tone={entwurf.flow === 'buchruckgabe' ? 'blue' : 'amber'}>
+                    {BUCHHALTUNG_DRAFT_FLOW_LABELS[entwurf.flow] || entwurf.flow}
+                  </Badge>
+                </div>
+                <button
+                  onClick={() => openEntwurf(entwurf)}
+                  style={{ minWidth: 0, textAlign: 'left', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {schueler.nachname}, {schueler.vorname}
+                  </div>
+                  <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>
+                    {schueler.id}
+                  </div>
+                </button>
+                <Badge tone="slate">{schueler.klasse || '-'}</Badge>
+                <div style={{ fontSize: 12, color: '#475569' }}>{entwurf.bearbeiter || '-'}</div>
+                <div style={{ fontSize: 11.5, color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {vorgangZeitLabel(entwurf.updated_at)}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                  <button
+                    data-tooltip="Entwurf fortsetzen"
+                    onClick={() => openEntwurf(entwurf)}
+                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 7px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#eff6ff'; e.currentTarget.style.borderColor = accent || '#2563eb'; e.currentTarget.style.color = accent || '#2563eb'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  >
+                    <Icon name="arrow-right" size={13} />
+                  </button>
+                  <button
+                    data-tooltip="Entwurf verwerfen"
+                    disabled={draftDeleting === deletingKey}
+                    onClick={() => deleteEntwurf(entwurf)}
+                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 7px', cursor: draftDeleting === deletingKey ? 'wait' : 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: draftDeleting === deletingKey ? 0.5 : 1 }}
+                    onMouseEnter={e => { if (draftDeleting === deletingKey) return; e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  >
+                    <Icon name="x" size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     );
   }
