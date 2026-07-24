@@ -25,7 +25,7 @@ from app.schemas import (
     RenameRequest,
 )
 
-from app.services.ids import generate_buch_id
+from app.services.ids import generate_buch_id, with_id_retry
 from app.services.zustand import (
     berechne_bucket_preis,
     berechne_wiederverkaufspreis,
@@ -481,51 +481,54 @@ def get_buch(buch_id: str, db: Session = Depends(get_db)):
 
 @router.post("", response_model=BuchResponse, status_code=201)
 def create_buch(data: BuchCreate, db: Session = Depends(get_db)):
-    new_id = generate_buch_id(db)
-    _ensure_fach_exists(db, data.fach)
-
     extra_nj = [nj for nj in (data.nutzungsjahre or []) if 1 <= nj.nutzungsjahr <= 6 and nj.bestand > 0]
     total_bestand = data.bestand_gesamt + sum(nj.bestand for nj in extra_nj)
-
-    buch = Buecher(
-        id=new_id,
-        titel=data.titel,
-        untertitel=data.untertitel,
-        isbn=data.isbn,
-        fach=data.fach,
-        stufe=data.stufe,
-        verlag=data.verlag,
-        preis_cents=data.preis_cents,
-        gutschrift_cents=data.preis_cents,
-        bestand_gesamt=total_bestand,
-        bestand_ausgegeben=0,
-        schutzgebuehr_cents=data.schutzgebuehr_cents,
-    )
-    db.add(buch)
-    db.flush()
-
-    db.add(
-        BuchZustandBestand(
-            buch_id=new_id,
-            zustand="sehr_gut",
-            verkaufspreis_cents=data.preis_cents,
-            bestand_verfuegbar=data.bestand_gesamt,
-            nutzungsjahr=0,
-            schuljahr_eingestellt=None,
-        )
-    )
     cur_sj = current_schuljahr_start()
-    for nj in extra_nj:
+
+    def _build():
+        _ensure_fach_exists(db, data.fach)
+
+        buch = Buecher(
+            id=generate_buch_id(db),
+            titel=data.titel,
+            untertitel=data.untertitel,
+            isbn=data.isbn,
+            fach=data.fach,
+            stufe=data.stufe,
+            verlag=data.verlag,
+            preis_cents=data.preis_cents,
+            gutschrift_cents=data.preis_cents,
+            bestand_gesamt=total_bestand,
+            bestand_ausgegeben=0,
+            schutzgebuehr_cents=data.schutzgebuehr_cents,
+        )
+        db.add(buch)
+        db.flush()
+
         db.add(
             BuchZustandBestand(
-                buch_id=new_id,
+                buch_id=buch.id,
                 zustand="sehr_gut",
                 verkaufspreis_cents=data.preis_cents,
-                bestand_verfuegbar=nj.bestand,
-                nutzungsjahr=nj.nutzungsjahr,
-                schuljahr_eingestellt=cur_sj,
+                bestand_verfuegbar=data.bestand_gesamt,
+                nutzungsjahr=0,
+                schuljahr_eingestellt=None,
             )
         )
+        for nj in extra_nj:
+            db.add(
+                BuchZustandBestand(
+                    buch_id=buch.id,
+                    zustand="sehr_gut",
+                    verkaufspreis_cents=data.preis_cents,
+                    bestand_verfuegbar=nj.bestand,
+                    nutzungsjahr=nj.nutzungsjahr,
+                    schuljahr_eingestellt=cur_sj,
+                )
+            )
+        return buch
+
+    buch = with_id_retry(db, _build)
     db.commit()
     db.refresh(buch)
 

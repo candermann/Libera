@@ -42,7 +42,7 @@ from app.schemas import (
     SchuelerCsvImportResponse,
     SchuelerCsvImportSkipItem,
 )
-from app.services.ids import generate_schueler_id
+from app.services.ids import generate_schueler_id, with_id_retry
 from app.services.saldo import (
     get_saldo,
     get_vorgaenge,
@@ -649,22 +649,25 @@ def get_schueler_aktive_buecher(
 @router.post("", response_model=SchuelerDetailResponse, status_code=201)
 def create_schueler(data: SchuelerCreate, db: Session = Depends(get_db)):
     """Create a new student."""
-    new_id = generate_schueler_id(db)
     schuljahr_erstanlage = _aktuelles_schuljahr(db)
 
-    schueler = Schueler(
-        id=new_id,
-        vorname=data.vorname,
-        nachname=data.nachname,
-        klasse=data.klasse,
-        strasse=data.strasse,
-        plz=data.plz,
-        ort=data.ort,
-        email_eltern=data.email_eltern,
-        notizen=data.notizen,
-        erstes_schuljahr=schuljahr_erstanlage,
-    )
-    db.add(schueler)
+    def _build():
+        schueler = Schueler(
+            id=generate_schueler_id(db),
+            vorname=data.vorname,
+            nachname=data.nachname,
+            klasse=data.klasse,
+            strasse=data.strasse,
+            plz=data.plz,
+            ort=data.ort,
+            email_eltern=data.email_eltern,
+            notizen=data.notizen,
+            erstes_schuljahr=schuljahr_erstanlage,
+        )
+        db.add(schueler)
+        return schueler
+
+    schueler = with_id_retry(db, _build)
     db.commit()
     db.refresh(schueler)
 

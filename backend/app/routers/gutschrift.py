@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import (
+    Auszahlungen,
     BuchZustandBestand,
     Buecher,
     Einstellungen,
@@ -327,6 +328,12 @@ def auszahlen_gutschrift(gutschrift_id: str, db: Session = Depends(get_db)):
 
     g.ausgezahlt = 1
     g.ausgezahlt_am = datetime.now().isoformat()
+    db.add(Auszahlungen(
+        schueler_id=g.schueler_id,
+        datum=date.today().isoformat(),
+        betrag_cents=g.summe_cents,
+        notizen=f"Auszahlung Gutschrift {g.id}",
+    ))
     db.commit()
 
     return {"status": "ausgezahlt", "gutschrift_id": gutschrift_id}

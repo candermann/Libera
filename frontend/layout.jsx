@@ -14,6 +14,7 @@ function _draftKey(flow, schuelerId) {
 const _vorgangEntwurfState = {
   byKey: {},
   saveTimers: {},
+  pending: {},
 };
 
 function _normalizeEntwurf(raw) {
@@ -56,25 +57,40 @@ window.vorgangEntwuerfe = {
   get(flow, schuelerId) {
     return _vorgangEntwurfState.byKey[this._key(flow, schuelerId)] || null;
   },
+  // Autosave (debounced `save`) and manual `saveNow`/`remove` can all fire for the
+  // same draft key close together. Chaining onto `pending[key]` serializes them so
+  // each call sees the previous one's result (esp. the freshly created `id`) instead
+  // of racing on a stale `existing` lookup and creating duplicate server-side drafts.
   async _persist(flow, schueler, state) {
     const key = this._key(flow, schueler.id);
-    const existing = _vorgangEntwurfState.byKey[key];
-    const payload = {
-      flow,
-      schueler_id: schueler.id,
-      form_state: state,
-      freigegeben_an: [],
-      geaendert_am: existing?.updated_at_iso || null,
+    const run = async () => {
+      const existing = _vorgangEntwurfState.byKey[key];
+      const payload = {
+        flow,
+        schueler_id: schueler.id,
+        form_state: state,
+        freigegeben_an: [],
+        geaendert_am: existing?.updated_at_iso || null,
+      };
+      const saved = existing?.id
+        ? await window.api.rechnung.updateEntwurf(existing.id, payload)
+        : await window.api.rechnung.createEntwurf(payload);
+      const normalized = _normalizeEntwurf(saved);
+      if (normalized) {
+        _vorgangEntwurfState.byKey[key] = normalized;
+        window.dispatchEvent(new Event('vorgang-entwurf-updated'));
+      }
+      return normalized;
     };
-    const saved = existing?.id
-      ? await window.api.rechnung.updateEntwurf(existing.id, payload)
-      : await window.api.rechnung.createEntwurf(payload);
-    const normalized = _normalizeEntwurf(saved);
-    if (normalized) {
-      _vorgangEntwurfState.byKey[key] = normalized;
-      window.dispatchEvent(new Event('vorgang-entwurf-updated'));
+    const chained = (_vorgangEntwurfState.pending[key] || Promise.resolve()).catch(() => {}).then(run);
+    _vorgangEntwurfState.pending[key] = chained;
+    try {
+      return await chained;
+    } finally {
+      if (_vorgangEntwurfState.pending[key] === chained) {
+        delete _vorgangEntwurfState.pending[key];
+      }
     }
-    return normalized;
   },
   save(flow, schueler, state) {
     if (!schueler?.id) return;
@@ -95,8 +111,11 @@ window.vorgangEntwuerfe = {
   },
   async remove(flow, schuelerId) {
     const key = this._key(flow, schuelerId);
-    const existing = _vorgangEntwurfState.byKey[key];
     window.clearTimeout(_vorgangEntwurfState.saveTimers[key]);
+    // Wait out any in-flight autosave/saveNow first, otherwise it can finish after
+    // this delete and resurrect the draft it was in the middle of creating/updating.
+    await (_vorgangEntwurfState.pending[key] || Promise.resolve()).catch(() => {});
+    const existing = _vorgangEntwurfState.byKey[key];
     if (existing?.id) await window.api.rechnung.deleteEntwurf(existing.id);
     delete _vorgangEntwurfState.byKey[key];
     window.dispatchEvent(new Event('vorgang-entwurf-updated'));

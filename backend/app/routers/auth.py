@@ -73,7 +73,9 @@ def login(
         secure=False,
         path="/",
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    # Auth is carried by the httpOnly cookie set above; the frontend doesn't read
+    # this body, so the raw token isn't echoed here to avoid needless exposure.
+    return {"status": "ok"}
 
 
 @router.post("/logout", status_code=204)

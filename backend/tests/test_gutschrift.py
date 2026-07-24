@@ -166,11 +166,28 @@ class TestGutschrift:
         })
         gutschrift_id = gs.json()["id"]
 
+        before = client.get(f"/api/schueler/{schueler['id']}").json()
+        assert before["konto"]["saldo_cents"] == buch["preis_cents"]
+
         resp = client.post(f"/api/gutschriften/{gutschrift_id}/auszahlen")
         assert resp.status_code == 200
 
         detail = client.get(f"/api/gutschriften/{gutschrift_id}")
         assert detail.json()["ausgezahlt"] is True
+
+        # Payout must actually book an Auszahlung so the saldo reflects the cash-out,
+        # not just flip the flag (regression: previously left the credit balance unchanged).
+        after = client.get(f"/api/schueler/{schueler['id']}").json()
+        assert after["konto"]["saldo_cents"] == 0
+
+        vorgaenge = client.get(f"/api/schueler/{schueler['id']}/vorgaenge").json()["items"]
+        auszahlungen = [v for v in vorgaenge if v["typ"] == "auszahlung"]
+        assert len(auszahlungen) == 1
+        assert auszahlungen[0]["betrag_cents"] == -buch["preis_cents"]
+
+        # Paying out again must be rejected, not double-book the ledger.
+        resp2 = client.post(f"/api/gutschriften/{gutschrift_id}/auszahlen")
+        assert resp2.status_code == 422
 
     def test_gutschrift_html_uses_non_returned_label_and_renders_total_for_many_items(self, client):
         """HTML preview should use the new label and keep the total visible for long credit notes."""

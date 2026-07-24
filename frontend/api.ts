@@ -113,7 +113,7 @@ const api: BibliomatApi = {
         const err = await res.json().catch(() => ({}));
         throw new Error(isRecord(err) && typeof err.detail === 'string' ? err.detail : 'Login fehlgeschlagen');
       }
-      return res.json() as Promise<{ access_token: string; token_type: string }>;
+      return res.json() as Promise<{ status: string }>;
     },
     me: () => req('/auth/me'),
     logout: () => req('/auth/logout', { method: 'POST' }),
@@ -128,7 +128,7 @@ const api: BibliomatApi = {
     update: (id, data) => req(`/schueler/${id}`, { method: 'PATCH', body: data }),
     remove: (id) => req(`/schueler/${id}`, { method: 'DELETE' }),
     archivKandidaten: (monate) => req(`/schueler/archiv-kandidaten${qs({ monate })}`),
-    archivieren: (ids) => req('/schueler/archivieren', { method: 'POST', body: { schueler_ids: ids } }),
+    archivieren: (ids, buecherBehalten = false) => req('/schueler/archivieren', { method: 'POST', body: { schueler_ids: ids, buecher_behalten: buecherBehalten } }),
     archiv: () => req('/schueler/archiv'),
     reaktivieren: (id) => req(`/schueler/${id}/reaktivieren`, { method: 'POST' }),
     importCsvPreview: (file) => {
@@ -143,7 +143,7 @@ const api: BibliomatApi = {
     list: (params) => req(`/buecher${qs(params)}`),
     listFaecher: () => req('/buecher/faecher'),
     createFach: (name) => req('/buecher/faecher', { method: 'POST', body: { name } }),
-    deleteFach: (name) => req(`/buecher/faecher/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+    deleteFach: (name, force = false) => req(`/buecher/faecher/${encodeURIComponent(name)}${force ? '?force=true' : ''}`, { method: 'DELETE' }),
     get: (id) => req(`/buecher/${id}`),
     create: (data) => req('/buecher', { method: 'POST', body: data }),
     update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),
@@ -195,6 +195,8 @@ const api: BibliomatApi = {
     createEntwurf: (data) => req('/rechnungen/entwuerfe', { method: 'POST', body: data }),
     updateEntwurf: (id, data) => req(`/rechnungen/entwuerfe/${id}`, { method: 'PATCH', body: data }),
     deleteEntwurf: (id) => req(`/rechnungen/entwuerfe/${id}`, { method: 'DELETE' }),
+    archivieren: (id) => req(`/rechnungen/${id}/archivieren`, { method: 'POST' }),
+    unarchivieren: (id) => req(`/rechnungen/${id}/unarchivieren`, { method: 'POST' }),
     updateAnzeigeNr: (id, data) => req(`/rechnungen/${id}/anzeige-nr`, { method: 'PATCH', body: data }),
   },
 
@@ -228,6 +230,11 @@ const api: BibliomatApi = {
     versandt: () => req('/buchhaltung/versandt'),
   },
 
+  benachrichtigungen: {
+    list: () => req('/benachrichtigungen'),
+    loescheArchiv: (ids) => req('/benachrichtigungen/archiv/loeschen', { method: 'POST', body: { schueler_ids: ids } }),
+  },
+
   dashboard: () => req('/dashboard'),
 
   klassenversetzung: {
@@ -241,12 +248,29 @@ const api: BibliomatApi = {
   },
 
   health: () => req('/health'),
+  admin: {
+    benutzer: {
+      list: () => req('/admin/benutzer'),
+      create: (data) => req('/admin/benutzer', { method: 'POST', body: data }),
+      remove: (name) => req(`/admin/benutzer/${encodeURIComponent(name)}`, { method: 'DELETE' }),
+      changePasswort: (name, passwort) => req(`/admin/benutzer/${encodeURIComponent(name)}/passwort`, { method: 'PATCH', body: { passwort } }),
+    },
+    changeAdminPasswort: (passwort) => req('/admin/passwort', { method: 'PATCH', body: { passwort } }),
+    backup: {
+      url: () => `${API_BASE}/admin/backup`,
+      restore: (file) => {
+        const fd = new FormData();
+        fd.append('file', file);
+        return req('/admin/restore', { method: 'POST', body: fd });
+      },
+    },
+  },
 };
 
 window.api = api;
 
 window.CONSTANTS = {
-  KLASSEN: ['6', '7', '8', '9', '10', '11', '12'],
+  KLASSEN: ['5', '6', '7', '8', '9', '10', '11', '12'],
   FAECHER: ['Mathematik', 'Deutsch', 'Englisch', 'Französisch', 'Latein', 'Biologie', 'Chemie', 'Physik', 'Geschichte', 'Erdkunde', 'Sozialwissenschaften', 'Religion', 'Philosophie', 'Kunst', 'Musik', 'Sport', 'Informatik', 'Spanisch'],
   LERNMATERIAL_KATEGORIEN: ['Hefter', 'Taschenrechner', 'Formelsammlung', 'Lineal', 'Zirkel', 'Tintenkiller', 'Sonstiges'],
 };

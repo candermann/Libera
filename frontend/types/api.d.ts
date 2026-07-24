@@ -148,7 +148,7 @@ declare global {
 
   interface BibliomatApi {
     auth: {
-      login(username: string, password: string): Promise<{ access_token: string; token_type: string }>;
+      login(username: string, password: string): Promise<{ status: string }>;
       me(): Promise<{ username: string }>;
       logout(): Promise<null>;
     };
@@ -161,7 +161,7 @@ declare global {
       update(id: ApiId, data: Partial<Schueler>): Promise<Schueler>;
       remove(id: ApiId): Promise<null>;
       archivKandidaten(monate: number): Promise<unknown>;
-      archivieren(ids: ApiId[]): Promise<unknown>;
+      archivieren(ids: ApiId[], buecherBehalten?: boolean): Promise<unknown>;
       archiv(): Promise<ApiListResponse<Schueler>>;
       reaktivieren(id: ApiId): Promise<unknown>;
       importCsvPreview(file: File): Promise<unknown>;
@@ -171,7 +171,7 @@ declare global {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Buch>>;
       listFaecher(): Promise<{ items: string[] }>;
       createFach(name: string): Promise<{ items: string[] }>;
-      deleteFach(name: string): Promise<null>;
+      deleteFach(name: string, force?: boolean): Promise<null>;
       get(id: ApiId): Promise<Buch>;
       create(data: Partial<Buch>): Promise<Buch>;
       update(id: ApiId, data: Partial<Buch>): Promise<Buch>;
@@ -212,6 +212,8 @@ declare global {
       createEntwurf(data: unknown): Promise<unknown>;
       updateEntwurf(id: ApiId, data: unknown): Promise<unknown>;
       deleteEntwurf(id: ApiId): Promise<null>;
+      archivieren(id: ApiId): Promise<unknown>;
+      unarchivieren(id: ApiId): Promise<unknown>;
       updateAnzeigeNr(id: ApiId, data: { anzeige_nr: string }): Promise<{ id: ApiId; anzeige_nr: string }>;
     };
     gutschrift(data: unknown): Promise<Gutschrift>;
@@ -240,6 +242,10 @@ declare global {
       unversandt(): Promise<ApiListResponse<Rechnung>>;
       versandt(): Promise<ApiListResponse<Rechnung>>;
     };
+    benachrichtigungen: {
+      list(): Promise<ApiListResponse<unknown>>;
+      loescheArchiv(ids: ApiId[]): Promise<unknown>;
+    };
     dashboard(): Promise<unknown>;
     klassenversetzung: {
       vorschau(): Promise<unknown>;
@@ -250,6 +256,19 @@ declare global {
       update(data: Record<string, string>): Promise<Record<string, string>>;
     };
     health(): Promise<{ status: string; version: string }>;
+    admin: {
+      benutzer: {
+        list(): Promise<ApiListResponse<{ benutzername: string }>>;
+        create(data: { benutzername: string; passwort: string }): Promise<unknown>;
+        remove(name: string): Promise<null>;
+        changePasswort(name: string, passwort: string): Promise<unknown>;
+      };
+      changeAdminPasswort(passwort: string): Promise<unknown>;
+      backup: {
+        url(): string;
+        restore(file: File): Promise<unknown>;
+      };
+    };
   }
 
   interface Window {

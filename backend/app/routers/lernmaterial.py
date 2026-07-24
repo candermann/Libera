@@ -21,7 +21,7 @@ from app.schemas import (
     NameListResponse,
     RenameRequest,
 )
-from app.services.ids import generate_lernmaterial_id
+from app.services.ids import generate_lernmaterial_id, with_id_retry
 
 _CSV_REQUIRED_FIELDS = ("name", "kategorie", "preis_cents")
 _CSV_HEADER_ALIASES = {
@@ -143,17 +143,20 @@ def get_lernmaterial(material_id: str, db: Session = Depends(get_db)):
 
 @router.post("", response_model=LernmaterialResponse, status_code=201)
 def create_lernmaterial(data: LernmaterialCreate, db: Session = Depends(get_db)):
-    new_id = generate_lernmaterial_id(db)
-    _ensure_kategorie_exists(db, data.kategorie)
-    m = Lernmaterial(
-        id=new_id,
-        name=data.name,
-        kategorie=data.kategorie,
-        preis_cents=data.preis_cents,
-        bestand_gesamt=data.bestand_gesamt,
-        bestand_ausgegeben=0,
-    )
-    db.add(m)
+    def _build():
+        _ensure_kategorie_exists(db, data.kategorie)
+        m = Lernmaterial(
+            id=generate_lernmaterial_id(db),
+            name=data.name,
+            kategorie=data.kategorie,
+            preis_cents=data.preis_cents,
+            bestand_gesamt=data.bestand_gesamt,
+            bestand_ausgegeben=0,
+        )
+        db.add(m)
+        return m
+
+    m = with_id_retry(db, _build)
     db.commit()
     db.refresh(m)
     return _to_response(m)

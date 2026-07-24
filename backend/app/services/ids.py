@@ -6,12 +6,41 @@ Fortlaufende ID-Generierung mit Thread-Safety.
 """
 
 import threading
+from typing import Callable, TypeVar
+
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # Module-level lock — SQLite is single-writer anyway, but this prevents
 # race conditions when two requests try to generate IDs concurrently.
 _id_lock = threading.Lock()
+
+T = TypeVar("T")
+
+
+def with_id_retry(db: Session, build: Callable[[], T], max_attempts: int = 5) -> T:
+    """
+    Run `build()` up to `max_attempts` times, retrying with a freshly generated id
+    on a primary-key collision.
+
+    The lock in the `generate_*_id` helpers only covers the MAX(id)+1 read, not the
+    later insert — two near-simultaneous requests can still read the same "next" id
+    before either has committed. `build()` must perform the id generation itself
+    (so each attempt gets a new candidate id), add the row(s) via `db`, and leave
+    committing to the caller. Only use this for a single, self-contained creation
+    that hasn't already added other not-yet-committed rows in the same session,
+    since a collision here rolls back the whole session.
+    """
+    for attempt in range(1, max_attempts + 1):
+        try:
+            result = build()
+            db.flush()
+            return result
+        except IntegrityError:
+            db.rollback()
+            if attempt == max_attempts:
+                raise
 
 
 def _next_counter(db: Session, table: str, prefix: str, pattern: str) -> int:
