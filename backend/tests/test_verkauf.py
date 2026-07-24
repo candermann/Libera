@@ -214,6 +214,8 @@ class TestVerkauf:
         assert draft["schueler_id"] == schueler["id"]
         assert draft["bearbeiter"] == "admin"
         assert draft["schueler"]["id"] == schueler["id"]
+        assert draft["geaendert_am"].endswith("Z")
+        assert draft["updated_at"] == draft["geaendert_am"]
 
         draft_payload["form_state"]["bookQuery"] = "Entwurf"
         update = client.patch(f"/api/rechnungen/entwuerfe/{draft['id']}", json={

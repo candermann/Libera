@@ -17,14 +17,25 @@ const _vorgangEntwurfState = {
   pending: {},
 };
 
+function _parseServerTimestamp(value) {
+  const fallback = Date.now();
+  if (!value) return fallback;
+  const normalized = String(value).trim().replace(' ', 'T');
+  if (!normalized) return fallback;
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/.test(normalized);
+  const parsed = Date.parse(hasTimezone ? normalized : `${normalized}Z`);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function _normalizeEntwurf(raw) {
   const schueler = raw?.schueler || null;
   if (!raw || !schueler) return null;
+  const updatedAtRaw = raw.updated_at || raw.geaendert_am || new Date().toISOString();
   return {
     id: raw.id,
     flow: raw.flow,
     schueler,
-    updated_at: Date.parse(raw.updated_at || raw.geaendert_am || new Date().toISOString()),
+    updated_at: _parseServerTimestamp(updatedAtRaw),
     updated_at_iso: raw.geaendert_am || raw.updated_at || null,
     state: raw.state || {},
     bearbeiter: raw.bearbeiter,
@@ -123,6 +134,7 @@ window.vorgangEntwuerfe = {
 };
 
 function vorgangZeitLabel(ts) {
+  if (!Number.isFinite(ts)) return 'gerade eben';
   const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
   if (diffMin < 1) return 'gerade eben';
   if (diffMin < 60) return `vor ${diffMin} Min.`;

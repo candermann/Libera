@@ -3,7 +3,7 @@ Verkauf and invoice endpoints.
 """
 
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
@@ -290,7 +290,7 @@ def _lade_verrechnungsposten(db: Session, rechnung_id: str) -> list[RechnungVerr
 
 
 def _now_iso() -> str:
-    return datetime.now().replace(microsecond=0).isoformat()
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _parse_json_list(raw: str | None) -> list[str]:
@@ -320,7 +320,7 @@ def _can_access_entwurf(entwurf: RechnungEntwurf, username: str) -> bool:
 
 
 def _cleanup_old_entwuerfe(db: Session) -> None:
-    cutoff_iso = (datetime.now() - timedelta(days=60)).replace(microsecond=0).isoformat()
+    cutoff_iso = (datetime.now(timezone.utc) - timedelta(days=60)).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     db.query(RechnungEntwurf).filter(
         RechnungEntwurf.status == "in_bearbeitung",
         RechnungEntwurf.geaendert_am < cutoff_iso,
