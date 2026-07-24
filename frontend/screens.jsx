@@ -1856,7 +1856,7 @@ function Buchhaltung({ accent }) {
         </div>
 
         <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 176px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 212px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
             <div>Rechnungs-Nr.</div>
             <div>Schüler</div>
             <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -1875,7 +1875,7 @@ function Buchhaltung({ accent }) {
             </div>
           ) : unversandt.map((r, i) => (
             <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-              display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 176px', gap: 8,
+              display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 108px 212px', gap: 8,
               padding: '11px 16px', alignItems: 'center',
               borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
               cursor: 'pointer',
@@ -1945,6 +1945,16 @@ function Buchhaltung({ accent }) {
                   <Icon name="edit" size={13} />
                 </button>
                 <button
+                  data-tooltip="Stornieren"
+                  disabled={stornierend === r.id}
+                  onClick={e => { e.stopPropagation(); setStornoDialog(r); }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: stornierend === r.id ? 'not-allowed' : 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: stornierend === r.id ? 0.5 : 1 }}
+                  onMouseEnter={e => { if (stornierend === r.id) return; e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="x" size={13} />
+                </button>
+                <button
                   data-tooltip="Archivieren"
                   disabled={archivierend === r.id}
                   onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
@@ -1966,7 +1976,7 @@ function Buchhaltung({ accent }) {
               Bereits versandt ({versandt.length})
             </div>
             <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 100px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 136px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 <div>Rechnungs-Nr.</div>
                 <div>Schüler</div>
                 <div style={{ textAlign: 'center' }}>Klasse</div>
@@ -1979,7 +1989,7 @@ function Buchhaltung({ accent }) {
                 <div style={{ padding: '24px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade...</div>
               ) : versandt.map((r, i) => (
                 <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
-                  display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 100px', gap: 8,
+                  display: 'grid', gridTemplateColumns: '160px minmax(180px, 0.92fr) 64px 96px 108px 132px 136px', gap: 8,
                   padding: '11px 16px', alignItems: 'center',
                   borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
                   opacity: 0.75, cursor: 'pointer',
@@ -2043,6 +2053,16 @@ function Buchhaltung({ accent }) {
                       <Icon name="edit" size={13} />
                     </button>
                     <button
+                      data-tooltip="Stornieren"
+                      disabled={stornierend === r.id}
+                      onClick={e => { e.stopPropagation(); setStornoDialog(r); }}
+                      style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: stornierend === r.id ? 'not-allowed' : 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: stornierend === r.id ? 0.5 : 1 }}
+                      onMouseEnter={e => { if (stornierend === r.id) return; e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                    >
+                      <Icon name="x" size={13} />
+                    </button>
+                    <button
                       data-tooltip="Archivieren"
                       disabled={archivierend === r.id}
                       onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
@@ -2073,6 +2093,15 @@ function Buchhaltung({ accent }) {
             accent={accent}
             onClose={() => setEditingRechnung(null)}
             onSaved={(anzeigeNr) => { updateAnzeigeNrLocal(editingRechnung.id, anzeigeNr); setEditingRechnung(null); }}
+          />
+        )}
+        {stornoDialog && (
+          <StornoDialog
+            rechnung={stornoDialog}
+            accent={accent}
+            working={stornierend === stornoDialog.id}
+            onClose={() => setStornoDialog(null)}
+            onConfirm={(payload) => stornoRechnung(stornoDialog, payload)}
           />
         )}
       </div>
