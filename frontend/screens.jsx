@@ -1705,6 +1705,10 @@ function Buchhaltung({ accent, onNav }) {
   const [draftRefreshing, setDraftRefreshing] = React.useState(false);
   const [draftDeleting, setDraftDeleting] = React.useState(null);
   const entwuerfe = useVorgangEntwuerfe();
+  const [stornierteRechnungen, setStornierteRechnungen] = React.useState([]);
+  const [stornierteLoading, setStornierteLoading] = React.useState(false);
+  const [stornierteFilter, setStornierteFilter] = React.useState('');
+  const [stornierteSort, setStornierteSort] = React.useState('storniert');
 
   const updateAnzeigeNrLocal = (id, anzeigeNr) => {
     const patch = (list) => list.map(item => item.id === id ? { ...item, anzeige_nr: anzeigeNr } : item);
@@ -1735,6 +1739,14 @@ function Buchhaltung({ accent, onNav }) {
       .finally(() => setVersandtLoading(false));
   };
 
+  const loadStornierte = () => {
+    setStornierteLoading(true);
+    window.api.buchhaltung.alleRechnungen()
+      .then(res => setStornierteRechnungen((res.items || []).filter(r => r.status === 'storniert')))
+      .catch(error => window.showToast?.('error', error.message || 'Stornierte Rechnungen konnten nicht geladen werden.'))
+      .finally(() => setStornierteLoading(false));
+  };
+
   const archivierenRechnung = async (r) => {
     setArchivierend(r.id);
     try {
@@ -1758,6 +1770,7 @@ function Buchhaltung({ accent, onNav }) {
       setRechnungen(list => list.map(item => item.id === r.id ? { ...item, status: result?.status || 'storniert' } : item));
       loadUnversandt();
       loadVersandt();
+      loadStornierte();
       if (selectedSj) {
         window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
       }
@@ -1769,13 +1782,13 @@ function Buchhaltung({ accent, onNav }) {
     }
   };
 
-  React.useEffect(() => { loadSchuljahre(); loadUnversandt(); loadVersandt(); }, []);
+  React.useEffect(() => { loadSchuljahre(); loadUnversandt(); loadVersandt(); loadStornierte(); }, []);
 
   React.useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === 'visible') { loadUnversandt(); loadVersandt(); } };
+    const onVisible = () => { if (document.visibilityState === 'visible') { loadUnversandt(); loadVersandt(); if (activeTab === 'storniert') loadStornierte(); } };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
-  }, []);
+  }, [activeTab]);
 
   React.useEffect(() => {
     if (!selectedSj) return;
@@ -1795,12 +1808,18 @@ function Buchhaltung({ accent, onNav }) {
       .finally(() => setDraftRefreshing(false));
   }, [activeTab]);
 
+  React.useEffect(() => {
+    if (activeTab !== 'storniert') return;
+    loadStornierte();
+  }, [activeTab]);
+
   const klassen = [...new Set(rechnungen.map(r => r.klasse).filter(Boolean))].sort(compareKlasseAsc);
   const rechnungenGefiltert = filterKlasse ? rechnungen.filter(r => r.klasse === filterKlasse) : rechnungen;
   const aktive = rechnungenGefiltert.filter(r => r.status !== 'storniert');
   const gesamtCents = aktive.reduce((s, r) => s + r.zu_zahlen_cents, 0);
   const storniertAnzahl = rechnungenGefiltert.length - aktive.length;
   const draftSearch = draftFilter.trim().toLowerCase();
+  const stornierteSearch = stornierteFilter.trim().toLowerCase();
   const entwuerfeGefiltert = React.useMemo(() => {
     const filtered = draftSearch
       ? entwuerfe.filter(entwurf => {
@@ -1865,10 +1884,41 @@ function Buchhaltung({ accent, onNav }) {
     }
   };
 
+  const stornierteGefiltert = React.useMemo(() => {
+    const filtered = stornierteSearch
+      ? stornierteRechnungen.filter(r => [
+          r.id,
+          r.anzeige_nr,
+          r.schueler_id,
+          r.schueler_name,
+          r.klasse,
+          r.schuljahr,
+          r.datum,
+        ].filter(Boolean).join(' ').toLowerCase().includes(stornierteSearch))
+      : [...stornierteRechnungen];
+    return filtered.sort((a, b) => {
+      if (stornierteSort === 'schueler') {
+        return `${a.schueler_name || ''}`.localeCompare(`${b.schueler_name || ''}`, 'de')
+          || `${b.datum || ''}`.localeCompare(`${a.datum || ''}`);
+      }
+      if (stornierteSort === 'klasse') {
+        return compareKlasseAsc(a.klasse || '', b.klasse || '')
+          || `${a.schueler_name || ''}`.localeCompare(`${b.schueler_name || ''}`, 'de');
+      }
+      if (stornierteSort === 'schuljahr') {
+        return `${b.schuljahr || ''}`.localeCompare(`${a.schuljahr || ''}`)
+          || `${b.datum || ''}`.localeCompare(`${a.datum || ''}`);
+      }
+      return `${b.datum || ''}`.localeCompare(`${a.datum || ''}`)
+        || `${b.id || ''}`.localeCompare(`${a.id || ''}`);
+    });
+  }, [stornierteRechnungen, stornierteSearch, stornierteSort]);
+
   const TABS = [
     { id: 'versand', label: 'Rechnungsversand', badge: unversandt.length > 0 ? unversandt.length : null },
     { id: 'buchhaltung', label: 'Buchhaltung' },
     { id: 'entwuerfe', label: 'Entwürfe', badge: entwuerfe.length > 0 ? entwuerfe.length : null },
+    { id: 'storniert', label: 'Storniert', badge: stornierteRechnungen.length > 0 ? stornierteRechnungen.length : null },
     { id: 'klassenliste', label: 'Klassenliste' },
   ];
 
@@ -2311,6 +2361,131 @@ function Buchhaltung({ accent, onNav }) {
               </div>
             );
           })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Tab: Storniert ───────────────────────────────────────────────────
+  if (activeTab === 'storniert') {
+    return (
+      <div style={{ padding: '24px 40px', maxWidth: 1180, margin: '0 auto' }}>
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', fontFamily: "'Playfair Display', Georgia, serif" }}>Buchhaltung</h1>
+          <div style={{ fontSize: 12.5, color: '#64748b', marginTop: 3 }}>Stornierte Rechnungen nachvollziehen und Belege öffnen.</div>
+        </div>
+        {tabBar}
+
+        <div style={{ marginBottom: 14, display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) 170px auto', gap: 8, alignItems: 'center' }}>
+          <input
+            value={stornierteFilter}
+            onChange={e => setStornierteFilter(e.target.value)}
+            placeholder="Stornierungen filtern - Rechnung, Schüler, Klasse..."
+            aria-label="Stornierte Rechnungen filtern"
+            style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 10px', fontSize: 12.5, color: '#0f172a', background: '#fff', fontFamily: 'inherit' }}
+          />
+          <select
+            value={stornierteSort}
+            onChange={e => setStornierteSort(e.target.value)}
+            aria-label="Stornierte Rechnungen sortieren"
+            style={{ height: 34, border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 8px', fontSize: 12.5, color: '#475569', background: '#fff', fontFamily: 'inherit' }}
+          >
+            <option value="storniert">Datum</option>
+            <option value="schueler">Schüler</option>
+            <option value="klasse">Klasse</option>
+            <option value="schuljahr">Schuljahr</option>
+          </select>
+          <button
+            onClick={loadStornierte}
+            disabled={stornierteLoading}
+            style={{ height: 34, background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 7, padding: '0 12px', fontSize: 12, color: '#64748b', cursor: stornierteLoading ? 'wait' : 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6, opacity: stornierteLoading ? 0.6 : 1 }}
+          >
+            <Icon name="refresh-cw" size={12} />
+            Aktualisieren
+          </button>
+        </div>
+
+        <div style={{ marginBottom: 12, fontSize: 13, color: '#475569' }}>
+          {stornierteRechnungen.length === 0
+            ? 'Es gibt aktuell keine stornierten Rechnungen.'
+            : `${stornierteRechnungen.length} ${stornierteRechnungen.length === 1 ? 'Rechnung ist' : 'Rechnungen sind'} storniert.`}
+        </div>
+
+        <div style={{ background: '#fff', border: '1px solid #e8ecef', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '150px minmax(190px, 1fr) 74px 96px 96px 108px 102px', gap: 8, padding: '10px 16px', borderBottom: '1px solid #f1f5f9', background: '#fbfcfd', fontSize: 10.5, color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+            <div>Rechnungs-Nr.</div>
+            <div>Schüler</div>
+            <div>Klasse</div>
+            <div>Schuljahr</div>
+            <div>Datum</div>
+            <div style={{ textAlign: 'right' }}>Brutto</div>
+            <div />
+          </div>
+          {stornierteLoading && stornierteRechnungen.length === 0 ? (
+            <div style={{ padding: '32px 20px', textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>Lade stornierte Rechnungen...</div>
+          ) : stornierteGefiltert.length === 0 ? (
+            <div style={{ padding: '44px 20px', textAlign: 'center' }}>
+              <div style={{ fontSize: 13.5, fontWeight: 500, color: '#0f172a' }}>{stornierteRechnungen.length === 0 ? 'Keine Stornierungen' : 'Keine passenden Stornierungen'}</div>
+              <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>
+                {stornierteRechnungen.length === 0 ? 'Stornierte Rechnungen erscheinen hier automatisch.' : 'Passe den Filter an oder aktualisiere die Liste.'}
+              </div>
+            </div>
+          ) : stornierteGefiltert.map((r, i) => (
+            <div key={r.id} onClick={() => window.openProtectedDocument(window.api.rechnung.pdf(r.id), false)} style={{
+              display: 'grid',
+              gridTemplateColumns: '150px minmax(190px, 1fr) 74px 96px 96px 108px 102px',
+              gap: 8,
+              padding: '12px 16px',
+              alignItems: 'center',
+              borderTop: i === 0 ? 'none' : '1px solid #f8fafc',
+              cursor: 'pointer',
+              background: '#fff',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+            >
+              <div style={{ fontSize: 11.5, fontFamily: 'JetBrains Mono, monospace', color: '#475569' }}>{r.anzeige_nr || r.id}</div>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: '#0f172a', letterSpacing: '-0.005em' }}>{r.schueler_name}</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', marginTop: 1 }}>{r.schueler_id}</div>
+              </div>
+              <Badge tone="slate">{r.klasse || '-'}</Badge>
+              <div style={{ fontSize: 11.5, color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>{r.schuljahr || '-'}</div>
+              <div style={{ fontSize: 11.5, color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>
+                {r.datum ? new Date(r.datum).toLocaleDateString('de-DE') : '-'}
+              </div>
+              <div style={{ textAlign: 'right', fontSize: 12.5, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', textDecoration: 'line-through' }}>
+                {(r.summe_cents / 100).toFixed(2).replace('.', ',')} €
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                <button
+                  data-tooltip="Rechnung öffnen"
+                  onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.pdf(r.id), false); }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="invoice" size={13} />
+                </button>
+                <button
+                  data-tooltip="PDF herunterladen"
+                  onClick={async e => {
+                    e.stopPropagation();
+                    try {
+                      await window.downloadProtectedDocument(window.api.rechnung.pdf(r.id), `${r.id}.pdf`);
+                    } catch (err) {
+                      window.showToast('error', err.message || 'PDF konnte nicht heruntergeladen werden.');
+                    }
+                  }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="download" size={13} />
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
