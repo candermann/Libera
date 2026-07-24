@@ -146,10 +146,17 @@ declare global {
     addPreviewChrome?: boolean;
   }
 
+  type BenutzerRolle = 'standard' | 'admin';
+
+  interface Benutzer {
+    benutzername: string;
+    rolle: BenutzerRolle;
+  }
+
   interface BibliomatApi {
     auth: {
       login(username: string, password: string): Promise<{ status: string }>;
-      me(): Promise<{ username: string }>;
+      me(): Promise<{ username: string; ist_admin: boolean }>;
       logout(): Promise<null>;
     };
     schueler: {
@@ -258,10 +265,11 @@ declare global {
     health(): Promise<{ status: string; version: string }>;
     admin: {
       benutzer: {
-        list(): Promise<ApiListResponse<{ benutzername: string }>>;
-        create(data: { benutzername: string; passwort: string }): Promise<unknown>;
+        list(): Promise<Benutzer[]>;
+        create(data: { benutzername: string; passwort: string; rolle?: BenutzerRolle }): Promise<Benutzer>;
         remove(name: string): Promise<null>;
         changePasswort(name: string, passwort: string): Promise<unknown>;
+        setRolle(name: string, rolle: BenutzerRolle): Promise<Benutzer>;
       };
       changeAdminPasswort(passwort: string): Promise<unknown>;
       backup: {

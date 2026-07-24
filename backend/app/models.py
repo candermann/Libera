@@ -25,6 +25,7 @@ class Benutzer(Base):
 
     benutzername = Column(Text, primary_key=True)
     passwort_hash = Column(Text, nullable=False)
+    rolle = Column(Text, nullable=False, server_default=sa_text("'standard'"))  # 'standard' | 'admin'
 
 
 class Schueler(Base):

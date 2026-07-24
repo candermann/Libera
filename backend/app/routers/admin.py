@@ -15,14 +15,19 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Benutzer, Einstellungen
-from app.security import get_current_user, get_password_hash
+from app.security import get_current_user, get_password_hash, is_admin_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
+ROLLEN = ("standard", "admin")
 
-def require_admin(current_user: str = Depends(get_current_user)):
-    if current_user != "admin":
+
+def require_admin(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not is_admin_user(db, current_user):
         raise HTTPException(status_code=403, detail="Nur für Administratoren.")
     return current_user
 
@@ -32,10 +37,15 @@ def require_admin(current_user: str = Depends(get_current_user)):
 class BenutzerCreate(BaseModel):
     benutzername: str
     passwort: str
+    rolle: str = "standard"
 
 
 class PasswortChange(BaseModel):
     passwort: str
+
+
+class RolleChange(BaseModel):
+    rolle: str
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
@@ -45,9 +55,9 @@ def list_benutzer(
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
 ):
-    """Gibt Liste aller Benutzer zurück (nur benutzername, kein Passwort)."""
+    """Gibt Liste aller Benutzer zurück (benutzername + rolle, kein Passwort)."""
     benutzer = db.query(Benutzer).all()
-    return [{"benutzername": b.benutzername} for b in benutzer]
+    return [{"benutzername": b.benutzername, "rolle": b.rolle} for b in benutzer]
 
 
 @router.post("/benutzer", status_code=201)
@@ -64,14 +74,15 @@ def create_benutzer(
         raise HTTPException(status_code=422, detail="Benutzername 'admin' ist reserviert.")
     if not data.passwort:
         raise HTTPException(status_code=422, detail="Passwort darf nicht leer sein.")
+    rolle = data.rolle if data.rolle in ROLLEN else "standard"
     existing = db.query(Benutzer).filter(Benutzer.benutzername == name).first()
     if existing:
         raise HTTPException(status_code=409, detail=f"Benutzer '{name}' existiert bereits.")
-    neuer = Benutzer(benutzername=name, passwort_hash=get_password_hash(data.passwort))
+    neuer = Benutzer(benutzername=name, passwort_hash=get_password_hash(data.passwort), rolle=rolle)
     db.add(neuer)
     db.commit()
-    logger.info("Benutzer angelegt: '%s'", name)
-    return {"benutzername": name}
+    logger.info("Benutzer angelegt: '%s' (Rolle: %s)", name, rolle)
+    return {"benutzername": name, "rolle": rolle}
 
 
 @router.delete("/benutzer/{benutzername}", status_code=204)
@@ -108,6 +119,25 @@ def change_benutzer_passwort(
     benutzer.passwort_hash = get_password_hash(data.passwort)
     db.commit()
     return {"status": "ok"}
+
+
+@router.patch("/benutzer/{benutzername}/rolle")
+def change_benutzer_rolle(
+    benutzername: str,
+    data: RolleChange,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(require_admin),
+):
+    """Rolle eines Benutzers ändern ('standard' oder 'admin')."""
+    if data.rolle not in ROLLEN:
+        raise HTTPException(status_code=422, detail=f"Rolle muss eine von {ROLLEN} sein.")
+    benutzer = db.query(Benutzer).filter(Benutzer.benutzername == benutzername).first()
+    if not benutzer:
+        raise HTTPException(status_code=404, detail=f"Benutzer '{benutzername}' nicht gefunden.")
+    benutzer.rolle = data.rolle
+    db.commit()
+    logger.info("Rolle geändert: '%s' -> '%s' (durch '%s')", benutzername, data.rolle, current_user)
+    return {"benutzername": benutzername, "rolle": benutzer.rolle}
 
 
 @router.patch("/passwort")

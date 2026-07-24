@@ -12,6 +12,7 @@ from app.security import (
     create_access_token,
     ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user,
+    is_admin_user,
 )
 from app.limiter import limiter
 
@@ -84,5 +85,5 @@ def logout(response: Response):
 
 
 @router.get("/me")
-def me(current_user: str = Depends(get_current_user)):
-    return {"username": current_user}
+def me(current_user: str = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"username": current_user, "ist_admin": is_admin_user(db, current_user)}

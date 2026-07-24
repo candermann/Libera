@@ -1684,7 +1684,7 @@ const BUCHHALTUNG_DRAFT_FLOW_LABELS = {
   'ausgabe-rueckgabe': 'Ausgabe & Rückgabe',
 };
 
-function Buchhaltung({ accent, onNav }) {
+function Buchhaltung({ accent, onNav, currentUser }) {
   const [activeTab, setActiveTab] = React.useState('versand');
   const [schuljahre, setSchuljahre] = React.useState([]);
   const [selectedSj, setSelectedSj] = React.useState(null);
@@ -1917,7 +1917,9 @@ function Buchhaltung({ accent, onNav }) {
   const TABS = [
     { id: 'versand', label: 'Rechnungsversand', badge: unversandt.length > 0 ? unversandt.length : null },
     { id: 'buchhaltung', label: 'Buchhaltung' },
-    { id: 'entwuerfe', label: 'Entwürfe', badge: entwuerfe.length > 0 ? entwuerfe.length : null },
+    // Entwürfe sind ohnehin strikt pro Bearbeiter gefiltert (siehe _can_access_entwurf
+    // im Backend) - admin legt hier aber keine eigenen Vorgänge an, daher kein Tab dafür.
+    ...(currentUser !== 'admin' ? [{ id: 'entwuerfe', label: 'Entwürfe', badge: entwuerfe.length > 0 ? entwuerfe.length : null }] : []),
     { id: 'storniert', label: 'Storniert', badge: stornierteRechnungen.length > 0 ? stornierteRechnungen.length : null },
     { id: 'klassenliste', label: 'Klassenliste' },
   ];

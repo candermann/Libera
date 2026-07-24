@@ -221,6 +221,7 @@ const api = {
             create: (data) => req('/admin/benutzer', { method: 'POST', body: data }),
             remove: (name) => req(`/admin/benutzer/${encodeURIComponent(name)}`, { method: 'DELETE' }),
             changePasswort: (name, passwort) => req(`/admin/benutzer/${encodeURIComponent(name)}/passwort`, { method: 'PATCH', body: { passwort } }),
+            setRolle: (name, rolle) => req(`/admin/benutzer/${encodeURIComponent(name)}/rolle`, { method: 'PATCH', body: { rolle } }),
         },
         changeAdminPasswort: (passwort) => req('/admin/passwort', { method: 'PATCH', body: { passwort } }),
         backup: {

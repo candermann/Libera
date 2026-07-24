@@ -297,7 +297,7 @@ Alle Geldbeträge werden als **Integer in Cent** gespeichert. Dadurch gibt es ke
 | `rechnung_verrechnungen` | Verrechnung von Guthaben mit Rechnungen |
 | `zahlungen` | Zahlungseingänge |
 | `auszahlungen` | Auszahlungen von Guthaben |
-| `benutzer` | Benutzerkonten (außer admin) mit bcrypt-Passwort-Hash |
+| `benutzer` | Benutzerkonten (außer admin) mit bcrypt-Passwort-Hash und `rolle` (`standard`/`admin`) |
 | `einstellungen` | Key-Value-Store für Schul-, Mail-, Preis-Einstellungen und admin_password_hash |
 | `v_schueler_saldo` | berechneter Saldo je Schüler |
 
@@ -349,7 +349,7 @@ Die Abschläge sind in den Einstellungen konfigurierbar.
 
 ## API
 
-Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gültigen JWT-Bearer-Token. Admin-Endpunkte (`/api/admin/*`) erfordern zusätzlich den `admin`-Account.
+Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gültigen JWT-Bearer-Token. Admin-Endpunkte (`/api/admin/*`) erfordern zusätzlich das `admin`-Konto oder einen Benutzer mit `rolle = 'admin'`.
 
 | Methode | Pfad | Beschreibung |
 |---|---|---|
@@ -359,6 +359,7 @@ Alle Endpunkte außer `/api/auth/login` und `/api/health` benötigen einen gült
 | `POST` | `/api/admin/benutzer` | Benutzer anlegen (nur Admin) |
 | `DELETE` | `/api/admin/benutzer/{name}` | Benutzer löschen (nur Admin) |
 | `PATCH` | `/api/admin/benutzer/{name}/passwort` | Passwort ändern (nur Admin) |
+| `PATCH` | `/api/admin/benutzer/{name}/rolle` | Rolle ändern (`standard`/`admin`, nur Admin) |
 | `PATCH` | `/api/admin/passwort` | Admin-Passwort ändern |
 | `GET` | `/api/admin/backup` | Datenbank herunterladen (nur Admin) |
 | `POST` | `/api/admin/restore` | Datenbank wiederherstellen (nur Admin) |
@@ -631,7 +632,7 @@ Die Logs erscheinen im Container-Output (`docker compose logs bibliomat`).
 
 -broken admin panel: admin wurde in allen accounts unten links geprintet (hardcoding)
 -die hardcoded line wurde geändert und ein "GetAccountName" implementiert welches sich den namen des eingeloggten nutzers holt.
--//! es fehlt weiterhin ein konkretes admin panel bei welchem nutzerrechte vergeben werden können . alle erzeugten user sind identische alternativ user. 
+-~~es fehlt weiterhin ein konkretes admin panel bei welchem nutzerrechte vergeben werden können . alle erzeugten user sind identische alternativ user.~~ **behoben (24.07.2026):** einfaches Rollensystem eingeführt — Benutzer haben jetzt ein `rolle`-Feld (`standard`/`admin`). Der Admin kann in Profil → Einstellungen → Konten jedem Benutzer Admin-Rechte geben/entziehen; nur `admin`-Rolle (oder das feste `admin`-Konto) darf Benutzerverwaltung/Backup/Restore nutzen. Siehe `IMPROVEMENTS.md`.
 -PDF print funktion wurde auf anfrage der schule angepasst. es kam bericht zufolge zu abgeschnittenen texten.
 -Beschädigt in nicht zurückgenommen umbenannt
 -versionierung wurde auf anfrage hochgezählt 

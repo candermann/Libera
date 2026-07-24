@@ -1,6 +1,6 @@
 function Profil({ accent }) {
   const [currentUser, setCurrentUser] = React.useState(null);
-  const isAdmin = currentUser === 'admin';
+  const [isAdmin, setIsAdmin] = React.useState(false);
 
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
@@ -12,7 +12,9 @@ function Profil({ accent }) {
   const [benutzerLoading, setBenutzerLoading] = React.useState(false);
   const [neuerBenutzername, setNeuerBenutzername] = React.useState('');
   const [neuesPasswort, setNeuesPasswort] = React.useState('');
+  const [neueRolleAdmin, setNeueRolleAdmin] = React.useState(false);
   const [benutzerError, setBenutzerError] = React.useState(null);
+  const [rolleChanging, setRolleChanging] = React.useState({});
   const [passwordChanging, setPasswordChanging] = React.useState({});
   const [pwInputs, setPwInputs] = React.useState({});
   const [adminPasswort, setAdminPasswort] = React.useState('');
@@ -76,10 +78,12 @@ function Profil({ accent }) {
       .then((session) => {
         if (!alive) return;
         setCurrentUser(session?.username || null);
+        setIsAdmin(Boolean(session?.ist_admin));
       })
       .catch(() => {
         if (!alive) return;
         setCurrentUser(null);
+        setIsAdmin(false);
       });
 
     return () => { alive = false; };
@@ -166,10 +170,20 @@ function Profil({ accent }) {
             Schuldaten, Bankverbindung und E-Mail-Versand konfigurieren.
           </div>
         </div>
-        <Btn kind="primary" accent={accent} icon="check" onClick={save} disabled={saving}>
+        <Btn kind="primary" accent={accent} icon="check" onClick={save} disabled={saving || !isAdmin} title={!isAdmin ? 'Nur Administratoren können diese Einstellungen ändern.' : undefined}>
           {saving ? 'Speichern...' : 'Speichern'}
         </Btn>
       </div>
+
+      {!isAdmin && (
+        <div style={{
+          marginBottom: 14, padding: '10px 12px',
+          background: '#fffbeb', border: '1px solid #fde68a',
+          color: '#92400e', borderRadius: 8, fontSize: 12.5,
+        }}>
+          Nur Administratoren können diese Einstellungen ändern. Du kannst sie hier einsehen, aber nicht speichern.
+        </div>
+      )}
 
       {/* Meldungen */}
       {error && (
@@ -426,6 +440,7 @@ function Profil({ accent }) {
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                     <th style={{ textAlign: 'left', padding: '6px 0', color: '#475569', fontWeight: 500, fontSize: 12 }}>Benutzername</th>
+                    <th style={{ textAlign: 'left', padding: '6px 0', color: '#475569', fontWeight: 500, fontSize: 12 }}>Rolle</th>
                     <th style={{ textAlign: 'right', padding: '6px 0', color: '#475569', fontWeight: 500, fontSize: 12 }}>Aktionen</th>
                   </tr>
                 </thead>
@@ -434,8 +449,37 @@ function Profil({ accent }) {
                       <React.Fragment key={b.benutzername}>
                         <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
                           <td style={{ padding: '10px 0', color: '#0f172a' }}>{b.benutzername}</td>
+                          <td style={{ padding: '10px 0' }}>
+                            <span style={{
+                              padding: '3px 8px', fontSize: 11.5, fontWeight: 600, borderRadius: 999,
+                              ...(b.rolle === 'admin'
+                                ? { background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }
+                                : { background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0' }),
+                            }}>
+                              {b.rolle === 'admin' ? 'Admin' : 'Standard'}
+                            </span>
+                          </td>
                           <td style={{ padding: '10px 0', textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
-<button
+                            <button
+                              disabled={rolleChanging[b.benutzername]}
+                              onClick={() => {
+                                const neueRolle = b.rolle === 'admin' ? 'standard' : 'admin';
+                                setRolleChanging(prev => ({ ...prev, [b.benutzername]: true }));
+                                window.api.admin.benutzer.setRolle(b.benutzername, neueRolle)
+                                  .then((updated) => {
+                                    setBenutzerList(prev => prev.map(x => x.benutzername === b.benutzername ? { ...x, rolle: updated.rolle } : x));
+                                  })
+                                  .catch(e => setBenutzerError(e.message))
+                                  .finally(() => setRolleChanging(prev => ({ ...prev, [b.benutzername]: false })));
+                              }}
+                              style={{
+                                padding: '5px 10px', fontSize: 12, border: '1px solid #e2e8f0',
+                                borderRadius: 6, background: '#f8fafc', cursor: 'pointer', color: '#475569',
+                              }}
+                            >
+                              {b.rolle === 'admin' ? 'Admin-Rechte entziehen' : 'Zum Admin machen'}
+                            </button>
+                            <button
                               onClick={() => {
                                 setPasswordChanging(prev => ({ ...prev, [b.benutzername]: !prev[b.benutzername] }));
                                 setPwInputs(prev => ({ ...prev, [b.benutzername]: '' }));
@@ -465,7 +509,7 @@ function Profil({ accent }) {
                         </tr>
                         {passwordChanging[b.benutzername] && (
                           <tr style={{ borderBottom: '1px solid #f1f5f9' }}>
-                            <td colSpan={2} style={{ padding: '8px 0 12px 0' }}>
+                            <td colSpan={3} style={{ padding: '8px 0 12px 0' }}>
                               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                                 <input
                                   type="password"
@@ -500,7 +544,7 @@ function Profil({ accent }) {
                   ))}
                   {benutzerList.length === 0 && (
                     <tr>
-                      <td colSpan={2} style={{ padding: '10px 0', color: '#94a3b8', fontSize: 13 }}>Keine Benutzer vorhanden.</td>
+                      <td colSpan={3} style={{ padding: '10px 0', color: '#94a3b8', fontSize: 13 }}>Keine Benutzer vorhanden.</td>
                     </tr>
                   )}
                 </tbody>
@@ -535,11 +579,16 @@ function Profil({ accent }) {
                 onClick={() => {
                   if (!neuerBenutzername || !neuesPasswort) return;
                   setBenutzerError(null);
-                  window.api.admin.benutzer.create({ benutzername: neuerBenutzername, passwort: neuesPasswort })
+                  window.api.admin.benutzer.create({
+                    benutzername: neuerBenutzername,
+                    passwort: neuesPasswort,
+                    rolle: neueRolleAdmin ? 'admin' : 'standard',
+                  })
                     .then(neu => {
-                      setBenutzerList(prev => [...prev, { benutzername: neu.benutzername }]);
+                      setBenutzerList(prev => [...prev, neu]);
                       setNeuerBenutzername('');
                       setNeuesPasswort('');
+                      setNeueRolleAdmin(false);
                     })
                     .catch(e => setBenutzerError(e.message));
                 }}
@@ -552,6 +601,17 @@ function Profil({ accent }) {
               >
                 Anlegen
               </button>
+            </div>
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                id="neue-rolle-admin"
+                checked={neueRolleAdmin}
+                onChange={e => setNeueRolleAdmin(e.target.checked)}
+              />
+              <label htmlFor="neue-rolle-admin" style={{ fontSize: 12.5, color: '#475569', cursor: 'pointer' }}>
+                Admin-Rechte geben (Benutzerverwaltung, Backup/Restore)
+              </label>
             </div>
           </Card>
 

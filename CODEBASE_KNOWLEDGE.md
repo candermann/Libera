@@ -204,11 +204,21 @@ Frontend:
 
 ## Auth
 
-- Login über `/api/auth/login`.
+- Login über `/api/auth/login`, setzt httpOnly-Cookie; Response-Body enthält nur `{"status":"ok"}` (kein JWT mehr im Body, seit 24.07.2026).
 - Session über JWT/Cookie bzw. Authorization.
-- `get_current_user` ist die zentrale Dependency.
+- `get_current_user` ist die zentrale Dependency (liest nur das Token, kein DB-Zugriff).
 - Tests überschreiben diese Dependency in `backend/tests/conftest.py` standardmäßig auf `admin`.
 - Benutzerverwaltung läuft über Admin-Router und Profil/Konten-UI.
+
+## Rollen/Rechte (seit 24.07.2026)
+
+- `Benutzer.rolle` (`standard`/`admin`), additive Spalte in `db.py::_ensure_benutzer_rolle_column`.
+- `security.py::is_admin_user(db, username)`: `True` wenn `username == "admin"` (fest) ODER `Benutzer.rolle == "admin"`.
+- `admin.py::require_admin` nutzt diesen Helfer statt hartem String-Vergleich.
+- `GET /api/auth/me` liefert zusätzlich `ist_admin: bool` — Frontend (`profil.jsx`) liest das statt `currentUser === 'admin'` zu vergleichen.
+- Neuer Endpoint `PATCH /api/admin/benutzer/{name}/rolle`.
+- Alle anderen Rollen (`lehrer`, `schulleiter`, `sekretariat`, custom) bleiben untereinander gleichberechtigt — es gibt nur die zwei Stufen `standard`/`admin`, keine feineren Abstufungen.
+- Die Buchhaltung-„Entwürfe"-Tab ist seit 24.07.2026 für das feste `admin`-Konto ausgeblendet (`screens.jsx::Buchhaltung` TABS-Array, gated auf `currentUser !== 'admin'`, Prop von `app.jsx` durchgereicht) — `admin` legt selbst keine Ausgabe-/Rückgabe-Vorgänge an. Alle anderen Benutzer (`lehrer`, `schulleiter`, `sekretariat`, custom, auch mit `rolle='admin'` beförderte) sehen den Tab weiterhin. Der Inhalt bleibt serverseitig strikt auf `entwurf.bearbeiter == current_user` gefiltert (`verkauf.py::_can_access_entwurf`) — unverändert, auch `admin` hätte ohnehin nie fremde Entwürfe gesehen.
 
 ## Deployment- und Betriebswissen
 

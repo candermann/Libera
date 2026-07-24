@@ -575,6 +575,12 @@ def _ensure_benutzer_table(conn: Connection):
     """))
 
 
+def _ensure_benutzer_rolle_column(conn: Connection):
+    cols = _table_columns(conn, "benutzer")
+    if "rolle" not in cols:
+        conn.execute(text("ALTER TABLE benutzer ADD COLUMN rolle TEXT NOT NULL DEFAULT 'standard'"))
+
+
 def _seed_initial_benutzer(conn: Connection):
     from app.security import get_password_hash
 
@@ -729,6 +735,7 @@ def _ensure_rechnung_storno_audit_table(conn: Connection):
 def prepare_schema(conn: Connection):
     """Create additive schema objects needed by the current app version."""
     _ensure_benutzer_table(conn)
+    _ensure_benutzer_rolle_column(conn)
     _seed_initial_benutzer(conn)
     _ensure_inventory_table(conn)
     _ensure_buch_faecher_table(conn)

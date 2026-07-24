@@ -11,8 +11,21 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import Einstellungen
+from app.security import get_current_user, is_admin_user
 
 router = APIRouter(prefix="/api/einstellungen", tags=["Einstellungen"])
+
+
+def _require_admin_for_settings(
+    current_user: str = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Bankdaten, SMTP-Zugangsdaten und Preis-/Abschlag-Einstellungen wirken sich
+    schulweit aus - Aendern erfordert Admin-Rechte (siehe BugFix.md, 24.07.2026)."""
+    if not is_admin_user(db, current_user):
+        raise HTTPException(status_code=403, detail="Nur für Administratoren.")
+    return current_user
+
 _template_env = Environment(loader=BaseLoader(), autoescape=False)
 _SENSITIVE_KEY_PARTS = (
     "password",
@@ -58,7 +71,11 @@ def get_einstellungen(db: Session = Depends(get_db)):
 
 
 @router.patch("")
-def update_einstellungen(data: dict = Body(...), db: Session = Depends(get_db)):
+def update_einstellungen(
+    data: dict = Body(...),
+    db: Session = Depends(get_db),
+    _: str = Depends(_require_admin_for_settings),
+):
     """
     Update settings — accepts arbitrary key-value pairs.
 

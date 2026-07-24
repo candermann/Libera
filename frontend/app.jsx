@@ -139,7 +139,7 @@ function App() {
       case 'schueler': content = <window.SchuelerListe accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
       case 'buecher': content = <window.BuecherListe accent={t.accent} />; break;
       case 'lernmaterial': content = <window.LernmaterialListe accent={t.accent} />; break;
-      case 'buchhaltung': content = <window.Buchhaltung accent={t.accent} onNav={handleNav} />; break;
+      case 'buchhaltung': content = <window.Buchhaltung accent={t.accent} onNav={handleNav} currentUser={currentUser} />; break;
       case 'klassenversetzung': content = <window.Klassenversetzung accent={t.accent} />; break;
       case 'schuelerarchiv': content = <window.Archiv accent={t.accent} onOpenStudent={handleOpenStudent} />; break;
       case 'profil':

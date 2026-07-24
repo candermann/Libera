@@ -8,6 +8,7 @@ from typing import Optional
 import bcrypt
 import jwt
 from fastapi import HTTPException, Request, status
+from sqlalchemy.orm import Session
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours — reduced for DSGVO compliance
@@ -68,3 +69,14 @@ def get_current_user(request: Request):
         raise credentials_exception
 
     return username
+
+
+def is_admin_user(db: Session, username: str) -> bool:
+    """The literal 'admin' account is always admin; any Benutzer can be promoted
+    via `rolle = 'admin'` (see backend/app/routers/admin.py)."""
+    if username == "admin":
+        return True
+    from app.models import Benutzer  # local import: avoids a models -> security cycle
+
+    benutzer = db.query(Benutzer).filter(Benutzer.benutzername == username).first()
+    return bool(benutzer and benutzer.rolle == "admin")
