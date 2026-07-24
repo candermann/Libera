@@ -316,11 +316,7 @@ def _parse_json_dict(raw: str | None) -> dict:
 
 
 def _can_access_entwurf(entwurf: RechnungEntwurf, username: str) -> bool:
-    return (
-        username == "admin"
-        or entwurf.bearbeiter == username
-        or username in _parse_json_list(entwurf.freigegeben_an_json)
-    )
+    return entwurf.bearbeiter == username
 
 
 def _cleanup_old_entwuerfe(db: Session) -> None:
@@ -849,7 +845,7 @@ def create_rechnung_entwurf(
         schueler_id=data.schueler_id,
         form_state_json=json.dumps(data.form_state, ensure_ascii=False),
         bearbeiter=current_user,
-        freigegeben_an_json=json.dumps(data.freigegeben_an, ensure_ascii=False),
+        freigegeben_an_json="[]",
         status="in_bearbeitung",
         erstellt_am=now,
         geaendert_am=now,
@@ -893,7 +889,7 @@ def update_rechnung_entwurf(
         raise HTTPException(status_code=409, detail="Entwurf wurde zwischenzeitlich geaendert")
 
     entwurf.form_state_json = json.dumps(data.form_state, ensure_ascii=False)
-    entwurf.freigegeben_an_json = json.dumps(data.freigegeben_an, ensure_ascii=False)
+    entwurf.freigegeben_an_json = "[]"
     entwurf.geaendert_am = _now_iso()
     db.commit()
     db.refresh(entwurf)

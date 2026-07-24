@@ -63,7 +63,7 @@ window.vorgangEntwuerfe = {
       flow,
       schueler_id: schueler.id,
       form_state: state,
-      freigegeben_an: existing?.freigegeben_an || [],
+      freigegeben_an: [],
       geaendert_am: existing?.updated_at_iso || null,
     };
     const saved = existing?.id

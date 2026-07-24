@@ -139,6 +139,8 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
     setErrorMsg(null);
   };
 
+  const hasDraftContent = () => cart.length > 0 || lmCart.length > 0 || freiCart.length > 0;
+
   const selectStudent = (student) => {
     setSelectedStudent(student);
     const draft = window.vorgangEntwuerfe.get(VERKAUF_DRAFT_FLOW, student.id);
@@ -154,7 +156,11 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
     setStep(2);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    if (selectedStudent && step === 2 && hasDraftContent()) {
+      window.showToast?.('info', 'Entwurf wird gespeichert...');
+      await saveCurrentDraft(false);
+    }
     onDone();
   };
 
@@ -162,8 +168,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   const saveCurrentDraft = async (manual = false) => {
     if (!selectedStudent) return null;
-    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0;
-    if (!hatInhalt) return null;
+    if (!hasDraftContent()) return null;
     try {
       const saved = await window.vorgangEntwuerfe.saveNow(VERKAUF_DRAFT_FLOW, selectedStudent, buildDraftState());
       if (manual) window.showToast('success', 'Entwurf gespeichert.');
@@ -1116,6 +1121,9 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
     setErrorMsg(null);
   };
 
+  const hasDraftContent = () => cart.length > 0 || lmCart.length > 0 || freiCart.length > 0
+    || Object.values(returned).some(Boolean);
+
   const selectStudent = (student) => {
     setSelectedStudent(student);
     const draft = window.vorgangEntwuerfe.get(KOMBINIERT_DRAFT_FLOW, student.id);
@@ -1136,7 +1144,11 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
     setStep(2);
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    if (selectedStudent && step === 2 && hasDraftContent()) {
+      window.showToast?.('info', 'Entwurf wird gespeichert...');
+      await saveCurrentDraft(false);
+    }
     onDone();
   };
 
@@ -1144,9 +1156,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
 
   const saveCurrentDraft = async (manual = false) => {
     if (!selectedStudent) return null;
-    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0
-      || Object.values(returned).some(Boolean);
-    if (!hatInhalt) return null;
+    if (!hasDraftContent()) return null;
     try {
       const saved = await window.vorgangEntwuerfe.saveNow(KOMBINIERT_DRAFT_FLOW, selectedStudent, buildDraftState());
       if (manual) window.showToast('success', 'Entwurf gespeichert.');

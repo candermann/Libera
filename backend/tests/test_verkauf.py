@@ -4,6 +4,8 @@ Tests for POST /api/verkauf and related invoice endpoints.
 
 from sqlalchemy import text
 
+from app.main import app
+from app.security import get_current_user
 from tests.conftest import create_test_schueler, create_test_buch
 
 
@@ -278,6 +280,48 @@ class TestVerkauf:
         })
         assert sale.status_code == 400
         assert "anderen Schueler" in sale.text
+
+    def test_draft_can_only_be_used_by_creator(self, client):
+        """Drafts stay private to the user who created them."""
+        schueler = create_test_schueler(client, vorname="Privat", nachname="Entwurf")
+        buch = create_test_buch(client, titel="Privater Entwurf", bestand_gesamt=3)
+
+        create = client.post("/api/rechnungen/entwuerfe", json={
+            "flow": "buchausgabe",
+            "schueler_id": schueler["id"],
+            "form_state": {"cart": [{"buch_id": buch["id"], "titel": "Privater Entwurf"}]},
+            "freigegeben_an": ["sekretariat"],
+        })
+        assert create.status_code == 201, create.text
+        draft = create.json()
+        assert draft["bearbeiter"] == "admin"
+        assert draft["freigegeben_an"] == []
+
+        app.dependency_overrides[get_current_user] = lambda: "sekretariat"
+        try:
+            listed = client.get("/api/rechnungen/entwuerfe")
+            assert listed.status_code == 200
+            assert listed.json()["items"] == []
+
+            detail = client.get(f"/api/rechnungen/entwuerfe/{draft['id']}")
+            assert detail.status_code == 403
+
+            update = client.patch(f"/api/rechnungen/entwuerfe/{draft['id']}", json={
+                "flow": "buchausgabe",
+                "schueler_id": schueler["id"],
+                "form_state": {"cart": []},
+                "geaendert_am": draft["geaendert_am"],
+            })
+            assert update.status_code == 403
+
+            sale = client.post("/api/verkauf", json={
+                "schueler_id": schueler["id"],
+                "buch_ids": [buch["id"]],
+                "entwurf_id": draft["id"],
+            })
+            assert sale.status_code == 403
+        finally:
+            app.dependency_overrides[get_current_user] = lambda: "admin"
 
     def test_partial_storno_restores_only_selected_book(self, client, db_session):
         """A partial storno should restore selected stock and keep invoice active."""
