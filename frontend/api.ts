@@ -148,6 +148,7 @@ const api: BibliomatApi = {
     create: (data) => req('/buecher', { method: 'POST', body: data }),
     update: (id, data) => req(`/buecher/${id}`, { method: 'PATCH', body: data }),
     remove: (id) => req(`/buecher/${id}`, { method: 'DELETE' }),
+    renameFach: (alt, neu) => req('/buecher/fach/umbenennen', { method: 'POST', body: { alt, neu } }),
     importCsv: (file) => {
       const fd = new FormData();
       fd.append('file', file);
@@ -163,7 +164,9 @@ const api: BibliomatApi = {
     get: (id) => req(`/lernmaterial/${id}`),
     create: (data) => req('/lernmaterial', { method: 'POST', body: data }),
     update: (id, data) => req(`/lernmaterial/${id}`, { method: 'PATCH', body: data }),
+    restock: (id, bestand_gesamt) => req(`/lernmaterial/${id}/restock`, { method: 'POST', body: { bestand_gesamt } }),
     remove: (id) => req(`/lernmaterial/${id}`, { method: 'DELETE' }),
+    renameKategorie: (alt, neu) => req('/lernmaterial/kategorie/umbenennen', { method: 'POST', body: { alt, neu } }),
     importCsv: (file) => {
       const fd = new FormData();
       fd.append('file', file);
@@ -186,7 +189,13 @@ const api: BibliomatApi = {
     mailVorlage: (id) => req(`/rechnungen/${id}/mail-vorlage`),
     mailVorschau: (id, data) => req(`/rechnungen/${id}/mail-vorschau`, { method: 'POST', body: data }),
     mailSenden: (id, data) => req(`/rechnungen/${id}/mail`, { method: 'POST', body: data }),
-    storno: (id) => req(`/rechnungen/${id}/storno`, { method: 'POST' }),
+    storno: (id, data) => req(`/rechnungen/${id}/storno`, { method: 'POST', body: data }),
+    entwuerfe: () => req('/rechnungen/entwuerfe'),
+    entwurf: (id) => req(`/rechnungen/entwuerfe/${id}`),
+    createEntwurf: (data) => req('/rechnungen/entwuerfe', { method: 'POST', body: data }),
+    updateEntwurf: (id, data) => req(`/rechnungen/entwuerfe/${id}`, { method: 'PATCH', body: data }),
+    deleteEntwurf: (id) => req(`/rechnungen/entwuerfe/${id}`, { method: 'DELETE' }),
+    updateAnzeigeNr: (id, data) => req(`/rechnungen/${id}/anzeige-nr`, { method: 'PATCH', body: data }),
   },
 
   gutschrift: (data) => req('/gutschrift', { method: 'POST', body: data }),

@@ -125,6 +125,20 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
   const [oberstufeShowBooks, setOberstufeShowBooks] = React.useState(false);
   const eigeneEntwuerfe = useVorgangEntwuerfe().filter(e => e.flow === VERKAUF_DRAFT_FLOW);
 
+  const resetDraftState = () => {
+    setCart([]);
+    setLmCart([]);
+    setFreiCart([]);
+    setGuthabenVerrechnen(true);
+    setBookQuery('');
+    setLmQuery('');
+    setFreiBezeichnung('');
+    setFreiBetrag('');
+    setFreiTyp('Pauschal');
+    setFreiAlsVorlage(false);
+    setErrorMsg(null);
+  };
+
   const selectStudent = (student) => {
     setSelectedStudent(student);
     const draft = window.vorgangEntwuerfe.get(VERKAUF_DRAFT_FLOW, student.id);
@@ -132,14 +146,32 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
       setCart(draft.state.cart || []);
       setLmCart(draft.state.lmCart || []);
       setFreiCart(draft.state.freiCart || []);
-      if (typeof draft.state.guthabenVerrechnen === 'boolean') setGuthabenVerrechnen(draft.state.guthabenVerrechnen);
+      setGuthabenVerrechnen(typeof draft.state.guthabenVerrechnen === 'boolean' ? draft.state.guthabenVerrechnen : true);
+      setErrorMsg(null);
+    } else {
+      resetDraftState();
     }
     setStep(2);
   };
 
   const handleCancel = () => {
-    if (selectedStudent) window.vorgangEntwuerfe.remove(VERKAUF_DRAFT_FLOW, selectedStudent.id);
     onDone();
+  };
+
+  const buildDraftState = () => ({ cart, lmCart, freiCart, guthabenVerrechnen });
+
+  const saveCurrentDraft = async (manual = false) => {
+    if (!selectedStudent) return null;
+    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0;
+    if (!hatInhalt) return null;
+    try {
+      const saved = await window.vorgangEntwuerfe.saveNow(VERKAUF_DRAFT_FLOW, selectedStudent, buildDraftState());
+      if (manual) window.showToast('success', 'Entwurf gespeichert.');
+      return saved;
+    } catch (error) {
+      if (manual) window.showToast('error', error.message || 'Entwurf konnte nicht gespeichert werden.');
+      return null;
+    }
   };
 
   React.useEffect(() => {
@@ -151,7 +183,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
     if (!selectedStudent || step !== 2) return;
     const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0;
     if (!hatInhalt) return;
-    window.vorgangEntwuerfe.save(VERKAUF_DRAFT_FLOW, selectedStudent, { cart, lmCart, freiCart, guthabenVerrechnen });
+    window.vorgangEntwuerfe.save(VERKAUF_DRAFT_FLOW, selectedStudent, buildDraftState());
   }, [selectedStudent, cart, lmCart, freiCart, guthabenVerrechnen, step]);
 
   React.useEffect(() => {
@@ -231,9 +263,8 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   const addStudent = (student) => {
     window.api.schueler.create(student).then(res => {
-      setSelectedStudent(res);
+      selectStudent(res);
       setShowCreate(false);
-      setStep(2);
     }).catch(console.error);
   };
 
@@ -308,6 +339,7 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
 
   const handleCheckout = async () => {
     try {
+      const savedDraft = await saveCurrentDraft(false);
       const res = await window.api.verkauf({
         schueler_id: selectedStudent.id,
         positionen: cart.map(item => ({
@@ -317,8 +349,9 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
         lernmaterial_positionen: lmCart.map(item => ({ id: item.id, menge: item.menge })),
         freiposten: freiCart.map(item => ({ bezeichnung: item.bezeichnung, betrag_cents: item.betrag_cents, typ: item.typ })),
         guthaben_verrechnen: guthabenVerrechnen,
+        entwurf_id: savedDraft?.id || null,
       });
-      window.vorgangEntwuerfe.remove(VERKAUF_DRAFT_FLOW, selectedStudent.id);
+      window.vorgangEntwuerfe.refresh().catch(console.error);
       setSaleResult(res);
       setStep(3);
       const anzahlBuecher = cart.length;
@@ -818,6 +851,11 @@ function Verkauf({ accent, density, onDone, preselectedStudent }) {
                 <Btn kind="primary" full accent={accent} icon="arrow-right" onClick={handleCheckout} disabled={cart.length === 0 && lmCart.length === 0 && freiCart.length === 0}>
                   Rechnung erstellen
                 </Btn>
+                <div style={{ marginTop: 7 }}>
+                  <Btn kind="secondary" full icon="folder" onClick={() => saveCurrentDraft(true)} disabled={cart.length === 0 && lmCart.length === 0 && freiCart.length === 0}>
+                    Als Entwurf speichern
+                  </Btn>
+                </div>
               </div>
             </div>
           </div>
@@ -1062,6 +1100,22 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   const pendingRestoreRef = React.useRef(null);
   const eigeneEntwuerfe = useVorgangEntwuerfe().filter(e => e.flow === KOMBINIERT_DRAFT_FLOW);
 
+  const resetDraftState = () => {
+    setCart([]);
+    setLmCart([]);
+    setFreiCart([]);
+    setReturned({});
+    setBeschaedigtKombi({});
+    pendingRestoreRef.current = null;
+    setBookQuery('');
+    setLmQuery('');
+    setFreiBezeichnung('');
+    setFreiBetrag('');
+    setFreiTyp('Pauschal');
+    setFreiAlsVorlage(false);
+    setErrorMsg(null);
+  };
+
   const selectStudent = (student) => {
     setSelectedStudent(student);
     const draft = window.vorgangEntwuerfe.get(KOMBINIERT_DRAFT_FLOW, student.id);
@@ -1073,13 +1127,34 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
         returned: draft.state.returned || {},
         beschaedigtKombi: draft.state.beschaedigtKombi || {},
       };
+      setReturned(draft.state.returned || {});
+      setBeschaedigtKombi(draft.state.beschaedigtKombi || {});
+      setErrorMsg(null);
+    } else {
+      resetDraftState();
     }
     setStep(2);
   };
 
   const handleCancel = () => {
-    if (selectedStudent) window.vorgangEntwuerfe.remove(KOMBINIERT_DRAFT_FLOW, selectedStudent.id);
     onDone();
+  };
+
+  const buildDraftState = () => ({ cart, lmCart, freiCart, returned, beschaedigtKombi });
+
+  const saveCurrentDraft = async (manual = false) => {
+    if (!selectedStudent) return null;
+    const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0
+      || Object.values(returned).some(Boolean);
+    if (!hatInhalt) return null;
+    try {
+      const saved = await window.vorgangEntwuerfe.saveNow(KOMBINIERT_DRAFT_FLOW, selectedStudent, buildDraftState());
+      if (manual) window.showToast('success', 'Entwurf gespeichert.');
+      return saved;
+    } catch (error) {
+      if (manual) window.showToast('error', error.message || 'Entwurf konnte nicht gespeichert werden.');
+      return null;
+    }
   };
 
   React.useEffect(() => {
@@ -1092,7 +1167,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
     const hatInhalt = cart.length > 0 || lmCart.length > 0 || freiCart.length > 0
       || Object.values(returned).some(Boolean);
     if (!hatInhalt) return;
-    window.vorgangEntwuerfe.save(KOMBINIERT_DRAFT_FLOW, selectedStudent, { cart, lmCart, freiCart, returned, beschaedigtKombi });
+    window.vorgangEntwuerfe.save(KOMBINIERT_DRAFT_FLOW, selectedStudent, buildDraftState());
   }, [selectedStudent, cart, lmCart, freiCart, returned, beschaedigtKombi, step]);
 
   React.useEffect(() => {
@@ -1207,6 +1282,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
   const handleCheckout = async () => {
     try {
       const rueckgaben_kombi = returnedBooks.map(b => ({ rechnungs_posten_id: b.rechnungs_posten_id, beschaedigt: !!beschaedigtKombi[b.rechnungs_posten_id] }));
+      const savedDraft = await saveCurrentDraft(false);
       const res = await window.api.verkauf({
         schueler_id: selectedStudent.id,
         positionen: cart.map(item => ({ buch_id: item.buch_id, bestand_id: item.bestand_id })),
@@ -1214,8 +1290,9 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
         freiposten: freiCart.map(item => ({ bezeichnung: item.bezeichnung, betrag_cents: item.betrag_cents, typ: item.typ })),
         guthaben_verrechnen: false,
         rueckgaben: rueckgaben_kombi,
+        entwurf_id: savedDraft?.id || null,
       });
-      window.vorgangEntwuerfe.remove(KOMBINIERT_DRAFT_FLOW, selectedStudent.id);
+      window.vorgangEntwuerfe.refresh().catch(console.error);
       setSaleResult(res);
       setStep(3);
       const rueckgabeInfo = rueckgaben_kombi.length > 0 ? ` · ${rueckgaben_kombi.length} ${rueckgaben_kombi.length === 1 ? 'Buch' : 'Bücher'} zurückgenommen` : '';
@@ -1259,7 +1336,7 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
             Schüler nicht gefunden? <a href="#" onClick={e => { e.preventDefault(); setShowCreate(true); }} style={{ color: accent, textDecoration: 'none', fontWeight: 500 }}>Neu anlegen →</a>
           </div>
         </div>
-        {showCreate && <window.CreateStudentDialog accent={accent} klassen={KLASSEN} onClose={() => setShowCreate(false)} onSave={student => { window.api.schueler.create(student).then(res => { setSelectedStudent(res); setShowCreate(false); setStep(2); }).catch(console.error); }} />}
+        {showCreate && <window.CreateStudentDialog accent={accent} klassen={KLASSEN} onClose={() => setShowCreate(false)} onSave={student => { window.api.schueler.create(student).then(res => { selectStudent(res); setShowCreate(false); }).catch(console.error); }} />}
       </FlowShell>
     );
   }
@@ -1606,6 +1683,11 @@ function KombiniertFlow({ accent, density, onDone, preselectedStudent }) {
                 <Btn kind="primary" full accent={accent} icon="arrow-right" onClick={handleCheckout} disabled={cart.length === 0 && lmCart.length === 0 && freiCart.length === 0}>
                   Rechnung erstellen
                 </Btn>
+                <div style={{ marginTop: 7 }}>
+                  <Btn kind="secondary" full icon="folder" onClick={() => saveCurrentDraft(true)} disabled={cart.length === 0 && lmCart.length === 0 && freiCart.length === 0 && returnedBooks.length === 0}>
+                    Als Entwurf speichern
+                  </Btn>
+                </div>
               </div>
             </div>
           </div>

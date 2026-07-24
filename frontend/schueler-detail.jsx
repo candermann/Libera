@@ -235,6 +235,8 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
   const [editZahlung, setEditZahlung] = React.useState(null);
   const [showAuszahlungDialog, setShowAuszahlungDialog] = React.useState(false);
   const [mailRechnung, setMailRechnung] = React.useState(null);
+  const [stornoRechnung, setStornoRechnung] = React.useState(null);
+  const [stornoWorking, setStornoWorking] = React.useState(false);
   const [archivWorking, setArchivWorking] = React.useState(false);
 
   const handleArchivieren = async () => {
@@ -432,6 +434,28 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
           onSent={() => { setMailRechnung(null); reload(); }}
         />
       )}
+      {stornoRechnung && window.StornoDialog && (
+        <window.StornoDialog
+          rechnung={stornoRechnung}
+          accent={accent}
+          working={stornoWorking}
+          onClose={() => setStornoRechnung(null)}
+          onConfirm={async (payload) => {
+            setStornoWorking(true);
+            try {
+              const result = await window.api.rechnung.storno(stornoRechnung.id, payload);
+              const credit = result?.gutschrift_id ? ` Guthaben ${result.gutschrift_id} wurde angelegt.` : '';
+              window.showToast('success', `Storno für ${stornoRechnung.anzeige_nr || stornoRechnung.id} gebucht.${credit}`);
+              setStornoRechnung(null);
+              reload();
+            } catch (err) {
+              window.showToast('error', err.message || 'Rechnung konnte nicht storniert werden.');
+            } finally {
+              setStornoWorking(false);
+            }
+          }}
+        />
+      )}
 
       {/* Zwei-Spalten: Vorgangs-Historie + gekaufte Bücher */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
@@ -456,15 +480,11 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
                   schueler_name: `${detail.nachname}, ${detail.vorname}`,
                   status: 'offen',
                 })}
-                onStornoRechnung={async (v) => {
-                  try {
-                    await window.api.rechnung.storno(v.id);
-                    window.showToast('success', `Rechnung ${v.id} storniert.`);
-                    reload();
-                  } catch (err) {
-                    window.showToast('error', err.message || 'Rechnung konnte nicht storniert werden.');
-                  }
-                }}
+                onStornoRechnung={(v) => setStornoRechnung({
+                  id: v.id,
+                  anzeige_nr: v.id,
+                  schueler_name: `${detail.nachname}, ${detail.vorname}`,
+                })}
                 onEditZahlung={isArchived ? null : (v) => {
                   const z = zahlungen.find(z => String(z.id) === String(v.id));
                   if (z) setEditZahlung(z);
@@ -555,7 +575,6 @@ function SchuelerDetail({ schueler, accent, onBack, onNav }) {
 
 function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung, onDeleteAuszahlung, onSendRechnungMail, onStornoRechnung }) {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState(null);
-  const [confirmStornoId, setConfirmStornoId] = React.useState(null);
   const formatDateSafe = (value) => {
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return String(value || '—');
@@ -679,7 +698,7 @@ function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung,
                 )
               ) : pdfUrl ? (
                 <button
-                  title="PDF öffnen"
+                  data-tooltip="PDF öffnen"
                   onClick={async () => {
                     try {
                       await window.openProtectedDocument(pdfUrl, false);
@@ -688,46 +707,33 @@ function KontoauszugTabelle({ vorgaenge, accent, onEditZahlung, onDeleteZahlung,
                     }
                   }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="download" size={13} />
                 </button>
               ) : null}
               {v.typ === 'rechnung' && onSendRechnungMail && (
                 <button
-                  title="Rechnung per E-Mail senden"
+                  data-tooltip="Per E-Mail senden"
                   onClick={() => onSendRechnungMail(v)}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="mail" size={13} />
                 </button>
               )}
               {v.typ === 'rechnung' && onStornoRechnung && (
-                confirmStornoId === v.id ? (
-                  <>
-                    <button
-                      onClick={() => { onStornoRechnung(v); setConfirmStornoId(null); }}
-                      style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#b91c1c', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit' }}
-                    >Ja</button>
-                    <button
-                      onClick={() => setConfirmStornoId(null)}
-                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#475569', fontSize: 11.5, fontFamily: 'inherit' }}
-                    >Nein</button>
-                  </>
-                ) : (
-                  <button
-                    title="Rechnung stornieren"
-                    onClick={() => setConfirmStornoId(v.id)}
-                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-                  >
-                    <Icon name="undo" size={13} />
-                  </button>
-                )
+                <button
+                  data-tooltip="Stornieren"
+                  onClick={() => onStornoRechnung(v)}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="undo" size={13} />
+                </button>
               )}
             </div>
           </div>

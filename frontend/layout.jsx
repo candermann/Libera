@@ -1,56 +1,105 @@
 // Sidebar / Topbar layout shells
 
 // ── Offene Vorgänge (Buchausgabe/-rückgabe Entwürfe) ──────────────────────
-const VORGANG_DRAFT_KEY = 'bibliomat_vorgang_entwuerfe';
 const VORGANG_FLOW_LABELS = {
   buchausgabe: 'Ausgabe',
   buchruckgabe: 'Rückgabe',
   'ausgabe-rueckgabe': 'Ausgabe/Rückgabe',
 };
 
-function _ladeVorgangEntwuerfe() {
-  try {
-    const raw = sessionStorage.getItem(VORGANG_DRAFT_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch (_e) {
-    return {};
-  }
+function _draftKey(flow, schuelerId) {
+  return flow + ':' + schuelerId;
 }
 
-function _schreibeVorgangEntwuerfe(all) {
-  try {
-    sessionStorage.setItem(VORGANG_DRAFT_KEY, JSON.stringify(all));
-  } catch (_e) {
-    // sessionStorage voll oder deaktiviert - Entwurf wird dann einfach nicht gesichert
-  }
+const _vorgangEntwurfState = {
+  byKey: {},
+  saveTimers: {},
+};
+
+function _normalizeEntwurf(raw) {
+  const schueler = raw?.schueler || null;
+  if (!raw || !schueler) return null;
+  return {
+    id: raw.id,
+    flow: raw.flow,
+    schueler,
+    updated_at: Date.parse(raw.updated_at || raw.geaendert_am || new Date().toISOString()),
+    updated_at_iso: raw.geaendert_am || raw.updated_at || null,
+    state: raw.state || {},
+    bearbeiter: raw.bearbeiter,
+    freigegeben_an: raw.freigegeben_an || [],
+  };
+}
+
+function _setDraftCache(items) {
+  const next = {};
+  (items || []).forEach(item => {
+    const normalized = _normalizeEntwurf(item);
+    if (normalized?.schueler?.id) {
+      next[_draftKey(normalized.flow, normalized.schueler.id)] = normalized;
+    }
+  });
+  _vorgangEntwurfState.byKey = next;
   window.dispatchEvent(new Event('vorgang-entwurf-updated'));
 }
 
 window.vorgangEntwuerfe = {
-  _key(flow, schuelerId) { return flow + ':' + schuelerId; },
+  _key: _draftKey,
   list() {
-    return Object.values(_ladeVorgangEntwuerfe()).sort((a, b) => b.updated_at - a.updated_at);
+    return Object.values(_vorgangEntwurfState.byKey).sort((a, b) => b.updated_at - a.updated_at);
+  },
+  async refresh() {
+    const res = await window.api.rechnung.entwuerfe();
+    _setDraftCache(res.items || []);
+    return this.list();
   },
   get(flow, schuelerId) {
-    return _ladeVorgangEntwuerfe()[this._key(flow, schuelerId)] || null;
+    return _vorgangEntwurfState.byKey[this._key(flow, schuelerId)] || null;
+  },
+  async _persist(flow, schueler, state) {
+    const key = this._key(flow, schueler.id);
+    const existing = _vorgangEntwurfState.byKey[key];
+    const payload = {
+      flow,
+      schueler_id: schueler.id,
+      form_state: state,
+      freigegeben_an: existing?.freigegeben_an || [],
+      geaendert_am: existing?.updated_at_iso || null,
+    };
+    const saved = existing?.id
+      ? await window.api.rechnung.updateEntwurf(existing.id, payload)
+      : await window.api.rechnung.createEntwurf(payload);
+    const normalized = _normalizeEntwurf(saved);
+    if (normalized) {
+      _vorgangEntwurfState.byKey[key] = normalized;
+      window.dispatchEvent(new Event('vorgang-entwurf-updated'));
+    }
+    return normalized;
   },
   save(flow, schueler, state) {
-    const all = _ladeVorgangEntwuerfe();
-    all[this._key(flow, schueler.id)] = {
-      flow,
-      schueler: { id: schueler.id, vorname: schueler.vorname, nachname: schueler.nachname, klasse: schueler.klasse },
-      updated_at: Date.now(),
-      state,
-    };
-    _schreibeVorgangEntwuerfe(all);
+    if (!schueler?.id) return;
+    const key = this._key(flow, schueler.id);
+    window.clearTimeout(_vorgangEntwurfState.saveTimers[key]);
+    _vorgangEntwurfState.saveTimers[key] = window.setTimeout(() => {
+      this._persist(flow, schueler, state).catch(error => {
+        console.error(error);
+        window.showToast?.('error', error.message || 'Entwurf konnte nicht gespeichert werden.');
+      });
+    }, 20000);
   },
-  remove(flow, schuelerId) {
-    const all = _ladeVorgangEntwuerfe();
+  saveNow(flow, schueler, state) {
+    if (!schueler?.id) return Promise.resolve(null);
+    const key = this._key(flow, schueler.id);
+    window.clearTimeout(_vorgangEntwurfState.saveTimers[key]);
+    return this._persist(flow, schueler, state);
+  },
+  async remove(flow, schuelerId) {
     const key = this._key(flow, schuelerId);
-    if (all[key]) {
-      delete all[key];
-      _schreibeVorgangEntwuerfe(all);
-    }
+    const existing = _vorgangEntwurfState.byKey[key];
+    window.clearTimeout(_vorgangEntwurfState.saveTimers[key]);
+    if (existing?.id) await window.api.rechnung.deleteEntwurf(existing.id);
+    delete _vorgangEntwurfState.byKey[key];
+    window.dispatchEvent(new Event('vorgang-entwurf-updated'));
   },
 };
 
@@ -64,15 +113,68 @@ function vorgangZeitLabel(ts) {
 }
 
 function OffeneVorgaengeListe({ entwuerfe, onSelect }) {
+  const [filter, setFilter] = React.useState('');
+  const [sortBy, setSortBy] = React.useState('datum');
+  const search = filter.trim().toLowerCase();
+  const visibleEntwuerfe = React.useMemo(() => {
+    const items = [...(entwuerfe || [])];
+    const filtered = search
+      ? items.filter(entwurf => {
+          const schueler = entwurf.schueler || {};
+          const haystack = [
+            entwurf.flow,
+            VORGANG_FLOW_LABELS[entwurf.flow],
+            entwurf.bearbeiter,
+            schueler.vorname,
+            schueler.nachname,
+            schueler.klasse,
+            JSON.stringify(entwurf.state || {}),
+          ].filter(Boolean).join(' ').toLowerCase();
+          return haystack.includes(search);
+        })
+      : items;
+    return filtered.sort((a, b) => {
+      if (sortBy === 'schueler') {
+        return `${a.schueler?.nachname || ''} ${a.schueler?.vorname || ''}`.localeCompare(`${b.schueler?.nachname || ''} ${b.schueler?.vorname || ''}`, 'de');
+      }
+      if (sortBy === 'bearbeiter') {
+        return `${a.bearbeiter || ''}`.localeCompare(`${b.bearbeiter || ''}`, 'de') || (b.updated_at - a.updated_at);
+      }
+      return b.updated_at - a.updated_at;
+    });
+  }, [entwuerfe, search, sortBy]);
   if (!entwuerfe || entwuerfe.length === 0) return null;
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#b45309', marginBottom: 6 }}>
         Offene Vorgänge
       </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, marginBottom: 6 }}>
+        <input
+          value={filter}
+          onChange={e => setFilter(e.target.value)}
+          placeholder="Filtern"
+          aria-label="Offene Vorgänge filtern"
+          style={{ minWidth: 0, height: 30, border: '1px solid #fde8c9', borderRadius: 7, padding: '0 8px', fontSize: 12, color: '#0f172a', background: '#fffdf8' }}
+        />
+        <select
+          value={sortBy}
+          onChange={e => setSortBy(e.target.value)}
+          aria-label="Offene Vorgänge sortieren"
+          style={{ height: 30, border: '1px solid #fde8c9', borderRadius: 7, padding: '0 6px', fontSize: 12, color: '#92400e', background: '#fffdf8' }}
+        >
+          <option value="datum">Datum</option>
+          <option value="schueler">Schüler</option>
+          <option value="bearbeiter">Benutzer</option>
+        </select>
+      </div>
       <div style={{ background: '#fff7ed', border: '1px solid #fde8c9', borderRadius: 10, overflow: 'hidden' }}>
-        {entwuerfe.map((entwurf, i) => (
-          <div key={entwurf.schueler.id} style={{
+        {visibleEntwuerfe.length === 0 ? (
+          <div style={{ padding: '10px 12px', fontSize: 12, color: '#b45309' }}>
+            Keine passenden Vorgänge
+          </div>
+        ) : visibleEntwuerfe.map((entwurf, i) => (
+          <div key={`${entwurf.flow}:${entwurf.schueler.id}`} style={{
             display: 'flex', alignItems: 'center', gap: 6,
             borderTop: i === 0 ? 'none' : '1px solid #fde8c9',
           }}>
@@ -96,8 +198,12 @@ function OffeneVorgaengeListe({ entwuerfe, onSelect }) {
               <Icon name="arrow-right" size={14} style={{ color: '#b45309', flexShrink: 0 }} />
             </button>
             <button
-              onClick={(e) => { e.stopPropagation(); window.vorgangEntwuerfe.remove(entwurf.flow, entwurf.schueler.id); }}
-              title="Entwurf verwerfen"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.vorgangEntwuerfe.remove(entwurf.flow, entwurf.schueler.id)
+                  .catch(error => window.showToast?.('error', error.message || 'Entwurf konnte nicht gelöscht werden.'));
+              }}
+              data-tooltip="Entwurf verwerfen"
               style={{ background: 'transparent', border: 'none', color: '#b45309', cursor: 'pointer', padding: '8px 10px', display: 'flex' }}
             >
               <Icon name="x" size={13} />
@@ -161,12 +267,14 @@ function useVorgangEntwuerfe() {
   const [entwuerfe, setEntwuerfe] = React.useState([]);
   React.useEffect(() => {
     const refresh = () => setEntwuerfe(window.vorgangEntwuerfe.list());
+    const refreshFromServer = () => window.vorgangEntwuerfe.refresh().catch(console.error);
     refresh();
+    refreshFromServer();
     window.addEventListener('vorgang-entwurf-updated', refresh);
-    window.addEventListener('focus', refresh);
+    window.addEventListener('focus', refreshFromServer);
     return () => {
       window.removeEventListener('vorgang-entwurf-updated', refresh);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener('focus', refreshFromServer);
     };
   }, []);
   return entwuerfe;

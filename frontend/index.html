@@ -15,6 +15,27 @@
       background: #f8fafc;
     }
     input::placeholder, textarea::placeholder { color: #94a3b8; opacity: 1; }
+    [data-tooltip] { position: relative; }
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 7px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: #f8fafc;
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 500;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s;
+      z-index: 9999;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+    [data-tooltip]:hover::after { opacity: 1; }
     input:focus, textarea:focus, select:focus {
       outline: none !important;
       border-color: #3b82f6 !important;
@@ -50,8 +71,8 @@
   <!-- Screens -->
   <script type="text/babel" src="/home.jsx?v=20"></script>
   <script type="text/babel" src="/verkauf.jsx?v=44"></script>
-  <script type="text/babel" src="/schueler-detail.jsx?v=39"></script>
-  <script type="text/babel" src="/screens.jsx?v=49"></script>
+  <script type="text/babel" src="/schueler-detail.jsx?v=40"></script>
+  <script type="text/babel" src="/screens.jsx?v=50"></script>
   <script type="text/babel" src="/lernmaterial.jsx?v=8"></script>
   <script type="text/babel" src="/profil.jsx?v=12"></script>
   <script type="text/babel" src="/inventory-overrides.jsx?v=36"></script>

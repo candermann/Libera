@@ -685,6 +685,47 @@ def _ensure_rechnungen_anzeige_nr_column(conn: Connection):
     ))
 
 
+def _ensure_rechnung_entwuerfe_table(conn: Connection):
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS rechnung_entwuerfe (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            flow TEXT NOT NULL DEFAULT 'buchausgabe',
+            schueler_id TEXT REFERENCES schueler(id),
+            form_state_json TEXT NOT NULL,
+            bearbeiter TEXT NOT NULL,
+            freigegeben_an_json TEXT NOT NULL DEFAULT '[]',
+            status TEXT NOT NULL DEFAULT 'in_bearbeitung',
+            erinnert_am TEXT,
+            erstellt_am TEXT NOT NULL DEFAULT (datetime('now')),
+            geaendert_am TEXT NOT NULL DEFAULT (datetime('now')),
+            abgeschlossen_am TEXT
+        )
+    """))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_rechnung_entwuerfe_status ON rechnung_entwuerfe (status)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_rechnung_entwuerfe_bearbeiter ON rechnung_entwuerfe (bearbeiter)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_rechnung_entwuerfe_geaendert ON rechnung_entwuerfe (geaendert_am)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_rechnung_entwuerfe_schueler ON rechnung_entwuerfe (schueler_id)"))
+
+
+def _ensure_rechnung_storno_audit_table(conn: Connection):
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS rechnung_storno_audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rechnung_id TEXT NOT NULL REFERENCES rechnungen(id),
+            rechnungs_posten_id INTEGER REFERENCES rechnungs_posten(id),
+            aktion TEXT NOT NULL,
+            grund TEXT NOT NULL,
+            benutzer TEXT NOT NULL,
+            betrag_cents INTEGER NOT NULL DEFAULT 0,
+            gutschrift_id TEXT REFERENCES gutschriften(id),
+            erstellt_am TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_storno_audit_rechnung ON rechnung_storno_audit (rechnung_id)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_storno_audit_posten ON rechnung_storno_audit (rechnungs_posten_id)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS idx_storno_audit_erstellt ON rechnung_storno_audit (erstellt_am)"))
+
+
 def prepare_schema(conn: Connection):
     """Create additive schema objects needed by the current app version."""
     _ensure_benutzer_table(conn)
@@ -712,6 +753,8 @@ def prepare_schema(conn: Connection):
     _ensure_archiviert_schuljahr_column(conn)
     _ensure_rechnungs_posten_behalten_column(conn)
     _ensure_rechnungen_anzeige_nr_column(conn)
+    _ensure_rechnung_entwuerfe_table(conn)
+    _ensure_rechnung_storno_audit_table(conn)
 
 
 def init_db():

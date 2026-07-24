@@ -149,6 +149,8 @@ declare global {
   interface BibliomatApi {
     auth: {
       login(username: string, password: string): Promise<{ access_token: string; token_type: string }>;
+      me(): Promise<{ username: string }>;
+      logout(): Promise<null>;
     };
     schueler: {
       list(params?: Record<string, unknown>): Promise<ApiListResponse<Schueler>>;
@@ -204,7 +206,12 @@ declare global {
       mailVorlage(id: ApiId): Promise<RechnungMailPreview>;
       mailVorschau(id: ApiId, data: unknown): Promise<RechnungMailPreview>;
       mailSenden(id: ApiId, data: unknown): Promise<unknown>;
-      storno(id: ApiId): Promise<unknown>;
+      storno(id: ApiId, data: unknown): Promise<unknown>;
+      entwuerfe(): Promise<ApiListResponse<unknown>>;
+      entwurf(id: ApiId): Promise<unknown>;
+      createEntwurf(data: unknown): Promise<unknown>;
+      updateEntwurf(id: ApiId, data: unknown): Promise<unknown>;
+      deleteEntwurf(id: ApiId): Promise<null>;
       updateAnzeigeNr(id: ApiId, data: { anzeige_nr: string }): Promise<{ id: ApiId; anzeige_nr: string }>;
     };
     gutschrift(data: unknown): Promise<Gutschrift>;

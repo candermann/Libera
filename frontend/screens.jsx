@@ -16,7 +16,9 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
 
   const selectStudent = (student) => {
     const draft = window.vorgangEntwuerfe.get(RUECKGABE_DRAFT_FLOW, student.id);
-    pendingRestoreRef.current = (draft && draft.state && draft.state.returned) || null;
+    const restoredReturned = (draft && draft.state && draft.state.returned) || {};
+    pendingRestoreRef.current = restoredReturned;
+    setReturned(restoredReturned);
     setSelectedStudent(student);
     setStep(3);
   };
@@ -56,7 +58,6 @@ function Rueckgabe({ accent, onDone, preselectedStudent }) {
   }, [selectedStudent, returned]);
 
   const handleCancel = () => {
-    if (selectedStudent) window.vorgangEntwuerfe.remove(RUECKGABE_DRAFT_FLOW, selectedStudent.id);
     onDone();
   };
 
@@ -1692,7 +1693,7 @@ function Buchhaltung({ accent }) {
   const [archivierend, setArchivierend] = React.useState(null);
   const [editingRechnung, setEditingRechnung] = React.useState(null);
   const [stornierend, setStornierend] = React.useState(null);
-  const [confirmStornoId, setConfirmStornoId] = React.useState(null);
+  const [stornoDialog, setStornoDialog] = React.useState(null);
 
   const updateAnzeigeNrLocal = (id, anzeigeNr) => {
     const patch = (list) => list.map(item => item.id === id ? { ...item, anzeige_nr: anzeigeNr } : item);
@@ -1737,18 +1738,23 @@ function Buchhaltung({ accent }) {
     }
   };
 
-  const stornoRechnung = async (r) => {
+  const stornoRechnung = async (r, payload) => {
     setStornierend(r.id);
     try {
-      await window.api.rechnung.storno(r.id);
-      window.showToast('success', `Rechnung ${r.anzeige_nr || r.id} storniert.`);
-      setRechnungen(list => list.map(item => item.id === r.id ? { ...item, status: 'storniert' } : item));
+      const result = await window.api.rechnung.storno(r.id, payload);
+      const credit = result?.gutschrift_id ? ` Guthaben ${result.gutschrift_id} wurde angelegt.` : '';
+      window.showToast('success', `Storno für ${r.anzeige_nr || r.id} gebucht.${credit}`);
+      setRechnungen(list => list.map(item => item.id === r.id ? { ...item, status: result?.status || 'storniert' } : item));
       loadUnversandt();
       loadVersandt();
+      if (selectedSj) {
+        window.api.buchhaltung.rechnungen(selectedSj).then(res => setRechnungen(res.items || [])).catch(console.error);
+      }
     } catch (err) {
       window.showToast('error', err.message || 'Fehler beim Stornieren.');
     } finally {
       setStornierend(null);
+      setStornoDialog(null);
     }
   };
 
@@ -1896,16 +1902,16 @@ function Buchhaltung({ accent }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button
-                  title="Rechnung öffnen"
+                  data-tooltip="Rechnung öffnen"
                   onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.pdf(r.id), false); }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="invoice" size={13} />
                 </button>
                 <button
-                  title="PDF herunterladen"
+                  data-tooltip="PDF herunterladen"
                   onClick={async e => {
                     e.stopPropagation();
                     try {
@@ -1915,36 +1921,36 @@ function Buchhaltung({ accent }) {
                     }
                   }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="download" size={13} />
                 </button>
                 <button
-                  title="Per E-Mail senden"
+                  data-tooltip="Per E-Mail senden"
                   onClick={e => { e.stopPropagation(); setMailRechnung(r); }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="mail" size={13} />
                 </button>
                 <button
-                  title="Rechnungsnummer bearbeiten"
+                  data-tooltip="Nr. bearbeiten"
                   onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="edit" size={13} />
                 </button>
                 <button
-                  title="Rechnung archivieren"
+                  data-tooltip="Archivieren"
                   disabled={archivierend === r.id}
                   onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="archive" size={13} />
                 </button>
@@ -2003,7 +2009,7 @@ function Buchhaltung({ accent }) {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                     <button
-                      title="Rechnung öffnen"
+                      data-tooltip="Rechnung öffnen"
                       onClick={e => { e.stopPropagation(); window.openProtectedDocument(window.api.rechnung.pdf(r.id), false); }}
                       style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
@@ -2012,7 +2018,7 @@ function Buchhaltung({ accent }) {
                       <Icon name="invoice" size={13} />
                     </button>
                     <button
-                      title="PDF herunterladen"
+                      data-tooltip="PDF herunterladen"
                       onClick={async e => {
                         e.stopPropagation();
                         try {
@@ -2028,7 +2034,7 @@ function Buchhaltung({ accent }) {
                       <Icon name="download" size={13} />
                     </button>
                     <button
-                      title="Rechnungsnummer bearbeiten"
+                      data-tooltip="Nr. bearbeiten"
                       onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
                       style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
@@ -2037,7 +2043,7 @@ function Buchhaltung({ accent }) {
                       <Icon name="edit" size={13} />
                     </button>
                     <button
-                      title="Rechnung archivieren"
+                      data-tooltip="Archivieren"
                       disabled={archivierend === r.id}
                       onClick={e => { e.stopPropagation(); archivierenRechnung(r); }}
                       style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
@@ -2262,7 +2268,7 @@ function Buchhaltung({ accent }) {
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6 }}>
               <button
-                title="Rechnung öffnen"
+                data-tooltip="Rechnung öffnen"
                 onClick={e => {
                   e.stopPropagation();
                   window.openProtectedDocument(window.api.rechnung.pdf(r.id), false);
@@ -2274,7 +2280,7 @@ function Buchhaltung({ accent }) {
                 <Icon name="invoice" size={13} />
               </button>
               <button
-                title="PDF herunterladen"
+                data-tooltip="PDF herunterladen"
                 onClick={async e => {
                   e.stopPropagation();
                   try {
@@ -2290,7 +2296,7 @@ function Buchhaltung({ accent }) {
                 <Icon name="download" size={13} />
               </button>
               <button
-                title="Rechnung per E-Mail senden"
+                data-tooltip="Per E-Mail senden"
                 disabled={r.status === 'storniert' || r.status === 'archiviert'}
                 onClick={e => { e.stopPropagation(); setMailRechnung(r); }}
                 style={{
@@ -2317,7 +2323,7 @@ function Buchhaltung({ accent }) {
                 <Icon name="mail" size={13} />
               </button>
               <button
-                title="Rechnungsnummer bearbeiten"
+                data-tooltip="Nr. bearbeiten"
                 onClick={e => { e.stopPropagation(); setEditingRechnung(r); }}
                 style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
@@ -2326,33 +2332,20 @@ function Buchhaltung({ accent }) {
                 <Icon name="edit" size={13} />
               </button>
               {r.status !== 'storniert' && (
-                confirmStornoId === r.id ? (
-                  <>
-                    <button
-                      onClick={e => { e.stopPropagation(); stornoRechnung(r); setConfirmStornoId(null); }}
-                      style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#b91c1c', fontSize: 11.5, fontWeight: 600, fontFamily: 'inherit' }}
-                    >Ja</button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setConfirmStornoId(null); }}
-                      style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#475569', fontSize: 11.5, fontFamily: 'inherit' }}
-                    >Nein</button>
-                  </>
-                ) : (
-                  <button
-                    title="Rechnung stornieren"
-                    disabled={stornierend === r.id}
-                    onClick={e => { e.stopPropagation(); setConfirmStornoId(r.id); }}
-                    style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: stornierend === r.id ? 0.5 : 1 }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
-                  >
-                    <Icon name="x" size={13} />
-                  </button>
-                )
+                <button
+                  data-tooltip="Stornieren"
+                  disabled={stornierend === r.id}
+                  onClick={e => { e.stopPropagation(); setStornoDialog(r); }}
+                  style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: stornierend === r.id ? 0.5 : 1 }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#fef2f2'; e.currentTarget.style.borderColor = '#fca5a5'; e.currentTarget.style.color = '#b91c1c'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                >
+                  <Icon name="x" size={13} />
+                </button>
               )}
               {r.status === 'archiviert' ? (
                 <button
-                  title="Archivierung aufheben"
+                  data-tooltip="Archivierung aufheben"
                   disabled={archivierend === r.id}
                   onClick={async e => {
                     e.stopPropagation();
@@ -2368,14 +2361,14 @@ function Buchhaltung({ accent }) {
                     }
                   }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="undo" size={13} />
                 </button>
               ) : r.status !== 'storniert' ? (
                 <button
-                  title="Rechnung archivieren"
+                  data-tooltip="Archivieren"
                   disabled={archivierend === r.id}
                   onClick={async e => {
                     e.stopPropagation();
@@ -2393,8 +2386,8 @@ function Buchhaltung({ accent }) {
                     }
                   }}
                   style={{ background: 'transparent', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 6px', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', opacity: archivierend === r.id ? 0.5 : 1 }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.color = '#64748b'; }}
                 >
                   <Icon name="archive" size={13} />
                 </button>
@@ -2425,9 +2418,90 @@ function Buchhaltung({ accent }) {
           onSaved={(anzeigeNr) => { updateAnzeigeNrLocal(editingRechnung.id, anzeigeNr); setEditingRechnung(null); }}
         />
       )}
+      {stornoDialog && (
+        <StornoDialog
+          rechnung={stornoDialog}
+          accent={accent}
+          working={stornierend === stornoDialog.id}
+          onClose={() => setStornoDialog(null)}
+          onConfirm={(payload) => stornoRechnung(stornoDialog, payload)}
+        />
+      )}
     </div>
   );
 }
+
+function StornoDialog({ rechnung, accent, working, onClose, onConfirm }) {
+  const [detail, setDetail] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [mode, setMode] = React.useState('rechnung');
+  const [selected, setSelected] = React.useState({});
+  const [grund, setGrund] = React.useState('');
+
+  React.useEffect(() => {
+    setLoading(true);
+    window.api.rechnung.get(rechnung.id)
+      .then(setDetail)
+      .catch(error => window.showToast('error', error.message || 'Rechnung konnte nicht geladen werden.'))
+      .finally(() => setLoading(false));
+  }, [rechnung.id]);
+
+  const posten = detail?.posten || [];
+  const selectedIds = mode === 'positionen'
+    ? Object.entries(selected).filter(([, value]) => value).map(([id]) => Number(id))
+    : [];
+  const canSubmit = grund.trim().length >= 3 && !working && (mode === 'rechnung' || selectedIds.length > 0);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.28)', zIndex: 80, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ width: 560, maxWidth: '100%', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, boxShadow: '0 18px 50px rgba(15,23,42,0.18)', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 18px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#0f172a' }}>Rechnung stornieren</div>
+            <div style={{ fontSize: 11.5, color: '#64748b', marginTop: 2 }}>{rechnung.anzeige_nr || rechnung.id} · {rechnung.schueler_name}</div>
+          </div>
+          <button onClick={onClose} style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', display: 'flex' }}><Icon name="x" size={16} /></button>
+        </div>
+        <div style={{ padding: 18 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <button onClick={() => setMode('rechnung')} style={{ flex: 1, padding: '8px 10px', borderRadius: 7, border: `1px solid ${mode === 'rechnung' ? accent : '#e2e8f0'}`, background: mode === 'rechnung' ? '#eff6ff' : '#fff', color: mode === 'rechnung' ? accent : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Gesamte Rechnung</button>
+            <button onClick={() => setMode('positionen')} style={{ flex: 1, padding: '8px 10px', borderRadius: 7, border: `1px solid ${mode === 'positionen' ? accent : '#e2e8f0'}`, background: mode === 'positionen' ? '#eff6ff' : '#fff', color: mode === 'positionen' ? accent : '#475569', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12.5 }}>Einzelne Bücher</button>
+          </div>
+          {mode === 'positionen' && (
+            <div style={{ border: '1px solid #e8ecef', borderRadius: 8, overflow: 'hidden', marginBottom: 14 }}>
+              {loading ? (
+                <div style={{ padding: 14, color: '#94a3b8', fontSize: 12.5 }}>Lade Positionen...</div>
+              ) : posten.length === 0 ? (
+                <div style={{ padding: 14, color: '#94a3b8', fontSize: 12.5 }}>Keine Buchpositionen vorhanden.</div>
+              ) : posten.map((p, index) => (
+                <label key={p.rechnungs_posten_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderTop: index === 0 ? 'none' : '1px solid #f8fafc', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={!!selected[p.rechnungs_posten_id]} onChange={e => setSelected(prev => ({ ...prev, [p.rechnungs_posten_id]: e.target.checked }))} style={{ accentColor: accent }} />
+                  <span style={{ flex: 1, fontSize: 12.5, color: '#0f172a' }}>{p.titel}</span>
+                  <span style={{ fontSize: 12, color: '#475569', fontFamily: 'JetBrains Mono, monospace' }}>{(p.preis_cents / 100).toFixed(2).replace('.', ',')} €</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 5 }}>Grund für Storno</div>
+          <textarea
+            value={grund}
+            onChange={e => setGrund(e.target.value)}
+            autoFocus
+            rows={3}
+            placeholder="z.B. falsche Ausgabe, Rechnung korrigiert..."
+            style={{ width: '100%', resize: 'vertical', border: '1px solid #e2e8f0', borderRadius: 7, padding: 10, fontSize: 13, fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+        <div style={{ padding: '12px 18px', background: '#fbfcfd', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Btn kind="ghost" onClick={onClose}>Abbrechen</Btn>
+          <Btn kind="danger" icon="trash" onClick={() => onConfirm({ grund: grund.trim(), rechnungs_posten_ids: selectedIds })} disabled={!canSubmit}>{working ? 'Storniert...' : 'Storno buchen'}</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.StornoDialog = StornoDialog;
 
 function ListHeader({ title, subtitle, accent, action, actionIcon = 'plus' }) {
   return (

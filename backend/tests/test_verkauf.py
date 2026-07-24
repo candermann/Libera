@@ -2,6 +2,8 @@
 Tests for POST /api/verkauf and related invoice endpoints.
 """
 
+from sqlalchemy import text
+
 from tests.conftest import create_test_schueler, create_test_buch
 
 
@@ -178,7 +180,10 @@ class TestVerkauf:
         assert client.get(f"/api/buecher/{buch['id']}").json()["bestand_frei"] == 9
 
         # Storno
-        resp = client.post(f"/api/rechnungen/{rechnung_id}/storno")
+        resp = client.post(
+            f"/api/rechnungen/{rechnung_id}/storno",
+            json={"grund": "Falsche Ausgabe"},
+        )
         assert resp.status_code == 200
 
         # Stock should be restored to 10
@@ -187,6 +192,153 @@ class TestVerkauf:
         # Rechnung should be storniert
         r = client.get(f"/api/rechnungen/{rechnung_id}")
         assert r.json()["status"] == "storniert"
+
+    def test_draft_lifecycle(self, client):
+        """Drafts should save, update, list and be completed after checkout."""
+        schueler = create_test_schueler(client)
+        buch = create_test_buch(client, titel="Entwurfsbuch", bestand_gesamt=3)
+
+        draft_payload = {
+            "flow": "buchausgabe",
+            "schueler_id": schueler["id"],
+            "form_state": {
+                "cart": [{"buch_id": buch["id"], "bestand_id": None, "titel": "Entwurfsbuch"}],
+            },
+            "freigegeben_an": ["sekretariat"],
+        }
+        create = client.post("/api/rechnungen/entwuerfe", json=draft_payload)
+        assert create.status_code == 201, create.text
+        draft = create.json()
+        assert draft["schueler_id"] == schueler["id"]
+        assert draft["bearbeiter"] == "admin"
+        assert draft["schueler"]["id"] == schueler["id"]
+
+        draft_payload["form_state"]["bookQuery"] = "Entwurf"
+        update = client.patch(f"/api/rechnungen/entwuerfe/{draft['id']}", json={
+            **draft_payload,
+            "geaendert_am": draft["geaendert_am"],
+        })
+        assert update.status_code == 200, update.text
+        assert update.json()["state"]["bookQuery"] == "Entwurf"
+
+        listed = client.get("/api/rechnungen/entwuerfe")
+        assert listed.status_code == 200
+        assert len(listed.json()["items"]) == 1
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": schueler["id"],
+            "buch_ids": [buch["id"]],
+            "entwurf_id": draft["id"],
+        })
+        assert sale.status_code == 201, sale.text
+
+        listed_after_sale = client.get("/api/rechnungen/entwuerfe")
+        assert listed_after_sale.json()["items"] == []
+
+    def test_draft_cannot_move_to_another_student(self, client):
+        """Updating a draft must not reassign it to a different student."""
+        paul = create_test_schueler(client, vorname="Paul", nachname="Draft")
+        kevin = create_test_schueler(client, vorname="Kevin", nachname="Draft")
+        buch = create_test_buch(client, titel="Gebundener Entwurf", bestand_gesamt=3)
+
+        create = client.post("/api/rechnungen/entwuerfe", json={
+            "flow": "buchausgabe",
+            "schueler_id": paul["id"],
+            "form_state": {"cart": [{"buch_id": buch["id"], "titel": "Gebundener Entwurf"}]},
+        })
+        assert create.status_code == 201, create.text
+        draft = create.json()
+
+        move = client.patch(f"/api/rechnungen/entwuerfe/{draft['id']}", json={
+            "flow": "buchausgabe",
+            "schueler_id": kevin["id"],
+            "form_state": {"cart": []},
+            "geaendert_am": draft["geaendert_am"],
+        })
+        assert move.status_code == 400
+
+    def test_checkout_rejects_draft_from_other_student(self, client):
+        """A sale may only complete a draft belonging to the same student."""
+        paul = create_test_schueler(client, vorname="Paul", nachname="Checkout")
+        kevin = create_test_schueler(client, vorname="Kevin", nachname="Checkout")
+        buch = create_test_buch(client, titel="Falscher Entwurf", bestand_gesamt=3)
+
+        create = client.post("/api/rechnungen/entwuerfe", json={
+            "flow": "buchausgabe",
+            "schueler_id": paul["id"],
+            "form_state": {"cart": [{"buch_id": buch["id"], "titel": "Falscher Entwurf"}]},
+        })
+        assert create.status_code == 201, create.text
+        draft = create.json()
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": kevin["id"],
+            "buch_ids": [buch["id"]],
+            "entwurf_id": draft["id"],
+        })
+        assert sale.status_code == 400
+        assert "anderen Schueler" in sale.text
+
+    def test_partial_storno_restores_only_selected_book(self, client, db_session):
+        """A partial storno should restore selected stock and keep invoice active."""
+        schueler = create_test_schueler(client)
+        buch1 = create_test_buch(client, titel="Mathe Teil", preis_cents=2400, bestand_gesamt=5)
+        buch2 = create_test_buch(client, titel="Deutsch Teil", preis_cents=2600, bestand_gesamt=5)
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": schueler["id"],
+            "buch_ids": [buch1["id"], buch2["id"]],
+        })
+        assert sale.status_code == 201, sale.text
+        data = sale.json()
+        posten_id = data["posten"][0]["rechnungs_posten_id"]
+
+        resp = client.post(f"/api/rechnungen/{data['id']}/storno", json={
+            "grund": "Nur ein Buch falsch ausgegeben",
+            "rechnungs_posten_ids": [posten_id],
+        })
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "offen"
+        assert resp.json()["stornierte_posten_ids"] == [posten_id]
+
+        detail = client.get(f"/api/rechnungen/{data['id']}").json()
+        assert detail["status"] == "offen"
+        assert detail["summe_cents"] == 2600
+        assert client.get(f"/api/buecher/{buch1['id']}").json()["bestand_frei"] == 5
+        assert client.get(f"/api/buecher/{buch2['id']}").json()["bestand_frei"] == 4
+
+        audit_count = db_session.execute(
+            text("SELECT COUNT(*) FROM rechnung_storno_audit WHERE rechnung_id = :rid"),
+            {"rid": data["id"]},
+        ).scalar()
+        assert audit_count == 1
+
+    def test_paid_storno_creates_credit(self, client):
+        """A paid cancellation should create a student credit instead of losing the payment."""
+        schueler = create_test_schueler(client)
+        buch = create_test_buch(client, preis_cents=2400, bestand_gesamt=5)
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": schueler["id"],
+            "buch_ids": [buch["id"]],
+        })
+        rechnung_id = sale.json()["id"]
+        pay = client.post("/api/zahlungen", json={
+            "schueler_id": schueler["id"],
+            "rechnung_id": rechnung_id,
+            "datum": "2025-09-01",
+            "betrag_cents": 2400,
+        })
+        assert pay.status_code == 201
+
+        resp = client.post(f"/api/rechnungen/{rechnung_id}/storno", json={
+            "grund": "Bezahlt, aber Buch nicht ausgegeben",
+        })
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["gutschrift_id"]
+
+        schueler_detail = client.get(f"/api/schueler/{schueler['id']}").json()
+        assert schueler_detail["konto"]["saldo_cents"] == 2400
 
     def test_nonexistent_student_rejected(self, client):
         """Sale for a non-existent student should return 404."""

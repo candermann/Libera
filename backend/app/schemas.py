@@ -4,7 +4,7 @@ Pydantic v2 request/response schemas.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -336,6 +336,7 @@ class VerkaufRequest(BaseModel):
     rueckgabe_posten_ids: list[int] = Field(default_factory=list)
     rueckgaben: list[GutschriftRueckgabeRequest] = Field(default_factory=list)
     notizen: Optional[str] = None
+    entwurf_id: Optional[int] = None
 
     @model_validator(mode="after")
     def validate_items(self):
@@ -434,6 +435,47 @@ class RechnungDetailResponse(BaseModel):
 
 class RechnungAnzeigeNrUpdate(BaseModel):
     anzeige_nr: str
+
+
+class RechnungEntwurfSaveRequest(BaseModel):
+    flow: str = "buchausgabe"
+    schueler_id: Optional[str] = None
+    form_state: dict[str, Any] = Field(default_factory=dict)
+    freigegeben_an: list[str] = Field(default_factory=list)
+    geaendert_am: Optional[str] = None
+
+
+class RechnungEntwurfResponse(BaseModel):
+    id: int
+    flow: str
+    schueler_id: Optional[str] = None
+    schueler_name: Optional[str] = None
+    schueler: Optional[dict[str, Any]] = None
+    state: dict[str, Any] = Field(default_factory=dict)
+    bearbeiter: str
+    freigegeben_an: list[str] = Field(default_factory=list)
+    status: str
+    erstellt_am: str
+    geaendert_am: str
+    updated_at: str
+    erinnert_am: Optional[str] = None
+
+
+class RechnungEntwurfListResponse(BaseModel):
+    items: list[RechnungEntwurfResponse]
+
+
+class RechnungStornoRequest(BaseModel):
+    grund: str = Field(min_length=3)
+    rechnungs_posten_ids: list[int] = Field(default_factory=list)
+
+
+class RechnungStornoResponse(BaseModel):
+    status: str
+    rechnung_id: str
+    stornierte_posten_ids: list[int] = Field(default_factory=list)
+    gutschrift_id: Optional[str] = None
+    betrag_cents: int = 0
 
 
 class RechnungMailPreviewRequest(BaseModel):

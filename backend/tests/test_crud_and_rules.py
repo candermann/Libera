@@ -469,7 +469,10 @@ class TestGR1DuplicateBook:
         rechnung_id = sale.json()["id"]
 
         # Storno
-        client.post(f"/api/rechnungen/{rechnung_id}/storno")
+        client.post(
+            f"/api/rechnungen/{rechnung_id}/storno",
+            json={"grund": "Test-Storno"},
+        )
 
         # Buy again — should succeed since invoice was cancelled
         resp = client.post("/api/verkauf", json={
