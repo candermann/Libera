@@ -167,6 +167,12 @@ def _load_rechnung_data(db: Session, rechnung_id: str) -> dict:
             FROM rechnungs_posten rp
             JOIN buecher b ON b.id = rp.buch_id
             WHERE rp.rechnung_id = :rid
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM rechnung_storno_audit rsa
+                  WHERE rsa.rechnungs_posten_id = rp.id
+                    AND rsa.aktion = 'position_storno'
+              )
             ORDER BY rp.id
             """
         ),

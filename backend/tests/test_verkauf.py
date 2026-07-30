@@ -353,6 +353,13 @@ class TestVerkauf:
         assert client.get(f"/api/buecher/{buch1['id']}").json()["bestand_frei"] == 5
         assert client.get(f"/api/buecher/{buch2['id']}").json()["bestand_frei"] == 4
 
+        html = client.get(f"/api/rechnungen/{data['id']}/html")
+        assert html.status_code == 200
+        assert "Deutsch Teil" in html.text
+        assert "Mathe Teil" not in html.text
+        assert "26,00 EUR" in html.text
+        assert "50,00 EUR" not in html.text
+
         audit_count = db_session.execute(
             text("SELECT COUNT(*) FROM rechnung_storno_audit WHERE rechnung_id = :rid"),
             {"rid": data["id"]},

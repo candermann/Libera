@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Schulbuch-Verwaltung",
     description="Backend für die Schulbuch-Verwaltung — Verkauf, Rückgabe, Saldo, PDF",
-    version="1.0.4",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
@@ -101,7 +101,7 @@ app.include_router(admin.router, dependencies=protected)
 # ── Health ───────────────────────────────────────────────────────────────
 @app.get("/api/health", response_model=HealthResponse)
 def health():
-    return HealthResponse(status="ok", version="1.0.4")
+    return HealthResponse(status="ok", version="1.1.0")
 
 
 @app.middleware("http")
