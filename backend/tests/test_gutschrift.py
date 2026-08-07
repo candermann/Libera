@@ -2,6 +2,8 @@
 Tests for POST /api/gutschrift and related credit note endpoints.
 """
 
+from sqlalchemy import text
+
 from tests.conftest import create_test_schueler, create_test_buch
 
 
@@ -44,6 +46,34 @@ class TestGutschrift:
 
         # Stock restored: 20 free
         assert client.get(f"/api/buecher/{buch['id']}").json()["bestand_frei"] == 20
+
+    def test_issued_book_still_ages_across_school_years(self, client, db_session):
+        """Only the time between issue and return advances the usage year."""
+        schueler = create_test_schueler(client)
+        buch = create_test_buch(client, preis_cents=3000, bestand_gesamt=1)
+
+        sale = self._sell_book(client, schueler["id"], buch["id"])
+        posten_id = sale["posten"][0]["rechnungs_posten_id"]
+
+        db_session.execute(text(
+            "UPDATE einstellungen SET wert = '2027/2028' "
+            "WHERE schluessel = 'schuljahr_aktuell'"
+        ))
+        db_session.commit()
+
+        credit = client.post("/api/gutschrift", json={
+            "schueler_id": schueler["id"],
+            "rechnungs_posten_ids": [posten_id],
+        })
+        assert credit.status_code == 201, credit.text
+        assert credit.json()["summe_cents"] == 2700
+
+        returned_bucket = next(
+            bucket
+            for bucket in client.get(f"/api/buecher/{buch['id']}").json()["zustaende"]
+            if bucket["nutzungsjahr"] == 2
+        )
+        assert returned_bucket["bestand_verfuegbar"] == 1
 
     def test_double_return_rejected(self, client):
         """Returning the same item twice should be rejected."""

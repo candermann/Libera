@@ -172,7 +172,7 @@ def _load_zustaende(db: Session, buch_id: str) -> list:
 def _buch_to_response(
     b: Buecher, zustaende_rows: list, abschlaege: dict[int, int]
 ) -> BuchResponse:
-    """Builds BuchResponse, merging buckets by effective Nutzungsjahr and recomputing prices."""
+    """Builds BuchResponse, merging buckets by their stored Nutzungsjahr."""
     merged: dict[tuple[str, int], dict] = {}
     for row in zustaende_rows:
         stored_nj = row.nutzungsjahr if row.nutzungsjahr is not None else 0

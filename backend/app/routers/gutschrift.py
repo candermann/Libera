@@ -45,9 +45,9 @@ router = APIRouter(prefix="/api", tags=["Gutschrift"])
 def _get_or_create_bestand(
     db: Session, buch_id: str, preis_cents: int, nutzungsjahr: int, zustand: str,
 ) -> BuchZustandBestand:
-    """Findet oder erstellt einen Bucket für das gegebene effektive Nutzungsjahr.
+    """Findet oder erstellt einen Bucket für das Nutzungsjahr bei Rückgabe.
 
-    Sucht zuerst nach einem Bucket, dessen effektives NJ übereinstimmt (berücksichtigt Alterung).
+    Freie Bestands-Buckets altern während der Lagerzeit nicht weiter.
     Das Schema erlaubt pro Buch aktuell nur einen Bucket je Nutzungsjahr.
     """
     cur_sj = current_schuljahr_start()

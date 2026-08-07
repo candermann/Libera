@@ -71,15 +71,17 @@ def current_schuljahr_start() -> int:
 
 
 def effective_nutzungsjahr(stored_nj: int, schuljahr_eingestellt: int | None) -> int:
-    """Returns the effective (display) Nutzungsjahr, advancing by one per school year elapsed.
+    """Returns the Nutzungsjahr of a book that is currently in inventory.
 
-    NJ=0 (Neu) never ages — new books stay new until sold.
-    If schuljahr_eingestellt is None, the stored value is returned unchanged.
+    Time spent unissued on the shelf is not a usage year.  The historical
+    ``schuljahr_eingestellt`` value therefore no longer advances inventory
+    buckets at the August school-year boundary.  Issued books still age via
+    ``berechne_gutschrift_nutzungsjahr`` when they are returned.
+
+    The second argument remains part of the signature for compatibility with
+    existing database rows and callers.
     """
-    if stored_nj <= 0 or schuljahr_eingestellt is None:
-        return stored_nj
-    diff = _schuljahr_start(date.today()) - schuljahr_eingestellt
-    return min(6, stored_nj + max(0, diff))
+    return min(6, max(0, stored_nj))
 
 
 def calc_nutzungsjahr(kaufdatum_str: str) -> int:

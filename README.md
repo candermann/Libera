@@ -323,7 +323,9 @@ Alle Geldbeträge werden als **Integer in Cent** gespeichert. Dadurch gibt es ke
 | `1` bis `5` | Gebraucht, je nach Nutzungsdauer mit Abschlag |
 | `6` | Nur noch Schutzgebühr bzw. vollständig abgeschrieben |
 
-Das Nutzungsjahr steigt anhand des Schuljahres. Stichtag für die Logik ist der 1. August. NJ=0 altert nie.
+Das Nutzungsjahr steigt nur, während ein Buch ausgegeben ist. Bei der Rückgabe
+werden die seit der Ausgabe vergangenen Schuljahre berücksichtigt; Stichtag ist
+der 1. August. Bücher im freien Bestand altern während der Lagerzeit nicht.
 
 ### Standard-Abschläge
 

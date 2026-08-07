@@ -492,7 +492,9 @@ def create_verkauf(
                 },
             )
 
-        # Determine Nutzungsjahr at point of sale — use effective (aged) NJ.
+        # Freier Bestand altert nicht während der Lagerzeit. Daher gilt beim
+        # Verkauf das gespeicherte NJ. Nur ausgeliehene Bücher altern bis zur
+        # Rückgabe (siehe berechne_gutschrift_nutzungsjahr).
         # Fall back to inference only for legacy inventory without stored NJ (nutzungsjahr=NULL).
         if bestand.nutzungsjahr is not None:
             nj_beim_kauf = effective_nutzungsjahr(
@@ -508,7 +510,7 @@ def create_verkauf(
         if bestand.zustand != "sehr_gut":
             eff_bucket_preis = max(0, bestand.verkaufspreis_cents)
         else:
-            # Compute effective price from effective NJ — this auto-reflects annual aging.
+            # Compute the price from the stored inventory usage year.
             eff_bucket_preis = berechne_bucket_preis(
                 buch.preis_cents, nj_beim_kauf, nj_abschlaege, buch.schutzgebuehr_cents
             )

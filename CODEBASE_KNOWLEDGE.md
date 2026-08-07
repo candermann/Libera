@@ -198,8 +198,8 @@ Frontend:
 - Bücher haben Gesamtbestand und ausgegebenen Bestand.
 - Effektiv verfügbar wird über `buch_zustand_bestand.bestand_verfuegbar` pro Bucket geführt.
 - Nutzungsjahr-Logik und Preisabschläge liegen in `backend/app/services/zustand.py`.
-- Neu (`nutzungsjahr=0`) altert nicht.
-- Nutzungsjahre altern über Schuljahreslogik.
+- Freier Bestand altert nicht, unabhängig vom gespeicherten Nutzungsjahr.
+- Ausgegebene Bücher altern bis zur Rückgabe über die Schuljahreslogik (Stichtag 1. August).
 - Schutzgebühr greift bei hohen Nutzungsjahren.
 
 ## Auth

@@ -12,6 +12,60 @@ from tests.conftest import create_test_schueler, create_test_buch
 class TestVerkauf:
     """Verkauf (sale) transaction tests."""
 
+    def test_unissued_inventory_does_not_age_at_school_year_boundary(
+        self, client, db_session
+    ):
+        """Shelf time must not advance a free book's stored usage year."""
+        schueler = create_test_schueler(client)
+        create_resp = client.post("/api/buecher", json={
+            "titel": "Lagerbuch",
+            "fach": "Mathematik",
+            "stufe": 7,
+            "preis_cents": 3000,
+            "bestand_gesamt": 0,
+            "nutzungsjahre": [{"nutzungsjahr": 2, "bestand": 1}],
+        })
+        assert create_resp.status_code == 201, create_resp.text
+        buch = create_resp.json()
+        created_bucket = next(
+            bucket
+            for bucket in buch["zustaende"]
+            if bucket["nutzungsjahr"] == 2
+        )
+        bestand_id = created_bucket["bestand_id"]
+
+        # Simulate that several August boundaries passed while the copy sat
+        # unissued in inventory.
+        db_session.execute(text(
+            "UPDATE buch_zustand_bestand "
+            "SET schuljahr_eingestellt = schuljahr_eingestellt - 3 "
+            "WHERE id = :bestand_id"
+        ), {"bestand_id": bestand_id})
+        db_session.commit()
+
+        detail = client.get(f"/api/buecher/{buch['id']}")
+        assert detail.status_code == 200, detail.text
+        bucket = next(
+            item
+            for item in detail.json()["zustaende"]
+            if item["bestand_id"] == bestand_id
+        )
+        assert bucket["nutzungsjahr"] == 2
+        assert bucket["preis_cents"] == 2700
+
+        sale = client.post("/api/verkauf", json={
+            "schueler_id": schueler["id"],
+            "positionen": [{"buch_id": buch["id"], "bestand_id": bestand_id}],
+        })
+        assert sale.status_code == 201, sale.text
+        assert sale.json()["summe_cents"] == 2700
+
+        sold_nj = db_session.execute(text(
+            "SELECT nutzungsjahr_beim_kauf FROM rechnungs_posten "
+            "WHERE id = :posten_id"
+        ), {"posten_id": sale.json()["posten"][0]["rechnungs_posten_id"]}).scalar_one()
+        assert sold_nj == 2
+
     def test_successful_sale(self, client):
         """A sale with available books should create an invoice and decrement stock."""
         schueler = create_test_schueler(client, vorname="Lukas", nachname="Müller")

@@ -240,7 +240,7 @@ Wichtig:
 - Verfügbarkeit kommt aus den Bestands-Buckets.
 - Rückgaben gehen je nach Zustand/Nutzungsjahr wieder in passende Buckets.
 - Nutzungsjahre beeinflussen Preise und Gutschriften.
-- Neue Bücher altern anders als gebrauchte Bücher.
+- Freier Bestand altert während der Lagerzeit nicht; ausgegebene Bücher altern bei der Rückgabe anhand der vergangenen Schuljahre.
 
 ## Lernmaterial
 
