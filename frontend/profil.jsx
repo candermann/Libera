@@ -383,7 +383,7 @@ function Profil({ accent }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
                 <span style={{ fontSize: 12, color: '#475569', fontWeight: 500, minWidth: 140 }}>Version</span>
-                <span style={{ fontSize: 13.5, color: '#0f172a' }}>1.1.0</span>
+                <span style={{ fontSize: 13.5, color: '#0f172a' }}>1.1.1c</span>
               </div>
             </div>
           </Card>

@@ -1,6 +1,6 @@
 [project]
 name = "schulbuch-backend"
-version = "1.1.0"
+version = "1.1.1rc0"
 description = "Backend für die Schulbuch-Verwaltung — FastAPI + SQLite"
 requires-python = ">=3.12"
 dependencies = [
